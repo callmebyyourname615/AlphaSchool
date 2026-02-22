@@ -1,3 +1,6 @@
+// news_page.dart
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -5,8 +8,10 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 // ✅ Use your template
 import '../../../../../core/widgets/app_page_template.dart';
 
+// ✅ AppTheme (same pattern as Saving/Homework fixes)
+import '../../../../../core/theme/app_theme.dart';
+
 // ✅ IMPORTANT: adjust this import path to where you saved NewsDetailPage
-// Example: import '../news_detail/news_detail_page.dart';
 import './sub-news/news_detail.dart';
 
 class NewsPage extends StatefulWidget {
@@ -144,7 +149,7 @@ class _NewsPageState extends State<NewsPage> {
     final article = item.toArticle();
     Navigator.of(
       context,
-    ).push(_fadeSlideRoute(NewsDetailPage(article: article)));
+    ).push(_fadeSlideRoute(NewsDetailsPage(article: article)));
   }
 
   // ✅ nice transition (fade + slide)
@@ -194,9 +199,8 @@ class _NewsPageState extends State<NewsPage> {
           lastDate: DateTime(2100, 12, 31),
           helpText: "Select any date in the month",
         );
-        if (d != null) {
+        if (d != null)
           setState(() => _selectedMonth = DateTime(d.year, d.month, 1));
-        }
         break;
 
       case _FilterMode.year:
@@ -205,14 +209,30 @@ class _NewsPageState extends State<NewsPage> {
         final y = await showDialog<int>(
           context: context,
           builder: (ctx) {
+            final isDark = Theme.of(ctx).brightness == Brightness.dark;
             return AlertDialog(
+              backgroundColor: isDark ? const Color(0xFF0B1220) : Colors.white,
+              titleTextStyle: TextStyle(
+                color: isDark ? Colors.white : const Color(0xFF111827),
+                fontWeight: FontWeight.w900,
+                fontSize: 16,
+              ),
+              contentTextStyle: TextStyle(
+                color: isDark ? Colors.white70 : const Color(0xFF6B7280),
+                fontWeight: FontWeight.w800,
+              ),
               title: const Text("Select year"),
               content: SizedBox(
                 width: double.maxFinite,
                 height: 360,
                 child: ListView.separated(
                   itemCount: years.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  separatorBuilder: (_, __) => Divider(
+                    height: 1,
+                    color: isDark
+                        ? Colors.white.withOpacity(.10)
+                        : Colors.black12,
+                  ),
                   itemBuilder: (_, i) {
                     final yy = years[i];
                     final selected = yy == _selectedYear;
@@ -220,13 +240,21 @@ class _NewsPageState extends State<NewsPage> {
                       title: Text(
                         "$yy",
                         style: TextStyle(
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF111827),
                           fontWeight: selected
                               ? FontWeight.w900
                               : FontWeight.w700,
                         ),
                       ),
                       trailing: selected
-                          ? const Icon(Icons.check_rounded)
+                          ? Icon(
+                              Icons.check_rounded,
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF111827),
+                            )
                           : null,
                       onTap: () => Navigator.of(ctx).pop(yy),
                     );
@@ -282,154 +310,302 @@ class _NewsPageState extends State<NewsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // ✅ FIX: ensure Theme brightness matches AppTheme.mode (prevents "dark text + white card" mismatch)
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: AppTheme.mode,
+      builder: (context, mode, _) {
+        final locale = Localizations.localeOf(context);
+        final base = (mode == ThemeMode.dark)
+            ? AppTheme.darkTheme(locale)
+            : AppTheme.lightTheme(locale);
 
-    final query = _searchCtl.text.trim().toLowerCase();
+        return AnimatedTheme(
+          data: base,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          child: Builder(
+            builder: (context) {
+              final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final filteredList = _list.where((e) {
-      final matchCat =
-          _selectedCategory == "All" || e.category == _selectedCategory;
-      final matchQuery =
-          query.isEmpty ||
-          e.title.toLowerCase().contains(query) ||
-          e.summary.toLowerCase().contains(query);
-      final matchDate = _matchDate(e.date);
-      return matchCat && matchQuery && matchDate;
-    }).toList();
+              final query = _searchCtl.text.trim().toLowerCase();
+              final filteredList = _list.where((e) {
+                final matchCat =
+                    _selectedCategory == "All" ||
+                    e.category == _selectedCategory;
+                final matchQuery =
+                    query.isEmpty ||
+                    e.title.toLowerCase().contains(query) ||
+                    e.summary.toLowerCase().contains(query);
+                final matchDate = _matchDate(e.date);
+                return matchCat && matchQuery && matchDate;
+              }).toList();
 
-    return AppPageTemplate(
-      title: "News",
-      backgroundAsset: NewsPage._bgAsset,
-      scrollable: true,
-      contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SearchBar(
-                isDark: isDark,
-                controller: _searchCtl,
-                onChanged: (_) => setState(() {}),
-              )
-              .animate()
-              .fadeIn(duration: 220.ms)
-              .slideY(begin: .08, end: 0, curve: Curves.easeOutCubic),
+              return AppPageTemplate(
+                title: "News",
+                backgroundAsset: NewsPage._bgAsset,
+                scrollable: true,
+                contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SearchBar(
+                          controller: _searchCtl,
+                          onChanged: (_) => setState(() {}),
+                        )
+                        .animate()
+                        .fadeIn(duration: 220.ms)
+                        .slideY(begin: .08, end: 0, curve: Curves.easeOutCubic),
 
-          const SizedBox(height: 12),
+                    const SizedBox(height: 12),
 
-          _FilterBar(
-                isDark: isDark,
-                mode: _mode,
-                label: _filterLabel(),
-                onChangeMode: (m) => setState(() => _mode = m),
-                onPick: _pickFilterValue,
-              )
-              .animate()
-              .fadeIn(delay: 60.ms, duration: 220.ms)
-              .slideY(begin: .10, end: 0, curve: Curves.easeOutCubic),
+                    _FilterBar(
+                          mode: _mode,
+                          label: _filterLabel(),
+                          onChangeMode: (m) => setState(() => _mode = m),
+                          onPick: _pickFilterValue,
+                        )
+                        .animate()
+                        .fadeIn(delay: 60.ms, duration: 220.ms)
+                        .slideY(begin: .10, end: 0, curve: Curves.easeOutCubic),
 
-          const SizedBox(height: 18),
+                    const SizedBox(height: 18),
 
-          _SectionHeader(
-                title: "Featured",
-                actionText: "View all",
-                onAction: () {},
-              )
-              .animate()
-              .fadeIn(delay: 110.ms, duration: 220.ms)
-              .slideY(begin: .08, end: 0, curve: Curves.easeOutCubic),
+                    _SectionHeader(
+                          title: "Featured",
+                          actionText: "View all",
+                          onAction: () {},
+                        )
+                        .animate()
+                        .fadeIn(delay: 110.ms, duration: 220.ms)
+                        .slideY(begin: .08, end: 0, curve: Curves.easeOutCubic),
 
-          const SizedBox(height: 12),
+                    const SizedBox(height: 12),
 
-          SizedBox(
-            height: 190,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _featured.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (context, i) {
-                final item = _featured[i];
-                return _FeaturedCard(
-                      item: item,
-                      isDark: isDark,
-                      onTap: () => _openDetail(item), // ✅ OPEN DETAIL
-                    )
-                    .animate()
-                    .fadeIn(delay: (140 + i * 90).ms, duration: 240.ms)
-                    .slideX(begin: .12, end: 0, curve: Curves.easeOutCubic);
-              },
-            ),
-          ),
+                    SizedBox(
+                      height: 190,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _featured.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 12),
+                        itemBuilder: (context, i) {
+                          final item = _featured[i];
+                          return _FeaturedCard(
+                                item: item,
+                                onTap: () => _openDetail(item),
+                              )
+                              .animate()
+                              .fadeIn(
+                                delay: (140 + i * 90).ms,
+                                duration: 240.ms,
+                              )
+                              .slideX(
+                                begin: .12,
+                                end: 0,
+                                curve: Curves.easeOutCubic,
+                              );
+                        },
+                      ),
+                    ),
 
-          const SizedBox(height: 14),
+                    const SizedBox(height: 14),
 
-          _WideEducationCard(
-                isDark: isDark,
-                category: "Education",
-                title: "Study smarter:\nSimple habits for\nbetter grades",
-              )
-              .animate()
-              .fadeIn(delay: 210.ms, duration: 240.ms)
-              .slideY(begin: .10, end: 0, curve: Curves.easeOutCubic),
+                    _WideEducationCard(
+                          category: "Education",
+                          title:
+                              "Study smarter:\nSimple habits for\nbetter grades",
+                        )
+                        .animate()
+                        .fadeIn(delay: 210.ms, duration: 240.ms)
+                        .slideY(begin: .10, end: 0, curve: Curves.easeOutCubic),
 
-          const SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-          _SectionHeader(
-                title: "Latest News",
-                actionText: "See more",
-                onAction: () {},
-              )
-              .animate()
-              .fadeIn(delay: 260.ms, duration: 220.ms)
-              .slideY(begin: .08, end: 0, curve: Curves.easeOutCubic),
+                    _SectionHeader(
+                          title: "Latest News",
+                          actionText: "See more",
+                          onAction: () {},
+                        )
+                        .animate()
+                        .fadeIn(delay: 260.ms, duration: 220.ms)
+                        .slideY(begin: .08, end: 0, curve: Curves.easeOutCubic),
 
-          const SizedBox(height: 12),
+                    const SizedBox(height: 12),
 
-          SizedBox(
-            height: 44,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _categories.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (_, i) {
-                final c = _categories[i];
-                final selected = c.label == _selectedCategory;
-                return _CategoryChip(
-                      label: c.label,
-                      color: c.color,
-                      selected: selected,
-                      onTap: () => setState(() => _selectedCategory = c.label),
-                    )
-                    .animate()
-                    .fadeIn(delay: (290 + i * 30).ms, duration: 180.ms)
-                    .slideY(begin: .12, end: 0);
-              },
-            ),
-          ),
+                    SizedBox(
+                      height: 44,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _categories.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 10),
+                        itemBuilder: (_, i) {
+                          final c = _categories[i];
+                          final selected = c.label == _selectedCategory;
+                          return _CategoryChip(
+                                label: c.label,
+                                color: c.color,
+                                selected: selected,
+                                onTap: () =>
+                                    setState(() => _selectedCategory = c.label),
+                              )
+                              .animate()
+                              .fadeIn(
+                                delay: (290 + i * 30).ms,
+                                duration: 180.ms,
+                              )
+                              .slideY(begin: .12, end: 0);
+                        },
+                      ),
+                    ),
 
-          const SizedBox(height: 14),
+                    const SizedBox(height: 14),
 
-          ListView.separated(
-            itemCount: filteredList.length,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            separatorBuilder: (_, __) => Divider(
-              height: 20,
-              thickness: 1,
-              color: isDark ? Colors.white.withOpacity(.10) : Colors.black12,
-            ),
-            itemBuilder: (context, i) {
-              final item = filteredList[i];
-              return _NewsListRow(
-                    item: item,
-                    isDark: isDark,
-                    onTap: () => _openDetail(item), // ✅ OPEN DETAIL
-                  )
-                  .animate()
-                  .fadeIn(delay: (330 + i * 55).ms, duration: 220.ms)
-                  .slideY(begin: .08, end: 0, curve: Curves.easeOutCubic);
+                    ListView.separated(
+                      itemCount: filteredList.length,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      separatorBuilder: (_, __) => Divider(
+                        height: 20,
+                        thickness: 1,
+                        color: isDark
+                            ? Colors.white.withOpacity(.10)
+                            : Colors.black12,
+                      ),
+                      itemBuilder: (context, i) {
+                        final item = filteredList[i];
+                        return _NewsListRow(
+                              item: item,
+                              onTap: () => _openDetail(item),
+                            )
+                            .animate()
+                            .fadeIn(delay: (330 + i * 55).ms, duration: 220.ms)
+                            .slideY(
+                              begin: .08,
+                              end: 0,
+                              curve: Curves.easeOutCubic,
+                            );
+                      },
+                    ),
+                  ],
+                ),
+              );
             },
           ),
-        ],
+        );
+      },
+    );
+  }
+}
+
+// ======================================================
+// Dark tokens + Glass surface (✅ same fix style as Homework)
+// ======================================================
+
+class _DarkTokens {
+  static const panelA = Color(0xFF0B2B5B);
+  static const panelB = Color(0xFF071A33);
+  static const panelC = Color(0xFF060B16);
+
+  static Color border = Colors.white.withOpacity(.12);
+  static Color shadow = Colors.black.withOpacity(.45);
+
+  static Color on = Colors.white.withOpacity(.92);
+  static Color onMuted = Colors.white.withOpacity(.72);
+  static Color onSoft = Colors.white.withOpacity(.60);
+}
+
+class _GlassCard extends StatelessWidget {
+  const _GlassCard({
+    required this.child,
+    this.padding = const EdgeInsets.all(14),
+    this.radius = 20,
+    this.tint,
+    this.blur = 16,
+  });
+
+  final Widget child;
+  final EdgeInsets padding;
+  final double radius;
+  final Color? tint;
+  final double blur;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    Color blend(Color base, double amt) {
+      final t = tint;
+      if (t == null) return base;
+      return Color.lerp(base, t, amt) ?? base;
+    }
+
+    if (isDark) {
+      final g1 = blend(_DarkTokens.panelA, .10).withOpacity(.70);
+      final g2 = blend(_DarkTokens.panelB, .08).withOpacity(.86);
+      final g3 = blend(_DarkTokens.panelC, .05).withOpacity(.92);
+
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(radius),
+              border: Border.all(color: _DarkTokens.border),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [g1, g2, g3],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  blurRadius: 22,
+                  offset: const Offset(0, 12),
+                  color: _DarkTokens.shadow,
+                ),
+              ],
+            ),
+            child: child,
+          ),
+        ),
+      );
+    }
+
+    final baseTop = Colors.white.withOpacity(.90);
+    final baseBottom = Colors.white.withOpacity(.76);
+    final t = tint;
+
+    final tintTop = t == null
+        ? baseTop
+        : (Color.lerp(baseTop, t, .07) ?? baseTop);
+    final tintBottom = t == null
+        ? baseBottom
+        : (Color.lerp(baseBottom, t, .04) ?? baseBottom);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+        child: Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(radius),
+            border: Border.all(color: Colors.black.withOpacity(.08)),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [tintTop, tintBottom],
+            ),
+            boxShadow: [
+              BoxShadow(
+                blurRadius: 26,
+                offset: const Offset(0, 12),
+                color: Colors.black.withOpacity(.10),
+              ),
+            ],
+          ),
+          child: child,
+        ),
       ),
     );
   }
@@ -440,33 +616,28 @@ class _NewsPageState extends State<NewsPage> {
 // ======================================================
 
 class _SearchBar extends StatelessWidget {
-  final bool isDark;
+  const _SearchBar({required this.controller, this.onChanged});
+
   final TextEditingController controller;
   final ValueChanged<String>? onChanged;
 
-  const _SearchBar({
-    required this.isDark,
-    required this.controller,
-    this.onChanged,
-  });
-
   @override
   Widget build(BuildContext context) {
-    final bg = isDark ? Colors.white.withOpacity(.10) : const Color(0xFFF3F4F6);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final hint = isDark
-        ? Colors.white.withOpacity(.55)
+        ? Colors.white.withOpacity(.48)
         : const Color(0xFF9CA3AF);
     final textC = isDark ? Colors.white : const Color(0xFF111827);
     final iconC = isDark
-        ? Colors.white.withOpacity(.75)
+        ? Colors.white.withOpacity(.78)
         : const Color(0xFF6B7280);
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
+    return _GlassCard(
+      radius: 16,
+      padding: const EdgeInsets.only(left: 14),
+      child: SizedBox(
         height: 50,
-        color: bg,
-        padding: const EdgeInsets.only(left: 14),
         child: Row(
           children: [
             Expanded(
@@ -486,6 +657,7 @@ class _SearchBar extends StatelessWidget {
             ),
             InkWell(
               onTap: () => FocusScope.of(context).unfocus(),
+              borderRadius: BorderRadius.circular(16),
               child: SizedBox(
                 width: 54,
                 height: 50,
@@ -502,54 +674,42 @@ class _SearchBar extends StatelessWidget {
 }
 
 class _FilterBar extends StatelessWidget {
-  final bool isDark;
-  final _FilterMode mode;
-  final String label;
-  final ValueChanged<_FilterMode> onChangeMode;
-  final VoidCallback onPick;
-
   const _FilterBar({
-    required this.isDark,
     required this.mode,
     required this.label,
     required this.onChangeMode,
     required this.onPick,
   });
 
+  final _FilterMode mode;
+  final String label;
+  final ValueChanged<_FilterMode> onChangeMode;
+  final VoidCallback onPick;
+
   @override
   Widget build(BuildContext context) {
-    final bg = isDark
-        ? Colors.white.withOpacity(.08)
-        : Colors.white.withOpacity(.90);
-    final border = isDark ? Colors.white.withOpacity(.12) : Colors.black12;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
+    return _GlassCard(
+      radius: 18,
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: border),
-      ),
       child: Row(
         children: [
           _ModeChip(
             label: "Day",
             selected: mode == _FilterMode.day,
-            isDark: isDark,
             onTap: () => onChangeMode(_FilterMode.day),
           ),
           const SizedBox(width: 8),
           _ModeChip(
             label: "Month",
             selected: mode == _FilterMode.month,
-            isDark: isDark,
             onTap: () => onChangeMode(_FilterMode.month),
           ),
           const SizedBox(width: 8),
           _ModeChip(
             label: "Year",
             selected: mode == _FilterMode.year,
-            isDark: isDark,
             onTap: () => onChangeMode(_FilterMode.year),
           ),
           const Spacer(),
@@ -559,10 +719,14 @@ class _FilterBar extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(isDark ? .10 : .92),
+                color: isDark
+                    ? Colors.white.withOpacity(.08)
+                    : Colors.white.withOpacity(.92),
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(
-                  color: Colors.white.withOpacity(isDark ? .12 : .18),
+                  color: isDark
+                      ? Colors.white.withOpacity(.12)
+                      : Colors.black.withOpacity(.08),
                 ),
               ),
               child: Row(
@@ -572,7 +736,7 @@ class _FilterBar extends StatelessWidget {
                     Icons.calendar_month_rounded,
                     size: 16,
                     color: isDark
-                        ? Colors.white.withOpacity(.85)
+                        ? Colors.white.withOpacity(.86)
                         : const Color(0xFF111827),
                   ),
                   const SizedBox(width: 8),
@@ -598,27 +762,31 @@ class _FilterBar extends StatelessWidget {
 }
 
 class _ModeChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final bool isDark;
-  final VoidCallback onTap;
-
   const _ModeChip({
     required this.label,
     required this.selected,
-    required this.isDark,
     required this.onTap,
   });
 
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final bg = selected
-        ? (isDark ? Colors.white.withOpacity(.18) : const Color(0xFF111827))
-        : (isDark ? Colors.white.withOpacity(.08) : Colors.white);
-    final border = isDark ? Colors.white.withOpacity(.12) : Colors.black12;
+        ? (isDark ? Colors.white.withOpacity(.16) : const Color(0xFF111827))
+        : (isDark ? Colors.white.withOpacity(.06) : Colors.white);
+
+    final border = isDark
+        ? Colors.white.withOpacity(.12)
+        : Colors.black.withOpacity(.10);
+
     final textC = selected
         ? Colors.white
-        : (isDark ? Colors.white.withOpacity(.80) : const Color(0xFF111827));
+        : (isDark ? Colors.white.withOpacity(.82) : const Color(0xFF111827));
 
     return InkWell(
       onTap: onTap,
@@ -645,15 +813,15 @@ class _ModeChip extends StatelessWidget {
 }
 
 class _SectionHeader extends StatelessWidget {
-  final String title;
-  final String actionText;
-  final VoidCallback? onAction;
-
   const _SectionHeader({
     required this.title,
     required this.actionText,
     this.onAction,
   });
+
+  final String title;
+  final String actionText;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -679,7 +847,7 @@ class _SectionHeader extends StatelessWidget {
               actionText,
               style: TextStyle(
                 color: isDark
-                    ? Colors.white.withOpacity(.60)
+                    ? Colors.white.withOpacity(.62)
                     : const Color(0xFF9CA3AF),
                 fontWeight: FontWeight.w800,
               ),
@@ -692,19 +860,15 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _FeaturedCard extends StatelessWidget {
-  final _NewsItem item;
-  final bool isDark;
-  final VoidCallback onTap;
+  const _FeaturedCard({required this.item, required this.onTap});
 
-  const _FeaturedCard({
-    required this.item,
-    required this.isDark,
-    required this.onTap,
-  });
+  final _NewsItem item;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     const cardW = 260.0;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
@@ -715,7 +879,10 @@ class _FeaturedCard extends StatelessWidget {
           child: Container(
             width: cardW,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(isDark ? .08 : 1),
+              // ✅ FIX: dark card should not read as "white"
+              color: isDark
+                  ? const Color(0xFF0B1220).withOpacity(.35)
+                  : Colors.white,
               border: Border.all(
                 color: isDark ? Colors.white.withOpacity(.12) : Colors.black12,
               ),
@@ -744,7 +911,7 @@ class _FeaturedCard extends StatelessWidget {
                         colors: [
                           Colors.black.withOpacity(.08),
                           Colors.black.withOpacity(.32),
-                          Colors.black.withOpacity(.62),
+                          Colors.black.withOpacity(.66),
                         ],
                       ),
                     ),
@@ -844,10 +1011,10 @@ class _FeaturedCard extends StatelessWidget {
 }
 
 class _Pill extends StatelessWidget {
+  const _Pill({required this.label, required this.dotColor});
+
   final String label;
   final Color dotColor;
-
-  const _Pill({required this.label, required this.dotColor});
 
   @override
   Widget build(BuildContext context) {
@@ -883,39 +1050,21 @@ class _Pill extends StatelessWidget {
 }
 
 class _WideEducationCard extends StatelessWidget {
-  final bool isDark;
+  const _WideEducationCard({required this.category, required this.title});
+
   final String category;
   final String title;
 
-  const _WideEducationCard({
-    required this.isDark,
-    required this.category,
-    required this.title,
-  });
-
   @override
   Widget build(BuildContext context) {
-    final bg = isDark ? Colors.white.withOpacity(.10) : const Color(0xFFEDE9FE);
-    final border = isDark
-        ? Colors.white.withOpacity(.12)
-        : const Color(0xFFE5E7EB);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
-      child: Container(
+    return _GlassCard(
+      radius: 22,
+      padding: EdgeInsets.zero,
+      tint: const Color(0xFF8B5CF6),
+      child: SizedBox(
         height: 132,
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: border),
-          boxShadow: [
-            BoxShadow(
-              blurRadius: 18,
-              offset: const Offset(0, 10),
-              color: Colors.black.withOpacity(isDark ? .22 : .08),
-            ),
-          ],
-        ),
         child: Stack(
           children: [
             Positioned(
@@ -930,7 +1079,7 @@ class _WideEducationCard extends StatelessWidget {
                 child: Container(
                   width: 160,
                   color: (isDark ? Colors.white : const Color(0xFFD8B4FE))
-                      .withOpacity(isDark ? .10 : .55),
+                      .withOpacity(isDark ? .06 : .55),
                   child: Stack(
                     children: [
                       Positioned(
@@ -964,12 +1113,12 @@ class _WideEducationCard extends StatelessWidget {
                         right: 14,
                         bottom: 18,
                         child: Row(
-                          children: const [
-                            _TinyPill(isDark: false),
-                            SizedBox(width: 8),
-                            _TinyPill(isDark: false),
-                            SizedBox(width: 8),
-                            _TinyPill(isDark: false),
+                          children: [
+                            _TinyPill(isDark: isDark),
+                            const SizedBox(width: 8),
+                            _TinyPill(isDark: isDark),
+                            const SizedBox(width: 8),
+                            _TinyPill(isDark: isDark),
                           ],
                         ),
                       ),
@@ -983,11 +1132,7 @@ class _WideEducationCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _TagRow(
-                    label: category,
-                    dot: const Color(0xFF8B5CF6),
-                    isDark: isDark,
-                  ),
+                  _TagRow(label: category, dot: const Color(0xFF8B5CF6)),
                   const SizedBox(height: 10),
                   Expanded(
                     child: Text(
@@ -1013,8 +1158,9 @@ class _WideEducationCard extends StatelessWidget {
 }
 
 class _TinyPill extends StatelessWidget {
-  final bool isDark;
   const _TinyPill({required this.isDark});
+
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -1032,17 +1178,18 @@ class _TinyPill extends StatelessWidget {
 }
 
 class _TagRow extends StatelessWidget {
+  const _TagRow({required this.label, required this.dot});
+
   final String label;
   final Color dot;
-  final bool isDark;
-
-  const _TagRow({required this.label, required this.dot, required this.isDark});
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final textC = isDark
         ? Colors.white.withOpacity(.90)
         : const Color(0xFF6B7280);
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1066,11 +1213,6 @@ class _TagRow extends StatelessWidget {
 }
 
 class _CategoryChip extends StatelessWidget {
-  final String label;
-  final Color color;
-  final bool selected;
-  final VoidCallback? onTap;
-
   const _CategoryChip({
     required this.label,
     required this.color,
@@ -1078,17 +1220,24 @@ class _CategoryChip extends StatelessWidget {
     this.onTap,
   });
 
+  final String label;
+  final Color color;
+  final bool selected;
+  final VoidCallback? onTap;
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final bg = selected
-        ? (isDark ? Colors.white.withOpacity(.18) : const Color(0xFF111827))
+        ? (isDark ? Colors.white.withOpacity(.16) : const Color(0xFF111827))
         : color.withOpacity(isDark ? .14 : .16);
 
     final border = selected
-        ? Colors.white.withOpacity(isDark ? .22 : .12)
-        : color.withOpacity(isDark ? .24 : .26);
+        ? (isDark
+              ? Colors.white.withOpacity(.22)
+              : Colors.black.withOpacity(.10))
+        : color.withOpacity(isDark ? .26 : .28);
 
     final textC = selected
         ? Colors.white
@@ -1148,18 +1297,14 @@ class _CategoryChip extends StatelessWidget {
 }
 
 class _NewsListRow extends StatelessWidget {
-  final _NewsItem item;
-  final bool isDark;
-  final VoidCallback onTap;
+  const _NewsListRow({required this.item, required this.onTap});
 
-  const _NewsListRow({
-    required this.item,
-    required this.isDark,
-    required this.onTap,
-  });
+  final _NewsItem item;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final titleC = isDark ? Colors.white : const Color(0xFF111827);
     final metaC = isDark
         ? Colors.white.withOpacity(.65)
@@ -1167,7 +1312,7 @@ class _NewsListRow extends StatelessWidget {
 
     return InkWell(
       borderRadius: BorderRadius.circular(16),
-      onTap: onTap, // ✅ OPEN DETAIL
+      onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(
@@ -1223,13 +1368,15 @@ class _NewsListRow extends StatelessWidget {
 }
 
 class _NetImage extends StatelessWidget {
+  const _NetImage({required this.url, required this.fallbackColor});
+
   final String url;
   final Color fallbackColor;
 
-  const _NetImage({required this.url, required this.fallbackColor});
-
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Image.network(
       url,
       fit: BoxFit.cover,
@@ -1258,7 +1405,7 @@ class _NetImage extends StatelessWidget {
       loadingBuilder: (context, child, progress) {
         if (progress == null) return child;
         return Container(
-          color: fallbackColor.withOpacity(.18),
+          color: fallbackColor.withOpacity(isDark ? .12 : .18),
           child: Center(
             child: SizedBox(
               width: 16,
@@ -1300,23 +1447,22 @@ class _NewsItem {
     required this.views,
   });
 
-  // ✅ map to NewsDetail model (from NewsDetailPage file)
   NewsArticle toArticle() {
     return NewsArticle(
       category: category,
       title: title,
-      heroImageUrl: imageUrl,
       authorName: "School Admin",
       authorAvatarUrl:
           "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300",
       timeAgo: _prettyTime(date),
       views: views,
+      headerImageUrl: imageUrl,
+      lead: summary,
+      quote: "Stay organized, keep practicing, and you’ll do great.",
       paragraphs: [
-        summary,
         "This announcement is shared to help students and parents plan ahead. Please check your class group for more details and updates.",
         "If you have questions, contact your homeroom teacher or the school office during working hours.",
       ],
-      quote: "Stay organized, keep practicing, and you’ll do great.",
     );
   }
 }
@@ -1324,7 +1470,6 @@ class _NewsItem {
 class _CatChip {
   final String label;
   final Color color;
-
   _CatChip(this.label, this.color);
 }
 

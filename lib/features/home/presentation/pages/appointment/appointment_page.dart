@@ -370,11 +370,21 @@ class _MarkedCalendarCard extends StatelessWidget {
     final t = Theme.of(context);
     final isDark = t.brightness == Brightness.dark;
 
-    final cardBg = isDark ? Colors.white.withOpacity(.06) : Colors.white;
+    final Gradient premiumPanelGrad = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        const Color(0xFF0B2B5B).withOpacity(.78),
+        const Color(0xFF071A33).withOpacity(.88),
+        const Color(0xFF060B16).withOpacity(.92),
+      ],
+    );
+
+    final cardBg = isDark ? null : Colors.white;
     final border = isDark
-        ? Colors.white.withOpacity(.10)
+        ? Colors.white.withOpacity(.12)
         : Colors.black.withOpacity(.06);
-    final shadow = Colors.black.withOpacity(isDark ? .40 : .10);
+    final shadow = Colors.black.withOpacity(isDark ? .45 : .10);
 
     final headerText = isDark ? Colors.white : Colors.black.withOpacity(.85);
     final muted = isDark ? Colors.white.withOpacity(.72) : Colors.black54;
@@ -383,7 +393,6 @@ class _MarkedCalendarCard extends StatelessWidget {
     final month = visibleMonth.month;
     final daysInMonth = DateTime(year, month + 1, 0).day;
 
-    // Monday-first offset (Mon=0..Sun=6)
     final firstWeekday = DateTime(year, month, 1).weekday; // Mon=1..Sun=7
     final offset = (firstWeekday + 6) % 7;
 
@@ -393,9 +402,7 @@ class _MarkedCalendarCard extends StatelessWidget {
     final today = DateTime.now();
     final todayDate = DateTime(today.year, today.month, today.day);
 
-    // ✅ Mark สีแดง
     const markRed = Color(0xFFEF4444);
-    // Selected highlight ฟ้า
     const selectedBlue = Color(0xFF3B82F6);
 
     String monthName(int m) {
@@ -514,8 +521,6 @@ class _MarkedCalendarCard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-
-        // ✅ fixed height grid (stable on desktop/web)
         LayoutBuilder(
           builder: (context, c) {
             const mainAxisSpacing = 6.0;
@@ -555,17 +560,27 @@ class _MarkedCalendarCard extends StatelessWidget {
                       ? Colors.white
                       : Colors.black.withOpacity(.85);
 
+                  final markBg = hasAppt
+                      ? markRed.withOpacity(isDark ? .18 : .10)
+                      : Colors.transparent;
+
+                  final markBorder = hasAppt
+                      ? markRed.withOpacity(isDark ? .70 : .45)
+                      : Colors.transparent;
+
                   final bg = isSelected
                       ? selectedBlue.withOpacity(isDark ? .26 : .18)
-                      : Colors.transparent;
+                      : (hasAppt ? markBg : Colors.transparent);
 
                   final borderColor = isSelected
                       ? selectedBlue.withOpacity(isDark ? .75 : .55)
-                      : (isToday
-                            ? (isDark
-                                  ? Colors.white.withOpacity(.55)
-                                  : Colors.black.withOpacity(.25))
-                            : Colors.transparent);
+                      : (hasAppt
+                            ? markBorder
+                            : (isToday
+                                  ? (isDark
+                                        ? Colors.white.withOpacity(.55)
+                                        : Colors.black.withOpacity(.25))
+                                  : Colors.transparent));
 
                   return Material(
                     type: MaterialType.transparency,
@@ -580,46 +595,31 @@ class _MarkedCalendarCard extends StatelessWidget {
                             color: borderColor,
                             width: isSelected ? 1.4 : 1.0,
                           ),
-                        ),
-                        child: Stack(
-                          children: [
-                            Align(
-                              alignment: Alignment.topCenter,
-                              child: Padding(
-                                padding: const EdgeInsets.only(top: 10),
-                                child: Text(
-                                  '$day',
-                                  style: TextStyle(
-                                    color: textColor,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            if (hasAppt)
-                              Align(
-                                alignment: Alignment.bottomCenter,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: Container(
-                                    width: 10,
-                                    height: 10,
-                                    decoration: BoxDecoration(
-                                      color: markRed,
-                                      shape: BoxShape.circle,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          blurRadius: 10,
-                                          offset: const Offset(0, 4),
-                                          color: markRed.withOpacity(.35),
-                                        ),
-                                      ],
+                          boxShadow: hasAppt && !isSelected
+                              ? [
+                                  BoxShadow(
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 6),
+                                    color: markRed.withOpacity(
+                                      isDark ? .18 : .10,
                                     ),
                                   ),
-                                ),
+                                ]
+                              : null,
+                        ),
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: Text(
+                              '$day',
+                              style: TextStyle(
+                                color: textColor,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 13,
                               ),
-                          ],
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -640,6 +640,7 @@ class _MarkedCalendarCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: cardBg,
+        gradient: isDark ? premiumPanelGrad : null,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: border),
         boxShadow: [
@@ -671,6 +672,10 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
+    final isDark = t.brightness == Brightness.dark;
+    final titleColor = isDark
+        ? Colors.white.withOpacity(.94)
+        : t.colorScheme.onSurface;
 
     return Row(
       children: [
@@ -681,6 +686,7 @@ class _SectionHeader extends StatelessWidget {
               Text(
                 title,
                 style: t.textTheme.titleMedium?.copyWith(
+                  color: titleColor, // ✅ FIX: ensure visible in dark
                   fontWeight: FontWeight.w900,
                   letterSpacing: -.2,
                 ),
@@ -736,15 +742,25 @@ class _AppointmentCard extends StatelessWidget {
     final cs = t.colorScheme;
     final isDark = t.brightness == Brightness.dark;
 
-    final cardBg = isDark ? Colors.white.withOpacity(.06) : Colors.white;
+    final cardBg = isDark
+        ? const Color(0xFF071A33).withOpacity(.32)
+        : Colors.white;
     final border = isDark
-        ? Colors.white.withOpacity(.10)
+        ? Colors.white.withOpacity(.12)
         : Colors.black.withOpacity(.06);
-    final shadow = Colors.black.withOpacity(isDark ? .40 : .10);
+    final shadow = Colors.black.withOpacity(isDark ? .45 : .10);
+
+    // ✅ FIX: make sure all text uses visible color in dark
+    final onText = isDark ? Colors.white.withOpacity(.94) : cs.onSurface;
+    final onMuted = isDark
+        ? Colors.white.withOpacity(.72)
+        : cs.onSurface.withOpacity(.70);
+    final onSoft = isDark
+        ? Colors.white.withOpacity(.78)
+        : cs.onSurface.withOpacity(.75);
 
     const accent = Color(0xFF3B82F6);
 
-    // ✅ status chip color mapping
     const statusGreen = Color(0xFF22C55E);
     const statusYellow = Color(0xFFF59E0B);
     const statusRed = Color(0xFFEF4444);
@@ -757,7 +773,7 @@ class _AppointmentCard extends StatelessWidget {
     } else if (appt.status == AppointmentStatus.cancelled) {
       statusColor = statusRed;
     } else {
-      statusColor = statusYellow; // postponed
+      statusColor = statusYellow;
     }
 
     final timeText =
@@ -803,6 +819,7 @@ class _AppointmentCard extends StatelessWidget {
                               Text(
                                 appt.title,
                                 style: t.textTheme.titleMedium?.copyWith(
+                                  color: onText, // ✅ FIX
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: -.2,
                                 ),
@@ -813,7 +830,7 @@ class _AppointmentCard extends StatelessWidget {
                                   Icon(
                                     Icons.calendar_today_rounded,
                                     size: 14,
-                                    color: cs.onSurface.withOpacity(.65),
+                                    color: onSoft.withOpacity(.85), // ✅ FIX
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
@@ -822,21 +839,21 @@ class _AppointmentCard extends StatelessWidget {
                                     ),
                                     style: t.textTheme.bodySmall?.copyWith(
                                       fontWeight: FontWeight.w800,
-                                      color: cs.onSurface.withOpacity(.75),
+                                      color: onSoft, // ✅ FIX
                                     ),
                                   ),
                                   const SizedBox(width: 10),
                                   Icon(
                                     Icons.access_time_rounded,
                                     size: 14,
-                                    color: cs.onSurface.withOpacity(.65),
+                                    color: onSoft.withOpacity(.85), // ✅ FIX
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
                                     timeText,
                                     style: t.textTheme.bodySmall?.copyWith(
                                       fontWeight: FontWeight.w800,
-                                      color: cs.onSurface.withOpacity(.75),
+                                      color: onSoft, // ✅ FIX
                                     ),
                                   ),
                                 ],
@@ -846,7 +863,7 @@ class _AppointmentCard extends StatelessWidget {
                                 Text(
                                   appt.note!.trim(),
                                   style: t.textTheme.bodySmall?.copyWith(
-                                    color: cs.onSurface.withOpacity(.70),
+                                    color: onMuted, // ✅ FIX
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
@@ -863,8 +880,6 @@ class _AppointmentCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
-
-                    // ✅ Buttons: Confirm = Green, Postpone = Yellow, Cancel = Red
                     Row(
                       children: [
                         Expanded(
@@ -998,13 +1013,9 @@ class _ActionButton extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final disabled = onTap == null;
 
-    // ✅ FIX: Dark mode ให้ปุ่มมีสีเหมือน Light mode (ใช้ accent เป็นหลักทั้ง 2 โหมด)
     final bg = accent.withOpacity(disabled ? .08 : .12);
     final border = accent.withOpacity(.22);
 
-    // ✅ ตัวหนังสือ/ไอคอนเหมือน light mode:
-    // - enabled: ใช้สี accent
-    // - disabled: ใช้เทา (dark = white opacity, light = black opacity)
     final fg = disabled
         ? (isDark
               ? Colors.white.withOpacity(.35)
@@ -1063,11 +1074,19 @@ class _EmptyState extends StatelessWidget {
     final t = Theme.of(context);
     final isDark = t.brightness == Brightness.dark;
 
-    final bg = isDark ? Colors.white.withOpacity(.06) : Colors.white;
+    final bg = isDark ? const Color(0xFF071A33).withOpacity(.28) : Colors.white;
     final border = isDark
-        ? Colors.white.withOpacity(.10)
+        ? Colors.white.withOpacity(.12)
         : Colors.black.withOpacity(.06);
-    final shadow = Colors.black.withOpacity(isDark ? .40 : .10);
+    final shadow = Colors.black.withOpacity(isDark ? .45 : .10);
+
+    // ✅ FIX: ensure visible in dark
+    final titleColor = isDark
+        ? Colors.white.withOpacity(.94)
+        : t.colorScheme.onSurface;
+    final bodyColor = isDark
+        ? Colors.white.withOpacity(.72)
+        : t.colorScheme.onSurface.withOpacity(.70);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1092,6 +1111,7 @@ class _EmptyState extends StatelessWidget {
           Text(
             'ບໍ່ມີລາຍການນັດໝາຍໃນມື້ນີ້',
             style: t.textTheme.titleMedium?.copyWith(
+              color: titleColor, // ✅ FIX
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -1101,7 +1121,7 @@ class _EmptyState extends StatelessWidget {
             textAlign: TextAlign.center,
             style: t.textTheme.bodySmall?.copyWith(
               fontWeight: FontWeight.w700,
-              color: t.colorScheme.onSurface.withOpacity(.70),
+              color: bodyColor, // ✅ FIX
             ),
           ),
           const SizedBox(height: 12),

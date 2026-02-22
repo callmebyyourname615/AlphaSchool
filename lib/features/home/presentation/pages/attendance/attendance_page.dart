@@ -5,6 +5,9 @@ import 'package:intl/intl.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/widgets/app_page_template.dart';
 
+// ✅ เพิ่ม import HomeShell (ปรับ path ให้ตรงโปรเจกต์คุณ)
+import '../home_shell_page.dart';
+
 class AttendancePage extends StatefulWidget {
   const AttendancePage({super.key});
 
@@ -31,6 +34,16 @@ class _AttendancePageState extends State<AttendancePage> {
 
   _AttendStatus? _filter;
   DateTime? _month;
+
+  // ✅ กด back -> ไป HomeShell แบบชัวร์
+  void _goHomeShell() {
+    if (!mounted) return;
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const HomeShellPage()),
+      (route) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -108,7 +121,10 @@ class _AttendancePageState extends State<AttendancePage> {
                 backgroundAsset: _bgAsset,
                 scrollable: false,
                 contentPadding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-                onBack: () => Navigator.of(context).maybePop(),
+
+                // ✅ เปลี่ยนจาก maybePop เป็นไป HomeShell
+                onBack: _goHomeShell,
+
                 // ✅ ให้ template เป็น premium dark gradient ด้วย
                 premiumDark: true,
                 child: SizedBox.expand(
@@ -133,9 +149,7 @@ class _AttendancePageState extends State<AttendancePage> {
                                 duration: 220.ms,
                                 curve: Curves.easeOut,
                               ),
-
                           const SizedBox(height: 12),
-
                           _Panel(
                                 isDark: isDark,
                                 color: isDark ? null : const Color(0xFFF7F8FA),
@@ -160,9 +174,7 @@ class _AttendancePageState extends State<AttendancePage> {
                                         .animate()
                                         .fadeIn(duration: 200.ms)
                                         .slideY(begin: .06, end: 0),
-
                                     const SizedBox(height: 12),
-
                                     Text(
                                       "Track student attendance",
                                       style: TextStyle(
@@ -172,7 +184,6 @@ class _AttendancePageState extends State<AttendancePage> {
                                       ),
                                     ),
                                     const SizedBox(height: 10),
-
                                     Row(
                                       children: [
                                         Expanded(
@@ -207,7 +218,6 @@ class _AttendancePageState extends State<AttendancePage> {
                                         ),
                                       ],
                                     ),
-
                                     if (_filter != null || _month != null) ...[
                                       const SizedBox(height: 10),
                                       Row(
@@ -264,9 +274,7 @@ class _AttendancePageState extends State<AttendancePage> {
                               .animate()
                               .fadeIn(duration: 220.ms, delay: 40.ms)
                               .slideY(begin: .08, end: 0),
-
                           const SizedBox(height: 12),
-
                           Expanded(
                             child: _Panel(
                               isDark: isDark,

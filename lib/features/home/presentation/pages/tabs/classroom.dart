@@ -1,4 +1,6 @@
-import 'dart:ui';
+// classroom_page.dart
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
@@ -13,7 +15,7 @@ enum HomeworkStatus { submitted, pending }
 
 class HomeworkItem {
   final String subject;
-  final String grade; // e.g. M.2 / ม.2
+  final String grade; // e.g. M.2 / ມ.2
   final HomeworkStatus status;
   final double? score;
   final DateTime? sentAt;
@@ -74,6 +76,8 @@ class ClassroomPage extends StatefulWidget {
   final ClassroomData? data;
   const ClassroomPage({super.key, this.data});
 
+  static const _bgAsset = "assets/images/homepagewall/mainbg.jpeg";
+
   @override
   State<ClassroomPage> createState() => _ClassroomPageState();
 }
@@ -106,7 +110,7 @@ class _ClassroomPageState extends State<ClassroomPage> {
 
     return AppPageTemplate(
       title: "Classroom",
-      backgroundAsset: "assets/images/homepagewall/mainbg.jpeg",
+      backgroundAsset: ClassroomPage._bgAsset,
       showBack: true,
       scrollable: true,
       contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -140,7 +144,7 @@ class _ClassroomPageState extends State<ClassroomPage> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w900,
-                            color: isDark ? Colors.white : Colors.black87,
+                            color: isDark ? _DarkTokens.on : Colors.black87,
                           ),
                         )
                         .animate()
@@ -151,7 +155,7 @@ class _ClassroomPageState extends State<ClassroomPage> {
                     "All ${data.homeworks.length} • Done $done • Not sent $notSent",
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
-                      color: isDark ? Colors.white70 : Colors.black54,
+                      color: isDark ? _DarkTokens.onMuted : Colors.black54,
                     ),
                   )
                   .animate()
@@ -325,8 +329,20 @@ class _ClassroomPageState extends State<ClassroomPage> {
 }
 
 // =====================
-// Modern UI building blocks
+// Dark tokens + Glass surface (balance dark mode)
 // =====================
+
+class _DarkTokens {
+  static const panelA = Color(0xFF0B2B5B);
+  static const panelB = Color(0xFF071A33);
+  static const panelC = Color(0xFF060B16);
+
+  static Color border = Colors.white.withOpacity(.12);
+  static Color shadow = Colors.black.withOpacity(.45);
+
+  static Color on = Colors.white.withOpacity(.92);
+  static Color onMuted = Colors.white.withOpacity(.72);
+}
 
 class _GlassCard extends StatelessWidget {
   final Widget child;
@@ -346,30 +362,58 @@ class _GlassCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    Color blend(Color base, double amt) {
+      final t = tint;
+      if (t == null) return base;
+      return Color.lerp(base, t, amt) ?? base;
+    }
+
+    final border = isDark ? _DarkTokens.border : Colors.black.withOpacity(.08);
+
+    if (isDark) {
+      final g1 = blend(_DarkTokens.panelA, .10).withOpacity(.72);
+      final g2 = blend(_DarkTokens.panelB, .08).withOpacity(.86);
+      final g3 = blend(_DarkTokens.panelC, .05).withOpacity(.92);
+
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(radius),
+              border: Border.all(color: border),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [g1, g2, g3],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  blurRadius: 26,
+                  offset: const Offset(0, 12),
+                  color: _DarkTokens.shadow,
+                ),
+              ],
+            ),
+            child: child,
+          ),
+        ),
+      );
+    }
+
+    // light glass
+    final baseTop = Colors.white.withOpacity(.92);
+    final baseBottom = Colors.white.withOpacity(.78);
     final t = tint;
-
-    final border = isDark
-        ? Colors.white.withOpacity(.12)
-        : Colors.black.withOpacity(.08);
-
-    // base glass
-    final baseTop = isDark
-        ? Colors.white.withOpacity(.10)
-        : Colors.white.withOpacity(.90);
-    final baseBottom = isDark
-        ? Colors.white.withOpacity(.06)
-        : Colors.white.withOpacity(.76);
-
-    // ✅ extra pale tint (อ่านชัด)
     final tintTop = t == null
         ? baseTop
-        : Color.lerp(baseTop, t, isDark ? .08 : .07)!.withOpacity(1);
+        : (Color.lerp(baseTop, t, .06) ?? baseTop);
     final tintBottom = t == null
         ? baseBottom
-        : Color.lerp(baseBottom, t, isDark ? .05 : .04)!.withOpacity(1);
-
-    final highlightTop = Colors.white.withOpacity(isDark ? .06 : .18);
-    final highlightBottom = Colors.white.withOpacity(0);
+        : (Color.lerp(baseBottom, t, .04) ?? baseBottom);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
@@ -389,28 +433,11 @@ class _GlassCard extends StatelessWidget {
               BoxShadow(
                 blurRadius: 26,
                 offset: const Offset(0, 12),
-                color: Colors.black.withOpacity(isDark ? .24 : .10),
+                color: Colors.black.withOpacity(.10),
               ),
             ],
           ),
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [highlightTop, highlightBottom],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              child,
-            ],
-          ),
+          child: child,
         ),
       ),
     );
@@ -493,7 +520,7 @@ class _InfoCard extends StatelessWidget {
             ),
             child: Icon(
               Icons.meeting_room_rounded,
-              color: isDark ? Colors.white : Colors.black87,
+              color: isDark ? _DarkTokens.on : Colors.black87,
             ),
           ),
           const SizedBox(width: 12),
@@ -505,7 +532,7 @@ class _InfoCard extends StatelessWidget {
                   "Room",
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white70 : Colors.black54,
+                    color: isDark ? _DarkTokens.onMuted : Colors.black54,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -514,7 +541,7 @@ class _InfoCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
-                    color: isDark ? Colors.white : Colors.black87,
+                    color: isDark ? _DarkTokens.on : Colors.black87,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -523,7 +550,7 @@ class _InfoCard extends StatelessWidget {
                     Icon(
                       Icons.school_rounded,
                       size: 18,
-                      color: isDark ? Colors.white70 : Colors.black54,
+                      color: isDark ? _DarkTokens.onMuted : Colors.black54,
                     ),
                     const SizedBox(width: 6),
                     Expanded(
@@ -531,9 +558,7 @@ class _InfoCard extends StatelessWidget {
                         "$teacherTitle • $teacherName",
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
-                          color: isDark
-                              ? Colors.white.withOpacity(.92)
-                              : Colors.black87,
+                          color: isDark ? _DarkTokens.on : Colors.black87,
                         ),
                       ),
                     ),
@@ -556,7 +581,6 @@ class _ScheduleButtonsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // ✅ bigger container
     return _GlassCard(
       padding: const EdgeInsets.all(18),
       radius: 22,
@@ -568,7 +592,7 @@ class _ScheduleButtonsCard extends StatelessWidget {
               Icon(
                 Icons.calendar_month_rounded,
                 size: 18,
-                color: isDark ? Colors.white70 : Colors.black54,
+                color: isDark ? _DarkTokens.onMuted : Colors.black54,
               ),
               const SizedBox(width: 8),
               Text(
@@ -576,7 +600,7 @@ class _ScheduleButtonsCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
-                  color: isDark ? Colors.white : Colors.black87,
+                  color: isDark ? _DarkTokens.on : Colors.black87,
                 ),
               ),
               const Spacer(),
@@ -584,14 +608,13 @@ class _ScheduleButtonsCard extends StatelessWidget {
                 "${schedule.length} days",
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
-                  color: isDark ? Colors.white70 : Colors.black54,
+                  color: isDark ? _DarkTokens.onMuted : Colors.black54,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 14),
 
-          // ✅ bigger day tiles (square-ish + small radius)
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -600,7 +623,7 @@ class _ScheduleButtonsCard extends StatelessWidget {
               crossAxisCount: 3,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: 1.70, // ✅ bigger tiles
+              childAspectRatio: 1.70,
             ),
             itemBuilder: (context, i) {
               final d = schedule[i];
@@ -629,7 +652,6 @@ class _ScheduleButtonsCard extends StatelessWidget {
     );
   }
 
-  // ✅ ອັງ -> ອັງຄານ
   String _dayShort(String day) {
     final s = day.trim();
 
@@ -683,9 +705,7 @@ class _DayButtonState extends State<_DayButton> {
     final stroke = isDark
         ? Colors.white.withOpacity(.16)
         : Colors.black.withOpacity(.10);
-    final textC = isDark
-        ? Colors.white.withOpacity(.95)
-        : const Color(0xFF0F172A);
+    final textC = isDark ? _DarkTokens.on : const Color(0xFF0F172A);
 
     return AnimatedScale(
       scale: _pressed ? 0.985 : 1,
@@ -795,7 +815,9 @@ class _ScheduleDetailSheet extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w900,
-                                  color: isDark ? Colors.white : Colors.black87,
+                                  color: isDark
+                                      ? _DarkTokens.on
+                                      : Colors.black87,
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -813,7 +835,9 @@ class _ScheduleDetailSheet extends StatelessWidget {
                           onPressed: () => Navigator.pop(context),
                           icon: Icon(
                             Icons.close_rounded,
-                            color: isDark ? Colors.white70 : Colors.black54,
+                            color: isDark
+                                ? _DarkTokens.onMuted
+                                : Colors.black54,
                           ),
                         ),
                       ],
@@ -863,7 +887,7 @@ class _Pill extends StatelessWidget {
     final stroke = isDark
         ? Colors.white.withOpacity(.12)
         : Colors.black.withOpacity(.08);
-    final fg = isDark ? Colors.white.withOpacity(.90) : Colors.black87;
+    final fg = isDark ? _DarkTokens.on : Colors.black87;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -895,8 +919,8 @@ class _ScheduleClassCard extends StatelessWidget {
         ? Colors.white.withOpacity(.12)
         : Colors.black.withOpacity(.08);
 
-    final labelC = isDark ? Colors.white70 : Colors.black54;
-    final valueC = isDark ? Colors.white : Colors.black87;
+    final labelC = isDark ? _DarkTokens.onMuted : Colors.black54;
+    final valueC = isDark ? _DarkTokens.on : Colors.black87;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -917,7 +941,6 @@ class _ScheduleClassCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-
           Row(
             children: [
               Icon(Icons.person_rounded, size: 18, color: labelC),
@@ -934,15 +957,13 @@ class _ScheduleClassCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontWeight: FontWeight.w900,
-                    color: isDark ? Colors.white : const Color(0xFF1D4ED8),
+                    color: isDark ? _DarkTokens.on : const Color(0xFF1D4ED8),
                   ),
                 ),
               ),
             ],
           ),
-
           const SizedBox(height: 12),
-
           Row(
             children: [
               Expanded(
@@ -987,8 +1008,8 @@ class _TimeBlock extends StatelessWidget {
     final stroke = isDark
         ? Colors.white.withOpacity(.12)
         : Colors.black.withOpacity(.06);
-    final labelC = isDark ? Colors.white70 : Colors.black54;
-    final valueC = isDark ? Colors.white : Colors.black87;
+    final labelC = isDark ? _DarkTokens.onMuted : Colors.black54;
+    final valueC = isDark ? _DarkTokens.on : Colors.black87;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -1035,8 +1056,8 @@ class _FilterRow extends StatelessWidget {
       final active = value == v;
 
       final fg = active
-          ? (isDark ? Colors.white : Colors.black87)
-          : (isDark ? Colors.white70 : Colors.black54);
+          ? (isDark ? _DarkTokens.on : Colors.black87)
+          : (isDark ? _DarkTokens.onMuted : Colors.black54);
 
       final bg = active
           ? (isDark
@@ -1151,7 +1172,7 @@ class _HomeworkCard extends StatelessWidget {
     final redFg = const Color(0xFFDC2626);
     final redBg = const Color(0xFFDC2626).withOpacity(isDark ? .16 : .09);
 
-    final tint = isDone ? const Color(0xFF16A34A) : const Color(0xFFDC2626);
+    final tint = isDone ? doneFg : redFg;
 
     return _GlassCard(
       tint: tint,
@@ -1167,7 +1188,7 @@ class _HomeworkCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w900,
-                    color: isDark ? Colors.white : Colors.black87,
+                    color: isDark ? _DarkTokens.on : Colors.black87,
                   ),
                 ),
               ),
@@ -1247,14 +1268,14 @@ class _MetaChip extends StatelessWidget {
         ? Colors.white.withOpacity(.10)
         : Colors.black.withOpacity(.06);
 
-    final labelColor = isDark ? Colors.white70 : Colors.black54;
+    final labelColor = isDark ? _DarkTokens.onMuted : Colors.black54;
     final valueColor = emphasize
-        ? (isDark ? Colors.white : Colors.black87)
-        : (isDark ? Colors.white.withOpacity(.92) : Colors.black87);
+        ? (isDark ? _DarkTokens.on : Colors.black87)
+        : (isDark ? _DarkTokens.on : Colors.black87);
 
     final accent = emphasize
         ? const Color(0xFFDC2626)
-        : (isDark ? Colors.white70 : Colors.black54);
+        : (isDark ? _DarkTokens.onMuted : Colors.black54);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),

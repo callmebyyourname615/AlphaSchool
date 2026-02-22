@@ -3,20 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-// ✅ ใช้ไฟล์ profile.dart ของคุณแทน (แก้ path ให้ตรง)
-// ตัวอย่าง:
-// import 'profile.dart';
-// import '../pages/profile.dart';
-// import 'package:your_app/pages/profile.dart';
+// ✅ same AppTheme.mode as Year Picker
+import '../../../../../core/theme/app_theme.dart';
 
-/// ✅ Settings page UI (updated)
-/// - Back arrow (left)
-/// - "Settings" centered
-/// - Account -> ProfilePage (from profile.dart)
-/// - Dark/Light mode toggle
-/// - Language picker (bottom sheet overlay) with flags (Laos / English)
-/// - Logout as red button
-/// - Smooth stagger animations (flutter_animate)
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key, this.title = 'Settings'});
 
@@ -27,14 +16,13 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  // ✅ Light palette (MUST remain exactly as your original)
   static const _bg = Colors.white;
   static const _titleColor = Color(0xFF111827);
   static const _textColor = Color(0xFF6B7280);
   static const _iconColor = Color(0xFF111827);
   static const _chevColor = Color(0xFF9CA3AF);
   static const _divider = Color(0xFFF1F5F9);
-
-  bool _isDarkMode = false;
 
   /// 'lo' or 'en'
   String _lang = 'lo';
@@ -47,117 +35,133 @@ class _SettingsPageState extends State<SettingsPage> {
     ).push(MaterialPageRoute(builder: (_) => const ProfilePage()));
   }
 
+  void _setTheme(bool isDark) {
+    AppTheme.mode.value = isDark ? ThemeMode.dark : ThemeMode.light;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final tiles = <Widget>[
-      // Account -> Profile
-      _SettingsTile(
-        icon: FontAwesomeIcons.user,
-        label: 'Account',
-        trailing: Icon(
-          Icons.chevron_right_rounded,
-          size: 26,
-          color: _chevColor,
-        ),
-        onTap: _openProfile,
-        iconColor: _iconColor.withOpacity(.75),
-        textColor: _textColor,
-      ),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: AppTheme.mode,
+      builder: (context, mode, _) {
+        final isDarkMode = mode == ThemeMode.dark;
+        final p = _SettingsPalette.from(isDarkMode);
 
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Container(height: 1, color: _divider),
-      ),
-
-      // Dark/Light toggle
-      _SettingsSwitchTile(
-        icon: FontAwesomeIcons.moon,
-        label: _isDarkMode ? 'Dark mode' : 'Light mode',
-        value: _isDarkMode,
-        onChanged: (v) => setState(() => _isDarkMode = v),
-        iconColor: _iconColor.withOpacity(.75),
-        textColor: _textColor,
-      ),
-
-      const SizedBox(height: 14),
-
-      // Language
-      _SettingsTile(
-        icon: FontAwesomeIcons.globe,
-        label: 'Language',
-        valueText: _lang == 'lo' ? 'Laos' : 'English',
-        trailing: Icon(
-          Icons.chevron_right_rounded,
-          size: 26,
-          color: _chevColor,
-        ),
-        onTap: _openLanguageSheet,
-        iconColor: _iconColor.withOpacity(.75),
-        textColor: _textColor,
-      ),
-
-      const SizedBox(height: 18),
-
-      // Logout button
-      _LogoutButton(
-        onTap: () {
-          // TODO: your logout logic
-        },
-      ),
-    ];
-
-    return Scaffold(
-      backgroundColor: _bg,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ===== Top Bar =====
-            Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 8, 14, 6),
-                  child: _TopBar(title: widget.title, onBack: _back),
-                )
-                .animate()
-                .fadeIn(duration: 260.ms)
-                .slideY(begin: -0.10, end: 0, duration: 320.ms),
-
-            const SizedBox(height: 8),
-
-            // ===== Content =====
-            Expanded(
-              child: ListView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
-                children: [
-                  _SectionCard(
-                    child: Column(
-                      children: [
-                        for (int i = 0; i < tiles.length; i++)
-                          tiles[i]
-                              .animate()
-                              .fadeIn(
-                                delay: (80 + (i * 55)).ms,
-                                duration: 240.ms,
-                              )
-                              .slideY(
-                                begin: 0.10,
-                                end: 0,
-                                delay: (80 + (i * 55)).ms,
-                                duration: 300.ms,
-                                curve: Curves.easeOutCubic,
-                              ),
-                      ],
-                    ),
-                  ).animate().fadeIn(delay: 120.ms, duration: 280.ms),
-                ],
-              ),
+        final tiles = <Widget>[
+          _SettingsTile(
+            icon: FontAwesomeIcons.user,
+            label: 'Account',
+            trailing: Icon(
+              Icons.chevron_right_rounded,
+              size: 26,
+              color: p.chevColor,
             ),
-          ],
-        ),
-      ),
+            onTap: _openProfile,
+            iconColor: p.iconColor.withOpacity(.75),
+            textColor: p.textColor,
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Container(height: 1, color: p.divider),
+          ),
+
+          // ✅ toggle: updates AppTheme.mode, and THIS PAGE also turns dark
+          _SettingsSwitchTile(
+            icon: FontAwesomeIcons.moon,
+            label: isDarkMode ? 'Dark mode' : 'Light mode',
+            value: isDarkMode,
+            onChanged: _setTheme,
+            iconColor: p.iconColor.withOpacity(.75),
+            textColor: p.textColor,
+          ),
+
+          const SizedBox(height: 14),
+
+          _SettingsTile(
+            icon: FontAwesomeIcons.globe,
+            label: 'Language',
+            valueText: _lang == 'lo' ? 'Laos' : 'English',
+            trailing: Icon(
+              Icons.chevron_right_rounded,
+              size: 26,
+              color: p.chevColor,
+            ),
+            onTap: _openLanguageSheet,
+            iconColor: p.iconColor.withOpacity(.75),
+            textColor: p.textColor,
+          ),
+
+          const SizedBox(height: 18),
+
+          _LogoutButton(
+            onTap: () {
+              // TODO: your logout logic
+            },
+            bgColor: p.logoutBg,
+            borderColor: p.logoutBorder,
+          ),
+        ];
+
+        return Scaffold(
+          backgroundColor: p.bg,
+          body: SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 8, 14, 6),
+                      child: _TopBar(
+                        title: widget.title,
+                        onBack: _back,
+                        titleColor: p.titleColor,
+                      ),
+                    )
+                    .animate()
+                    .fadeIn(duration: 260.ms)
+                    .slideY(begin: -0.10, end: 0, duration: 320.ms),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
+                    children: [
+                      _SectionCard(
+                        bgColor: p.cardBg,
+                        borderColor: p.cardBorder,
+                        shadowColor: p.cardShadow,
+                        child: Column(
+                          children: [
+                            for (int i = 0; i < tiles.length; i++)
+                              tiles[i]
+                                  .animate()
+                                  .fadeIn(
+                                    delay: (80 + (i * 55)).ms,
+                                    duration: 240.ms,
+                                  )
+                                  .slideY(
+                                    begin: 0.10,
+                                    end: 0,
+                                    delay: (80 + (i * 55)).ms,
+                                    duration: 300.ms,
+                                    curve: Curves.easeOutCubic,
+                                  ),
+                          ],
+                        ),
+                      ).animate().fadeIn(delay: 120.ms, duration: 280.ms),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   void _openLanguageSheet() {
+    final isDarkMode = AppTheme.mode.value == ThemeMode.dark;
+    final p = _SettingsPalette.from(isDarkMode);
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -178,6 +182,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
         return _BottomSheetShell(
           title: 'Select language',
+          bgColor: p.sheetBg,
+          borderColor: p.sheetBorder,
+          titleColor: p.sheetTitle,
+          closeColor: p.sheetClose,
+          dragColor: p.sheetDrag,
           child: Column(
             children: [
               for (int i = 0; i < items.length; i++)
@@ -188,6 +197,12 @@ class _SettingsPageState extends State<SettingsPage> {
                         setState(() => _lang = items[i].code);
                         Navigator.of(context).pop();
                       },
+                      selectedBorder: p.langSelectedBorder,
+                      border: p.langBorder,
+                      selectedBg: p.langSelectedBg,
+                      bg: p.langBg,
+                      textColor: p.langText,
+                      checkColor: p.langCheck,
                     )
                     .animate()
                     .fadeIn(delay: (60 + i * 70).ms, duration: 220.ms)
@@ -207,11 +222,134 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 }
 
+// =====================
+// Palette (light = original, dark = only colors to look dark)
+// =====================
+
+class _SettingsPalette {
+  const _SettingsPalette({
+    required this.bg,
+    required this.titleColor,
+    required this.textColor,
+    required this.iconColor,
+    required this.chevColor,
+    required this.divider,
+    required this.cardBg,
+    required this.cardBorder,
+    required this.cardShadow,
+    required this.sheetBg,
+    required this.sheetBorder,
+    required this.sheetTitle,
+    required this.sheetClose,
+    required this.sheetDrag,
+    required this.langSelectedBorder,
+    required this.langBorder,
+    required this.langSelectedBg,
+    required this.langBg,
+    required this.langText,
+    required this.langCheck,
+    required this.logoutBg,
+    required this.logoutBorder,
+  });
+
+  final Color bg;
+  final Color titleColor;
+  final Color textColor;
+  final Color iconColor;
+  final Color chevColor;
+  final Color divider;
+
+  final Color cardBg;
+  final Color cardBorder;
+  final Color cardShadow;
+
+  final Color sheetBg;
+  final Color sheetBorder;
+  final Color sheetTitle;
+  final Color sheetClose;
+  final Color sheetDrag;
+
+  final Color langSelectedBorder;
+  final Color langBorder;
+  final Color langSelectedBg;
+  final Color langBg;
+  final Color langText;
+  final Color langCheck;
+
+  final Color logoutBg;
+  final Color logoutBorder;
+
+  factory _SettingsPalette.from(bool isDark) {
+    if (!isDark) {
+      // ✅ EXACTLY your original light style
+      return const _SettingsPalette(
+        bg: _SettingsPageState._bg,
+        titleColor: _SettingsPageState._titleColor,
+        textColor: _SettingsPageState._textColor,
+        iconColor: _SettingsPageState._iconColor,
+        chevColor: _SettingsPageState._chevColor,
+        divider: _SettingsPageState._divider,
+        cardBg: Colors.white,
+        cardBorder: Color(0xFFF1F5F9),
+        cardShadow: Color(0x0A111827),
+        sheetBg: Colors.white,
+        sheetBorder: Color(0xFFF1F5F9),
+        sheetTitle: Color(0xFF111827),
+        sheetClose: Color(0xFF9CA3AF),
+        sheetDrag: Color(0xFFE5E7EB),
+        langSelectedBorder: Color(0xFF111827),
+        langBorder: Color(0xFFF1F5F9),
+        langSelectedBg: Color(0xFFF9FAFB),
+        langBg: Colors.white,
+        langText: Color(0xFF111827),
+        langCheck: Color(0xFF111827),
+        logoutBg: Color(0xFFFEF2F2),
+        logoutBorder: Color(0xFFFEE2E2),
+      );
+    }
+
+    // ✅ Dark colors only (layout remains identical)
+    return _SettingsPalette(
+      bg: const Color(0xFF0B1220),
+      titleColor: Colors.white.withOpacity(.95),
+      textColor: Colors.white.withOpacity(.75),
+      iconColor: Colors.white.withOpacity(.90),
+      chevColor: Colors.white.withOpacity(.55),
+      divider: Colors.white.withOpacity(.10),
+      cardBg: const Color(0xFF0F172A),
+      cardBorder: Colors.white.withOpacity(.10),
+      cardShadow: Colors.black.withOpacity(.35),
+      sheetBg: const Color(0xFF0F172A),
+      sheetBorder: Colors.white.withOpacity(.12),
+      sheetTitle: Colors.white.withOpacity(.92),
+      sheetClose: Colors.white.withOpacity(.60),
+      sheetDrag: Colors.white.withOpacity(.18),
+      langSelectedBorder: Colors.white.withOpacity(.85),
+      langBorder: Colors.white.withOpacity(.12),
+      langSelectedBg: Colors.white.withOpacity(.06),
+      langBg: const Color(0xFF0F172A),
+      langText: Colors.white.withOpacity(.92),
+      langCheck: Colors.white.withOpacity(.90),
+      logoutBg: const Color(0xFF2A0F14),
+      logoutBorder: const Color(0xFF5B1B25),
+    );
+  }
+}
+
+// =====================
+// UI widgets (layout unchanged)
+// =====================
+
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.title, required this.onBack});
+  const _TopBar({
+    required this.title,
+    required this.onBack,
+    required this.titleColor,
+  });
 
   final String title;
   final VoidCallback onBack;
+  final Color titleColor;
 
   @override
   Widget build(BuildContext context) {
@@ -222,8 +360,8 @@ class _TopBar extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: _SettingsPageState._titleColor,
+            style: TextStyle(
+              color: titleColor,
               fontSize: 22,
               fontWeight: FontWeight.w900,
               height: 1.0,
@@ -234,7 +372,7 @@ class _TopBar extends StatelessWidget {
             child: IconButton(
               onPressed: onBack,
               icon: const Icon(Icons.arrow_back_rounded),
-              color: _SettingsPageState._titleColor,
+              color: titleColor,
               splashRadius: 22,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
@@ -247,24 +385,32 @@ class _TopBar extends StatelessWidget {
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.child});
+  const _SectionCard({
+    required this.child,
+    required this.bgColor,
+    required this.borderColor,
+    required this.shadowColor,
+  });
 
   final Widget child;
+  final Color bgColor;
+  final Color borderColor;
+  final Color shadowColor;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: bgColor,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
-        boxShadow: const [
+        border: Border.all(color: borderColor),
+        boxShadow: [
           BoxShadow(
             blurRadius: 14,
             spreadRadius: 0,
-            offset: Offset(0, 8),
-            color: Color(0x0A111827),
+            offset: const Offset(0, 8),
+            color: shadowColor,
           ),
         ],
       ),
@@ -394,9 +540,15 @@ class _SettingsSwitchTile extends StatelessWidget {
 }
 
 class _LogoutButton extends StatelessWidget {
-  const _LogoutButton({required this.onTap});
+  const _LogoutButton({
+    required this.onTap,
+    required this.bgColor,
+    required this.borderColor,
+  });
 
   final VoidCallback onTap;
+  final Color bgColor;
+  final Color borderColor;
 
   @override
   Widget build(BuildContext context) {
@@ -410,8 +562,8 @@ class _LogoutButton extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
-                color: const Color(0xFFFEF2F2),
-                border: Border.all(color: const Color(0xFFFEE2E2)),
+                color: bgColor,
+                border: Border.all(color: borderColor),
               ),
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -448,10 +600,24 @@ class _LogoutButton extends StatelessWidget {
 }
 
 class _BottomSheetShell extends StatelessWidget {
-  const _BottomSheetShell({required this.title, required this.child});
+  const _BottomSheetShell({
+    required this.title,
+    required this.child,
+    required this.bgColor,
+    required this.borderColor,
+    required this.titleColor,
+    required this.closeColor,
+    required this.dragColor,
+  });
 
   final String title;
   final Widget child;
+
+  final Color bgColor;
+  final Color borderColor;
+  final Color titleColor;
+  final Color closeColor;
+  final Color dragColor;
 
   @override
   Widget build(BuildContext context) {
@@ -461,9 +627,9 @@ class _BottomSheetShell extends StatelessWidget {
         margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: bgColor,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFF1F5F9)),
+          border: Border.all(color: borderColor),
           boxShadow: const [
             BoxShadow(
               blurRadius: 20,
@@ -479,7 +645,7 @@ class _BottomSheetShell extends StatelessWidget {
               width: 44,
               height: 5,
               decoration: BoxDecoration(
-                color: const Color(0xFFE5E7EB),
+                color: dragColor,
                 borderRadius: BorderRadius.circular(999),
               ),
             ),
@@ -489,8 +655,8 @@ class _BottomSheetShell extends StatelessWidget {
                 Expanded(
                   child: Text(
                     title,
-                    style: const TextStyle(
-                      color: Color(0xFF111827),
+                    style: TextStyle(
+                      color: titleColor,
                       fontSize: 16,
                       fontWeight: FontWeight.w900,
                     ),
@@ -500,7 +666,7 @@ class _BottomSheetShell extends StatelessWidget {
                   onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.close_rounded),
                   splashRadius: 20,
-                  color: const Color(0xFF9CA3AF),
+                  color: closeColor,
                 ),
               ],
             ),
@@ -518,15 +684,29 @@ class _LanguageRow extends StatelessWidget {
     required this.item,
     required this.selected,
     required this.onTap,
+    required this.selectedBorder,
+    required this.border,
+    required this.selectedBg,
+    required this.bg,
+    required this.textColor,
+    required this.checkColor,
   });
 
   final _LangItem item;
   final bool selected;
   final VoidCallback onTap;
 
+  final Color selectedBorder;
+  final Color border;
+  final Color selectedBg;
+  final Color bg;
+  final Color textColor;
+  final Color checkColor;
+
   @override
   Widget build(BuildContext context) {
-    final border = selected ? const Color(0xFF111827) : const Color(0xFFF1F5F9);
+    final b = selected ? selectedBorder : border;
+    final c = selected ? selectedBg : bg;
 
     return Material(
       color: Colors.transparent,
@@ -538,8 +718,8 @@ class _LanguageRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: border),
-            color: selected ? const Color(0xFFF9FAFB) : Colors.white,
+            border: Border.all(color: b),
+            color: c,
           ),
           child: Row(
             children: [
@@ -548,15 +728,14 @@ class _LanguageRow extends StatelessWidget {
               Expanded(
                 child: Text(
                   item.title,
-                  style: const TextStyle(
-                    color: Color(0xFF111827),
+                  style: TextStyle(
+                    color: textColor,
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
-              if (selected)
-                const Icon(Icons.check_rounded, color: Color(0xFF111827)),
+              if (selected) Icon(Icons.check_rounded, color: checkColor),
             ],
           ),
         ),

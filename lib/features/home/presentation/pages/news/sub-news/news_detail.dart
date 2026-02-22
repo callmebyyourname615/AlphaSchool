@@ -1,210 +1,378 @@
-import 'dart:ui';
+// news_details_page.dart
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-class NewsDetailPage extends StatefulWidget {
-  const NewsDetailPage({super.key, required this.article});
+/// ✅ Model that NewsPage can pass to this page
+class NewsArticle {
+  final String category;
+  final String title;
+
+  final String authorName;
+  final String authorAvatarUrl;
+
+  final String timeAgo;
+  final int views;
+
+  final String headerImageUrl;
+
+  /// short intro / lead
+  final String lead;
+
+  /// optional highlight quote
+  final String? quote;
+
+  /// body paragraphs
+  final List<String> paragraphs;
+
+  // NOTE:
+  // Keep this constructor NON-const to avoid Hot Reload limitations that can
+  // throw: "Const class cannot remove fields" when you tweak model fields.
+  NewsArticle({
+    required this.category,
+    required this.title,
+    required this.authorName,
+    required this.authorAvatarUrl,
+    required this.timeAgo,
+    required this.views,
+    required this.headerImageUrl,
+    required this.lead,
+    this.quote,
+    required this.paragraphs,
+  });
+}
+
+/// ✅ Details page (NO AppPageTemplate)
+class NewsDetailsPage extends StatelessWidget {
+  const NewsDetailsPage({super.key, required this.article});
 
   final NewsArticle article;
 
-  @override
-  State<NewsDetailPage> createState() => _NewsDetailPageState();
-}
-
-class _NewsDetailPageState extends State<NewsDetailPage> {
-  final _commentCtl = TextEditingController();
-  bool _bookmarked = false;
-
-  @override
-  void dispose() {
-    _commentCtl.dispose();
-    super.dispose();
-  }
+  static const _bgDark = Color(0xFF0B1220);
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final topInset = MediaQuery.of(context).padding.top;
-    final size = MediaQuery.of(context).size;
 
-    final heroH = (size.height * 0.46).clamp(320.0, 420.0);
-    final sheetTop = heroH - 54; // overlap like reference
+    final pageBg = isDark ? _bgDark : const Color(0xFFF6F7FB);
+
+    // ✅ consistent tokens (fix “white card + white text” imbalance)
+    final titleC = isDark ? _DarkTokens.on : const Color(0xFF0F172A);
+    final subC = isDark ? _DarkTokens.onMuted : const Color(0xFF475569);
+    final bodyC = isDark
+        ? Colors.white.withOpacity(.86)
+        : const Color(0xFF0F172A).withOpacity(.88);
 
     return Scaffold(
-      backgroundColor: isDark
-          ? const Color(0xFF0B1220)
-          : const Color(0xFFEFF6FF),
+      backgroundColor: pageBg,
       body: Stack(
         children: [
-          // =========================================
-          // HERO
-          // =========================================
-          SizedBox(
-            height: heroH,
-            width: size.width,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child:
-                      _NetImage(
-                            url: widget.article.heroImageUrl,
-                            fallbackColor: const Color(0xFF111827),
-                          )
-                          .animate()
-                          .fadeIn(duration: 260.ms)
-                          .scale(
-                            begin: const Offset(1.03, 1.03),
-                            end: const Offset(1, 1),
-                            duration: 520.ms,
-                            curve: Curves.easeOutCubic,
-                          ),
-                ),
-
-                // overlay
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withOpacity(.12),
-                          Colors.black.withOpacity(.26),
-                          Colors.black.withOpacity(.62),
-                        ],
-                      ),
-                    ),
-                  ).animate().fadeIn(delay: 80.ms, duration: 240.ms),
-                ),
-
-                // top bar (back + search)
-                Positioned(
-                  left: 14,
-                  right: 14,
-                  top: topInset + 10,
-                  child: Row(
-                    children: [
-                      _GlassIconBtn(
-                            icon: Icons.arrow_back_rounded,
-                            onTap: () => Navigator.of(context).pop(),
-                          )
-                          .animate()
-                          .fadeIn(duration: 220.ms)
-                          .slideX(
-                            begin: -.12,
-                            end: 0,
-                            curve: Curves.easeOutCubic,
-                          ),
-                      const Spacer(),
-                      _GlassIconBtn(
-                            icon: FontAwesomeIcons.search,
-                            fa: true,
-                            onTap: () {},
-                          )
-                          .animate()
-                          .fadeIn(duration: 220.ms)
-                          .slideX(
-                            begin: .12,
-                            end: 0,
-                            curve: Curves.easeOutCubic,
-                          ),
+          // soft background glow
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: const Alignment(0.2, -0.9),
+                    radius: 1.0,
+                    colors: [
+                      _dotColor(
+                        article.category,
+                      ).withOpacity(isDark ? .22 : .16),
+                      pageBg,
                     ],
                   ),
                 ),
+              ),
+            ),
+          ),
 
-                // category + title
-                Positioned(
-                  left: 16,
-                  right: 16,
-                  bottom: 22,
+          CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: _HeaderImage(url: article.headerImageUrl)
+                    .animate()
+                    .fadeIn(duration: 260.ms)
+                    .scale(
+                      begin: const Offset(.98, .98),
+                      end: const Offset(1, 1),
+                    ),
+              ),
+
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _CategoryPill(label: widget.article.category)
+                      // category pill + actions
+                      Row(
+                            children: [
+                              _Pill(
+                                label: article.category,
+                                dotColor: _dotColor(article.category),
+                              ),
+                              const Spacer(),
+                              _IconPillButton(
+                                icon: FontAwesomeIcons.bookmark,
+                                onTap: () {},
+                              ),
+                              const SizedBox(width: 10),
+                              _IconPillButton(
+                                icon: FontAwesomeIcons.shareNodes,
+                                onTap: () {},
+                              ),
+                            ],
+                          )
                           .animate()
-                          .fadeIn(delay: 130.ms, duration: 240.ms)
+                          .fadeIn(delay: 90.ms, duration: 220.ms)
                           .slideY(
                             begin: .18,
                             end: 0,
                             curve: Curves.easeOutCubic,
                           ),
-                      const SizedBox(height: 10),
+
+                      const SizedBox(height: 12),
+
+                      // title
                       Text(
-                            widget.article.title,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            article.title,
+                            style: TextStyle(
+                              color: titleC,
                               fontWeight: FontWeight.w900,
-                              fontSize: 24,
-                              height: 1.06,
-                              letterSpacing: .2,
+                              fontSize: 22,
+                              height: 1.12,
+                              letterSpacing: -0.2,
                             ),
                           )
                           .animate()
-                          .fadeIn(delay: 170.ms, duration: 260.ms)
+                          .fadeIn(delay: 140.ms, duration: 240.ms)
                           .slideY(
-                            begin: .20,
+                            begin: .14,
                             end: 0,
                             curve: Curves.easeOutCubic,
                           ),
+
+                      const SizedBox(height: 14),
+
+                      // author row + stats (✅ fixed dark surface)
+                      _GlassCard(
+                            radius: 18,
+                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                            tint: _dotColor(article.category),
+                            child: Row(
+                              children: [
+                                _Avatar(url: article.authorAvatarUrl, size: 40),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        article.authorName,
+                                        style: TextStyle(
+                                          color: titleC,
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            FontAwesomeIcons.clock,
+                                            size: 12,
+                                            color: subC,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            article.timeAgo,
+                                            style: TextStyle(
+                                              color: subC,
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Icon(
+                                            FontAwesomeIcons.eye,
+                                            size: 12,
+                                            color: subC,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            "${article.views} views",
+                                            style: TextStyle(
+                                              color: subC,
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _dotColor(
+                                      article.category,
+                                    ).withOpacity(isDark ? .18 : .12),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: isDark
+                                          ? Colors.white.withOpacity(.12)
+                                          : Colors.black.withOpacity(.06),
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    FontAwesomeIcons.newspaper,
+                                    size: 14,
+                                    color: _dotColor(article.category),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                          .animate()
+                          .fadeIn(delay: 190.ms, duration: 240.ms)
+                          .slideY(
+                            begin: .12,
+                            end: 0,
+                            curve: Curves.easeOutCubic,
+                          ),
+
+                      const SizedBox(height: 16),
+
+                      // lead
+                      Text(
+                            article.lead,
+                            style: TextStyle(
+                              color: subC,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              height: 1.5,
+                            ),
+                          )
+                          .animate()
+                          .fadeIn(delay: 230.ms, duration: 240.ms)
+                          .slideY(
+                            begin: .10,
+                            end: 0,
+                            curve: Curves.easeOutCubic,
+                          ),
+
+                      if ((article.quote ?? "").trim().isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        _QuoteCard(
+                              text: article.quote!.trim(),
+                              color: _dotColor(article.category),
+                            )
+                            .animate()
+                            .fadeIn(delay: 280.ms, duration: 260.ms)
+                            .slideY(
+                              begin: .12,
+                              end: 0,
+                              curve: Curves.easeOutCubic,
+                            ),
+                      ],
+
+                      const SizedBox(height: 16),
+
+                      // body paragraphs
+                      ...List.generate(article.paragraphs.length, (i) {
+                        final p = article.paragraphs[i].trim();
+                        if (p.isEmpty) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child:
+                              Text(
+                                    p,
+                                    style: TextStyle(
+                                      color: bodyC,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                      height: 1.65,
+                                    ),
+                                  )
+                                  .animate()
+                                  .fadeIn(
+                                    delay: (320 + i * 90).ms,
+                                    duration: 260.ms,
+                                  )
+                                  .slideY(
+                                    begin: .10,
+                                    end: 0,
+                                    curve: Curves.easeOutCubic,
+                                  ),
+                        );
+                      }),
+
+                      const SizedBox(height: 10),
+
+                      // bottom action
+                      SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: ElevatedButton(
+                              onPressed: () => Navigator.of(context).maybePop(),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _dotColor(
+                                  article.category,
+                                ).withOpacity(isDark ? .95 : .92),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: const Text(
+                                "Back to News",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          )
+                          .animate()
+                          .fadeIn(delay: 540.ms, duration: 260.ms)
+                          .slideY(
+                            begin: .12,
+                            end: 0,
+                            curve: Curves.easeOutCubic,
+                          ),
+
+                      const SizedBox(height: 28),
                     ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
 
-          // =========================================
-          // FLOAT ACTIONS (bookmark/share)
-          // =========================================
+          // glass top bar (back) ✅ change title to news header/title
           Positioned(
-            right: 18,
-            top: sheetTop - 46,
-            child: Row(
-              children: [
-                _CircleActionBtn(
-                      icon: _bookmarked
-                          ? Icons.bookmark_rounded
-                          : Icons.bookmark_outline_rounded,
-                      onTap: () => setState(() => _bookmarked = !_bookmarked),
+            left: 16,
+            right: 16,
+            top: MediaQuery.of(context).padding.top + 10,
+            child:
+                _GlassTopBar(
+                      title: article.title,
+                      onBack: () => Navigator.of(context).maybePop(),
                     )
                     .animate()
-                    .fadeIn(delay: 220.ms, duration: 220.ms)
-                    .scale(
-                      begin: const Offset(.9, .9),
-                      end: const Offset(1, 1),
-                    ),
-                const SizedBox(width: 10),
-                _CircleActionBtn(icon: Icons.share_rounded, onTap: () {})
-                    .animate()
-                    .fadeIn(delay: 260.ms, duration: 220.ms)
-                    .scale(
-                      begin: const Offset(.9, .9),
-                      end: const Offset(1, 1),
-                    ),
-              ],
-            ),
-          ),
-
-          // =========================================
-          // CONTENT SHEET
-          // =========================================
-          Positioned.fill(
-            top: sheetTop,
-            child: _Sheet(
-              isDark: isDark,
-              child:
-                  _ArticleContent(
-                        isDark: isDark,
-                        article: widget.article,
-                        commentController: _commentCtl,
-                      )
-                      .animate()
-                      .fadeIn(delay: 140.ms, duration: 260.ms)
-                      .slideY(begin: .07, end: 0, curve: Curves.easeOutCubic),
-            ),
+                    .fadeIn(duration: 220.ms)
+                    .slideY(begin: -.25, end: 0, curve: Curves.easeOutCubic),
           ),
         ],
       ),
@@ -213,39 +381,108 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
 }
 
 // ======================================================
-// Sheet + content
+// Dark tokens + Glass surface (✅ fix dark “white card” imbalance)
 // ======================================================
 
-class _Sheet extends StatelessWidget {
-  const _Sheet({required this.isDark, required this.child});
+class _DarkTokens {
+  static const panelA = Color(0xFF0B2B5B);
+  static const panelB = Color(0xFF071A33);
+  static const panelC = Color(0xFF060B16);
 
-  final bool isDark;
+  static Color border = Colors.white.withOpacity(.12);
+  static Color shadow = Colors.black.withOpacity(.45);
+
+  static Color on = Colors.white.withOpacity(.92);
+  static Color onMuted = Colors.white.withOpacity(.72);
+}
+
+class _GlassCard extends StatelessWidget {
+  const _GlassCard({
+    required this.child,
+    this.padding = const EdgeInsets.all(14),
+    this.radius = 20,
+    this.tint,
+    this.blur = 16,
+  });
+
   final Widget child;
+  final EdgeInsets padding;
+  final double radius;
+  final Color? tint;
+  final double blur;
 
   @override
   Widget build(BuildContext context) {
-    final bg = isDark ? const Color(0xFF0B1220) : Colors.white;
-    final border = isDark ? Colors.white.withOpacity(.10) : Colors.black12;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    Color blend(Color base, double amt) {
+      final t = tint;
+      if (t == null) return base;
+      return Color.lerp(base, t, amt) ?? base;
+    }
+
+    if (isDark) {
+      final g1 = blend(_DarkTokens.panelA, .10).withOpacity(.70);
+      final g2 = blend(_DarkTokens.panelB, .08).withOpacity(.86);
+      final g3 = blend(_DarkTokens.panelC, .05).withOpacity(.92);
+
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(radius),
+              border: Border.all(color: _DarkTokens.border),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [g1, g2, g3],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  blurRadius: 22,
+                  offset: const Offset(0, 12),
+                  color: _DarkTokens.shadow,
+                ),
+              ],
+            ),
+            child: child,
+          ),
+        ),
+      );
+    }
+
+    final baseTop = Colors.white.withOpacity(.92);
+    final baseBottom = Colors.white.withOpacity(.78);
+    final t = tint;
+    final tintTop = t == null
+        ? baseTop
+        : (Color.lerp(baseTop, t, .06) ?? baseTop);
+    final tintBottom = t == null
+        ? baseBottom
+        : (Color.lerp(baseBottom, t, .04) ?? baseBottom);
 
     return ClipRRect(
-      borderRadius: const BorderRadius.only(
-        topLeft: Radius.circular(26),
-        topRight: Radius.circular(26),
-      ),
+      borderRadius: BorderRadius.circular(radius),
       child: BackdropFilter(
-        filter: ImageFilter.blur(
-          sigmaX: isDark ? 12 : 8,
-          sigmaY: isDark ? 12 : 8,
-        ),
+        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
         child: Container(
+          padding: padding,
           decoration: BoxDecoration(
-            color: bg.withOpacity(isDark ? .86 : 1),
-            border: Border(top: BorderSide(color: border)),
+            borderRadius: BorderRadius.circular(radius),
+            border: Border.all(color: Colors.black.withOpacity(.08)),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [tintTop, tintBottom],
+            ),
             boxShadow: [
               BoxShadow(
-                blurRadius: 28,
-                offset: const Offset(0, -10),
-                color: Colors.black.withOpacity(isDark ? .35 : .10),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
+                color: Colors.black.withOpacity(.10),
               ),
             ],
           ),
@@ -256,168 +493,74 @@ class _Sheet extends StatelessWidget {
   }
 }
 
-class _ArticleContent extends StatelessWidget {
-  const _ArticleContent({
-    required this.isDark,
-    required this.article,
-    required this.commentController,
-  });
+// ======================================================
+// UI Parts
+// ======================================================
 
-  final bool isDark;
-  final NewsArticle article;
-  final TextEditingController commentController;
+class _HeaderImage extends StatelessWidget {
+  const _HeaderImage({required this.url});
+  final String url;
 
   @override
   Widget build(BuildContext context) {
-    final titleC = isDark ? Colors.white : const Color(0xFF111827);
-    final subC = isDark
-        ? Colors.white.withOpacity(.65)
-        : const Color(0xFF9CA3AF);
-    final bodyC = isDark
-        ? Colors.white.withOpacity(.80)
-        : const Color(0xFF6B7280);
+    const h = 280.0;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return SafeArea(
-      top: false,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // author
-            Row(
-              children: [
-                ClipOval(
-                  child: SizedBox(
-                    width: 42,
-                    height: 42,
-                    child: _NetImage(
-                      url: article.authorAvatarUrl,
-                      fallbackColor: const Color(0xFF111827),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        article.authorName,
-                        style: TextStyle(
-                          color: titleC,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 14,
-                          height: 1.0,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "${article.timeAgo} / ${article.views} View",
-                        style: TextStyle(
-                          color: subC,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 12,
-                          height: 1.0,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ).animate().fadeIn(delay: 60.ms, duration: 240.ms),
-
-            const SizedBox(height: 16),
-
-            _DropCapParagraph(
-              isDark: isDark,
-              text: article.paragraphs.isNotEmpty
-                  ? article.paragraphs.first
-                  : "",
-            ).animate().fadeIn(delay: 90.ms, duration: 240.ms),
-
-            const SizedBox(height: 10),
-
-            for (int i = 1; i < article.paragraphs.length; i++) ...[
-              Text(
-                    article.paragraphs[i],
-                    style: TextStyle(
-                      color: bodyC,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                      height: 1.55,
-                    ),
-                  )
-                  .animate()
-                  .fadeIn(delay: (120 + i * 40).ms, duration: 220.ms)
-                  .slideY(begin: .06, end: 0, curve: Curves.easeOutCubic),
-              const SizedBox(height: 12),
-            ],
-
-            const SizedBox(height: 4),
-
-            _QuoteBlock(isDark: isDark, quote: article.quote)
-                .animate()
-                .fadeIn(delay: 220.ms, duration: 240.ms)
-                .slideY(begin: .06, end: 0, curve: Curves.easeOutCubic),
-
-            const SizedBox(height: 16),
-
-            _CommentBar(
-                  isDark: isDark,
-                  controller: commentController,
-                  onSend: () {
-                    FocusScope.of(context).unfocus();
-                    commentController.clear();
-                  },
-                )
-                .animate()
-                .fadeIn(delay: 260.ms, duration: 240.ms)
-                .slideY(begin: .08, end: 0, curve: Curves.easeOutCubic),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DropCapParagraph extends StatelessWidget {
-  const _DropCapParagraph({required this.isDark, required this.text});
-
-  final bool isDark;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    if (text.isEmpty) return const SizedBox.shrink();
-
-    final bodyC = isDark
-        ? Colors.white.withOpacity(.80)
-        : const Color(0xFF6B7280);
-    final titleC = isDark ? Colors.white : const Color(0xFF111827);
-
-    final first = text.characters.first;
-    final rest = text.characters.skip(1).toString();
-
-    return RichText(
-      text: TextSpan(
+    return SizedBox(
+      height: h,
+      child: Stack(
         children: [
-          TextSpan(
-            text: first,
-            style: TextStyle(
-              color: titleC,
-              fontWeight: FontWeight.w900,
-              fontSize: 54,
-              height: 1.0,
+          Positioned.fill(
+            child: Image.network(
+              url,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                color: isDark ? Colors.white.withOpacity(.10) : Colors.black12,
+                child: Icon(
+                  Icons.image_not_supported_rounded,
+                  color: isDark
+                      ? Colors.white.withOpacity(.85)
+                      : const Color(0xFF0F172A),
+                ),
+              ),
+              loadingBuilder: (context, child, progress) {
+                if (progress == null) return child;
+                return Container(
+                  color: isDark
+                      ? Colors.white.withOpacity(.08)
+                      : Colors.black12,
+                  child: Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.4,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          isDark
+                              ? Colors.white.withOpacity(.85)
+                              : const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
-          TextSpan(
-            text: rest,
-            style: TextStyle(
-              color: bodyC,
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
-              height: 1.55,
+          // overlay gradient for readability
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withOpacity(.22),
+                    Colors.black.withOpacity(.10),
+                    Colors.black.withOpacity(.58),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -426,202 +569,132 @@ class _DropCapParagraph extends StatelessWidget {
   }
 }
 
-class _QuoteBlock extends StatelessWidget {
-  const _QuoteBlock({required this.isDark, required this.quote});
+class _GlassTopBar extends StatelessWidget {
+  const _GlassTopBar({required this.title, required this.onBack});
 
-  final bool isDark;
-  final String quote;
+  final String title;
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
-    final line = isDark ? const Color(0xFF60A5FA) : const Color(0xFF3B82F6);
-    final textC = isDark
-        ? Colors.white.withOpacity(.86)
-        : const Color(0xFF6B7280);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 3,
-          height: 64,
-          margin: const EdgeInsets.only(top: 2),
+    final fg = Colors.white;
+    final bg = Colors.white.withOpacity(isDark ? .10 : .16);
+    final border = Colors.white.withOpacity(isDark ? .14 : .20);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        child: Container(
+          height: 52,
           decoration: BoxDecoration(
-            color: line,
-            borderRadius: BorderRadius.circular(99),
+            color: bg,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: border),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            quote,
-            style: TextStyle(
-              color: textC,
-              fontStyle: FontStyle.italic,
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
-              height: 1.55,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _CommentBar extends StatelessWidget {
-  const _CommentBar({
-    required this.isDark,
-    required this.controller,
-    required this.onSend,
-  });
-
-  final bool isDark;
-  final TextEditingController controller;
-  final VoidCallback onSend;
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = isDark ? Colors.white.withOpacity(.08) : const Color(0xFFF3F4F6);
-    final hint = isDark
-        ? Colors.white.withOpacity(.45)
-        : const Color(0xFF9CA3AF);
-
-    return Row(
-      children: [
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              height: 54,
-              color: bg,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Center(
-                child: TextField(
-                  controller: controller,
-                  style: TextStyle(
-                    color: isDark ? Colors.white : const Color(0xFF111827),
-                    fontWeight: FontWeight.w700,
-                  ),
-                  decoration: InputDecoration(
-                    border: InputBorder.none,
-                    hintText: "Write a comment…",
-                    hintStyle: TextStyle(
-                      color: hint,
-                      fontWeight: FontWeight.w700,
-                    ),
+          child: Row(
+            children: [
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: onBack,
+                borderRadius: BorderRadius.circular(14),
+                child: const SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Center(
+                    child: Icon(Icons.arrow_back_rounded, color: Colors.white),
                   ),
                 ),
               ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        _CircleActionBtn(
-          icon: Icons.send_rounded,
-          onTap: onSend,
-          size: 54,
-          color: const Color(0xFF2563EB),
-        ),
-      ],
-    );
-  }
-}
-
-// ======================================================
-// Small UI parts
-// ======================================================
-
-class _GlassIconBtn extends StatelessWidget {
-  const _GlassIconBtn({
-    required this.icon,
-    required this.onTap,
-    this.fa = false,
-  });
-
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool fa;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkResponse(
-        onTap: onTap,
-        radius: 28,
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(.12),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withOpacity(.18)),
-          ),
-          child: Center(
-            child: fa
-                ? FaIcon(icon, size: 18, color: Colors.white.withOpacity(.92))
-                : Icon(icon, size: 22, color: Colors.white.withOpacity(.92)),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CircleActionBtn extends StatelessWidget {
-  const _CircleActionBtn({
-    required this.icon,
-    required this.onTap,
-    this.size = 46,
-    this.color = const Color(0xFF2563EB),
-  });
-
-  final IconData icon;
-  final VoidCallback onTap;
-  final double size;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkResponse(
-        onTap: onTap,
-        radius: size / 2,
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: color,
-            boxShadow: [
-              BoxShadow(
-                blurRadius: 16,
-                offset: const Offset(0, 10),
-                color: Colors.black.withOpacity(.22),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: fg,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                    letterSpacing: .2,
+                  ),
+                ),
               ),
+              const SizedBox(width: 8),
+              const SizedBox(width: 44, height: 44), // keep title centered
+              const SizedBox(width: 8),
             ],
           ),
-          child: Icon(icon, color: Colors.white, size: 22),
         ),
       ),
     );
   }
 }
 
-class _CategoryPill extends StatelessWidget {
-  const _CategoryPill({required this.label});
+class _IconPillButton extends StatelessWidget {
+  const _IconPillButton({required this.icon, required this.onTap});
 
-  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final bg = isDark
+        ? Colors.white.withOpacity(.08)
+        : Colors.black.withOpacity(.05);
+    final border = isDark
+        ? Colors.white.withOpacity(.12)
+        : Colors.black.withOpacity(.08);
+    final fg = isDark ? Colors.white.withOpacity(.90) : const Color(0xFF0F172A);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: border),
+        ),
+        child: Center(child: Icon(icon, size: 16, color: fg)),
+      ),
+    );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  const _Pill({required this.label, required this.dotColor});
+
+  final String label;
+  final Color dotColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final bg = isDark
+        ? Colors.white.withOpacity(.08)
+        : Colors.black.withOpacity(.05);
+    final border = isDark
+        ? Colors.white.withOpacity(.12)
+        : Colors.black.withOpacity(.08);
+    final textC = isDark
+        ? Colors.white.withOpacity(.92)
+        : const Color(0xFF0F172A);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(.92),
+        color: bg,
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -629,16 +702,13 @@ class _CategoryPill extends StatelessWidget {
           Container(
             width: 8,
             height: 8,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Color(0xFF8B5CF6),
-            ),
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
           ),
           const SizedBox(width: 8),
           Text(
             label,
-            style: const TextStyle(
-              color: Color(0xFF111827),
+            style: TextStyle(
+              color: textC,
               fontWeight: FontWeight.w900,
               fontSize: 12,
               height: 1.0,
@@ -650,87 +720,112 @@ class _CategoryPill extends StatelessWidget {
   }
 }
 
-class _NetImage extends StatelessWidget {
-  const _NetImage({required this.url, required this.fallbackColor});
+class _QuoteCard extends StatelessWidget {
+  const _QuoteCard({required this.text, required this.color});
 
-  final String url;
-  final Color fallbackColor;
+  final String text;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Image.network(
-      url,
-      fit: BoxFit.cover,
-      filterQuality: FilterQuality.high,
-      errorBuilder: (_, __, ___) {
-        return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                fallbackColor.withOpacity(.85),
-                fallbackColor.withOpacity(.35),
-              ],
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return _GlassCard(
+      radius: 18,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      tint: color,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 4,
+            height: 44,
+            decoration: BoxDecoration(
+              color: color.withOpacity(.9),
+              borderRadius: BorderRadius.circular(999),
             ),
           ),
-          child: Center(
-            child: Icon(
-              FontAwesomeIcons.solidImage,
-              color: Colors.white.withOpacity(.85),
-              size: 26,
-            ),
-          ),
-        );
-      },
-      loadingBuilder: (context, child, progress) {
-        if (progress == null) return child;
-        return Container(
-          color: fallbackColor.withOpacity(.18),
-          child: Center(
-            child: SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.4,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  Colors.white.withOpacity(.80),
-                ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              "“$text”",
+              style: TextStyle(
+                color: isDark
+                    ? Colors.white.withOpacity(.88)
+                    : const Color(0xFF0F172A).withOpacity(.86),
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
+                height: 1.5,
               ),
             ),
           ),
-        );
-      },
+        ],
+      ),
+    );
+  }
+}
+
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.url, required this.size});
+  final String url;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: Image.network(
+        url,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          width: size,
+          height: size,
+          color: isDark ? Colors.white.withOpacity(.10) : Colors.black12,
+          child: Icon(
+            Icons.person_rounded,
+            color: isDark
+                ? Colors.white.withOpacity(.85)
+                : const Color(0xFF0F172A),
+          ),
+        ),
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return Container(
+            width: size,
+            height: size,
+            color: isDark ? Colors.white.withOpacity(.08) : Colors.black12,
+          );
+        },
+      ),
     );
   }
 }
 
 // ======================================================
-// Model
+// Helpers
 // ======================================================
 
-class NewsArticle {
-  final String category;
-  final String title;
-  final String heroImageUrl;
-
-  final String authorName;
-  final String authorAvatarUrl;
-  final String timeAgo;
-  final int views;
-
-  final List<String> paragraphs;
-  final String quote;
-
-  const NewsArticle({
-    required this.category,
-    required this.title,
-    required this.heroImageUrl,
-    required this.authorName,
-    required this.authorAvatarUrl,
-    required this.timeAgo,
-    required this.views,
-    required this.paragraphs,
-    required this.quote,
-  });
+Color _dotColor(String c) {
+  switch (c.toLowerCase()) {
+    case "exams":
+      return const Color.fromARGB(255, 168, 0, 0); // ✅ fixed (was dark red)
+    case "scholarships":
+      return const Color(0xFF8B5CF6);
+    case "events":
+      return const Color(0xFFF59E0B);
+    case "sports":
+      return const Color(0xFFFACC15);
+    case "health":
+      return const Color(0xFF10B981);
+    case "campus":
+      return const Color(0xFF0EA5E9);
+    case "education":
+      return const Color(0xFF3B82F6);
+    default:
+      return const Color(0xFF60A5FA);
+  }
 }

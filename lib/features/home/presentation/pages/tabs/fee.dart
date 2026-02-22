@@ -1,4 +1,6 @@
+// fee_page.dart
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -10,17 +12,35 @@ import 'package:alpha_school/core/widgets/app_modern_count_tabbar.dart' as tabs;
 int _alpha(double o) => (o * 255).round().clamp(0, 255);
 Color _o(Color c, double opacity) => c.withAlpha(_alpha(opacity));
 
-// ✅ Same gradient as global tabbar file (default indicator gradient)
-const Gradient _kGlobalTabGradient = LinearGradient(
+// =======================================================
+// ✅ SavingPage vibe tokens (dark)
+// - NOTE: keep Fee status colors as-is (mustPay/pending/paid)
+// =======================================================
+const Color _kSavingBtnColor = Color(0xFF3B5FD9);
+const Color _kSavingBtnGlow = Color(0xFF284A9D);
+
+const Gradient _kSavingPremiumGradient = LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
-  colors: [Color(0xFF60A5FA), Color(0xFF3B82F6), Color(0xFF2563EB)],
+  colors: [Color(0xFF0B2B5B), Color(0xFF071A33), Color(0xFF060B16)],
+);
+
+const Gradient _kSavingTabIndicatorGradient = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [_kSavingBtnColor, _kSavingBtnGlow, Color(0xFF0B2B5B)],
 );
 
 // ---- Status colors (as requested) ----
 const Color _kStatusMustPay = Color(0xFF2563EB); // blue
 const Color _kStatusPending = Color(0xFFF59E0B); // yellow
 const Color _kStatusPaid = Color(0xFF22C55E); // green
+
+Color _accent(BuildContext context, bool isDark) =>
+    isDark ? _kSavingBtnColor : Theme.of(context).colorScheme.primary;
+
+Color _accentStrong(BuildContext context, bool isDark) =>
+    isDark ? _kSavingBtnGlow : Theme.of(context).colorScheme.tertiary;
 
 class FeePage extends StatefulWidget {
   const FeePage({
@@ -57,15 +77,10 @@ class _FeePageState extends State<FeePage> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final tabGrad = _kGlobalTabGradient;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // ✅ unselected label for tabbar (same style as score.dart)
-    final unselected = const Color.fromARGB(
-      255,
-      71,
-      71,
-      71,
-    ).withAlpha((0.70 * 255).round());
+    // ✅ unselected label: Saving-like
+    final unselected = isDark ? _o(Colors.white, .60) : _o(Colors.black87, .58);
 
     final mustPay = _fees.where((e) => e.status == FeeStatus.mustPay).toList();
     final pending = _fees.where((e) => e.status == FeeStatus.pending).toList();
@@ -77,8 +92,9 @@ class _FeePageState extends State<FeePage> with SingleTickerProviderStateMixin {
       showBack: widget.showBack,
       scrollable: false,
 
-      // ✅ Make page premium gradient match global tabbar gradient
-      premiumDarkGradient: tabGrad,
+      // ✅ IMPORTANT: force Saving premium overlay in dark mode
+      premiumDark: isDark,
+      premiumDarkGradient: _kSavingPremiumGradient,
 
       contentPadding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       child: Column(
@@ -86,12 +102,14 @@ class _FeePageState extends State<FeePage> with SingleTickerProviderStateMixin {
         children: [
           tabs.AppModernCountTabBar(
             controller: _tab,
-            indicatorGradient: tabGrad,
+
+            // ✅ IMPORTANT: remove bright global blue gradient
+            indicatorGradient: _kSavingTabIndicatorGradient,
+
             labelColor: Colors.white,
             unselectedLabelColor: unselected,
             items: [
               tabs.AppTabItem(
-                // Tabs requested (Lao). Meanings: Must Pay / Pending / Paid
                 label: "ທີ່ຕ້ອງຈ່າຍ",
                 icon: FontAwesomeIcons.moneyBillWave,
                 count: mustPay.length,
@@ -167,13 +185,15 @@ class _FeeListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      final fg = isDark
+          ? Colors.white
+          : Theme.of(context).colorScheme.onSurface;
+
       return Center(
         child: Text(
           emptyText,
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            color: _o(Theme.of(context).colorScheme.onSurface, .65),
-          ),
+          style: TextStyle(fontWeight: FontWeight.w900, color: _o(fg, .70)),
         ),
       ).animate().fadeIn(duration: 220.ms).slideY(begin: 0.08, end: 0);
     }
@@ -204,14 +224,14 @@ class _FeeCardGlass extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cs = Theme.of(context).colorScheme;
 
-    final cardBg = isDark ? _o(Colors.white, .08) : Colors.white;
-    final border = isDark ? _o(Colors.white, .12) : _o(Colors.black, .08);
+    // ✅ Saving-like glass
+    final cardBg = isDark ? _o(Colors.white, .075) : Colors.white;
+    final border = isDark ? _o(Colors.white, .14) : _o(Colors.black, .08);
     final textMain = isDark ? Colors.white : Colors.black87;
-    final textSub = _o(textMain, .65);
+    final textSub = _o(textMain, .66);
 
-    final statusMeta = item.status.meta(cs, isDark);
+    final statusMeta = item.status.meta(isDark);
 
     return Material(
       color: Colors.transparent,
@@ -226,8 +246,8 @@ class _FeeCardGlass extends StatelessWidget {
             border: Border.all(color: border),
             boxShadow: [
               BoxShadow(
-                color: _o(Colors.black, isDark ? .16 : .06),
-                blurRadius: 18,
+                color: _o(Colors.black, isDark ? .22 : .06),
+                blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
             ],
@@ -236,7 +256,7 @@ class _FeeCardGlass extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  _FeeIcon(seed: item.seed, status: item.status),
+                  _FeeIcon(status: item.status),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -330,7 +350,10 @@ class _FeeCardGlass extends StatelessWidget {
               Row(
                 children: [
                   const Spacer(),
-                  _ViewDetailButton(onPressed: onViewDetail),
+                  _ViewDetailButton(
+                    onPressed: onViewDetail,
+                    accent: _accent(context, isDark),
+                  ),
                 ],
               ),
             ],
@@ -342,8 +365,7 @@ class _FeeCardGlass extends StatelessWidget {
 }
 
 class _FeeIcon extends StatelessWidget {
-  const _FeeIcon({required this.seed, required this.status});
-  final int seed;
+  const _FeeIcon({required this.status});
   final FeeStatus status;
 
   @override
@@ -359,18 +381,11 @@ class _FeeIcon extends StatelessWidget {
     final bg = _o(base, isDark ? .22 : .14);
     final border = _o(base, isDark ? .34 : .22);
 
-    IconData icon;
-    switch (status) {
-      case FeeStatus.mustPay:
-        icon = FontAwesomeIcons.moneyBillWave;
-        break;
-      case FeeStatus.pending:
-        icon = FontAwesomeIcons.clock;
-        break;
-      case FeeStatus.paid:
-        icon = FontAwesomeIcons.circleCheck;
-        break;
-    }
+    final icon = switch (status) {
+      FeeStatus.mustPay => FontAwesomeIcons.moneyBillWave,
+      FeeStatus.pending => FontAwesomeIcons.clock,
+      FeeStatus.paid => FontAwesomeIcons.circleCheck,
+    };
 
     return Container(
           width: 46,
@@ -405,9 +420,10 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final textMain = isDark ? Colors.white : Colors.black87;
     final textSub = _o(textMain, .62);
+
+    final acc = _accent(context, isDark);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -420,7 +436,7 @@ class _InfoRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          FaIcon(icon, size: 14, color: _o(cs.primary, isDark ? .95 : .90)),
+          FaIcon(icon, size: 14, color: _o(acc, isDark ? .95 : .90)),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -487,13 +503,13 @@ class _MiniChip extends StatelessWidget {
 }
 
 class _ViewDetailButton extends StatelessWidget {
-  const _ViewDetailButton({required this.onPressed});
+  const _ViewDetailButton({required this.onPressed, required this.accent});
   final VoidCallback onPressed;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cs = Theme.of(context).colorScheme;
 
     return Material(
           color: Colors.transparent,
@@ -503,20 +519,23 @@ class _ViewDetailButton extends StatelessWidget {
             child: Ink(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: isDark ? _o(cs.primary, .22) : _o(cs.primary, .12),
+                color: isDark ? _o(accent, .22) : _o(accent, .12),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: isDark ? _o(cs.primary, .34) : _o(cs.primary, .20),
+                  color: isDark ? _o(accent, .34) : _o(accent, .20),
                 ),
               ),
-              child: Row(
+              child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.visibility_rounded, size: 18),
-                  const SizedBox(width: 8),
-                  const Text(
+                  Icon(Icons.visibility_rounded, size: 18, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text(
                     "View details",
-                    style: TextStyle(fontWeight: FontWeight.w900),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
                   ),
                 ],
               ),
@@ -529,6 +548,9 @@ class _ViewDetailButton extends StatelessWidget {
   }
 }
 
+// =======================================================
+// ✅ Fee Detail Page (Adjusted for Saving dark mode)
+// =======================================================
 class FeeDetailPage extends StatelessWidget {
   const FeeDetailPage({
     super.key,
@@ -541,16 +563,19 @@ class FeeDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final statusMeta = item.status.meta(cs, isDark);
+    final statusMeta = item.status.meta(isDark);
 
     return AppPageTemplate(
       title: "Fee details",
       backgroundAsset: backgroundAsset,
       showBack: true,
       scrollable: true,
-      premiumDarkGradient: _kGlobalTabGradient,
+
+      // ✅ IMPORTANT: same Saving premium overlay
+      premiumDark: isDark,
+      premiumDarkGradient: _kSavingPremiumGradient,
+
       contentPadding: const EdgeInsets.fromLTRB(14, 14, 14, 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -601,22 +626,22 @@ class _DetailHeader extends StatelessWidget {
     return Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: isDark ? _o(Colors.white, .08) : Colors.white,
+            color: isDark ? _o(Colors.white, .075) : Colors.white,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: isDark ? _o(Colors.white, .12) : _o(Colors.black, .08),
+              color: isDark ? _o(Colors.white, .14) : _o(Colors.black, .08),
             ),
             boxShadow: [
               BoxShadow(
-                color: _o(Colors.black, isDark ? .16 : .06),
-                blurRadius: 18,
+                color: _o(Colors.black, isDark ? .22 : .06),
+                blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
             ],
           ),
           child: Row(
             children: [
-              _FeeIcon(seed: item.seed, status: item.status),
+              _FeeIcon(status: item.status),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -641,6 +666,28 @@ class _DetailHeader extends StatelessWidget {
                         color: textSub,
                         fontWeight: FontWeight.w700,
                       ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _InfoRow(
+                            icon: FontAwesomeIcons.moneyBillWave,
+                            label: "Amount",
+                            value: item.amountText,
+                            isDark: isDark,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _InfoRow(
+                            icon: FontAwesomeIcons.calendar,
+                            label: "Due",
+                            value: item.dueText,
+                            isDark: isDark,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -676,10 +723,10 @@ class _DetailCard extends StatelessWidget {
     return Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: isDark ? _o(Colors.white, .08) : Colors.white,
+            color: isDark ? _o(Colors.white, .075) : Colors.white,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: isDark ? _o(Colors.white, .12) : _o(Colors.black, .08),
+              color: isDark ? _o(Colors.white, .14) : _o(Colors.black, .08),
             ),
           ),
           child: Column(
@@ -740,42 +787,43 @@ class _PrimaryActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cs = Theme.of(context).colorScheme;
-
     final canPay = item.status == FeeStatus.mustPay;
+
+    // ✅ Saving accent + gradient button (remove Theme primary blue)
+    final acc = _accent(context, isDark);
 
     return Row(
           children: [
             Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.arrow_back_rounded),
-                label: const Text("Back"),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  side: BorderSide(
-                    color: isDark
-                        ? _o(Colors.white, .18)
-                        : _o(Colors.black, .10),
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
+              child: _GhostButton(
+                onTap: () => Navigator.of(context).maybePop(),
+                icon: Icons.arrow_back_rounded,
+                label: "Back",
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: ElevatedButton.icon(
-                onPressed: canPay ? () {} : null,
-                icon: const Icon(Icons.payment_rounded),
-                label: Text(canPay ? "Pay now" : "Paid"),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  backgroundColor: cs.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+              child: _GradientButton(
+                enabled: canPay,
+                gradient: _kSavingTabIndicatorGradient,
+                onTap: canPay ? () {} : null,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.payment_rounded,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      canPay ? "Pay now" : "Paid",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -787,12 +835,109 @@ class _PrimaryActionBar extends StatelessWidget {
   }
 }
 
+class _GhostButton extends StatelessWidget {
+  const _GhostButton({
+    required this.onTap,
+    required this.icon,
+    required this.label,
+  });
+
+  final VoidCallback onTap;
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final fg = isDark ? Colors.white : Colors.black87;
+    final bg = isDark ? _o(Colors.white, .06) : _o(Colors.black, .03);
+    final border = isDark ? _o(Colors.white, .18) : _o(Colors.black, .10);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: border),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: fg),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: TextStyle(color: fg, fontWeight: FontWeight.w900),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GradientButton extends StatelessWidget {
+  const _GradientButton({
+    required this.enabled,
+    required this.gradient,
+    required this.onTap,
+    required this.child,
+  });
+
+  final bool enabled;
+  final Gradient gradient;
+  final VoidCallback? onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final border = isDark ? _o(Colors.white, .14) : _o(Colors.black, .10);
+    final shadow = isDark ? _o(Colors.black, .30) : _o(Colors.black, .12);
+
+    return Opacity(
+      opacity: enabled ? 1 : 0.55,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          borderRadius: BorderRadius.circular(16),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              gradient: gradient,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: border),
+              boxShadow: [
+                BoxShadow(
+                  color: shadow,
+                  blurRadius: 18,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Center(child: child),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // -------------------- Demo Models --------------------
 
 enum FeeStatus { mustPay, pending, paid }
 
 extension on FeeStatus {
-  _StatusMeta meta(ColorScheme cs, bool isDark) {
+  _StatusMeta meta(bool isDark) {
     switch (this) {
       case FeeStatus.mustPay:
         return _StatusMeta(
@@ -860,9 +1005,7 @@ class FeeItem {
   final int seed;
 
   String get amountText => "${_formatInt(amount)} LAK";
-
   String get dueText => _formatDateTime(dueAt);
-
   String get paidText => paidAt == null ? "-" : _formatDateTime(paidAt!);
 }
 
@@ -918,7 +1061,6 @@ class FeeDemoFactory {
       );
     }
 
-    // Sort by due date ascending for Must Pay / Pending; Paid by paid time desc
     out.sort((a, b) {
       if (a.status == FeeStatus.paid && b.status == FeeStatus.paid) {
         return (b.paidAt ?? b.dueAt).compareTo(a.paidAt ?? a.dueAt);
@@ -950,6 +1092,5 @@ String _formatInt(int n) {
 String _two(int n) => n < 10 ? "0$n" : "$n";
 
 String _formatDateTime(DateTime d) {
-  // Simple readable format: YYYY-MM-DD HH:mm
   return "${d.year}-${_two(d.month)}-${_two(d.day)} ${_two(d.hour)}:${_two(d.minute)}";
 }

@@ -1,11 +1,9 @@
-// core/theme/app_theme.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
 class AppTheme {
   /// ✅ Premium Dark Blue (shared)
-  /// ใช้เป็นสีพื้นหลัง/การ์ด/gradient ในโหมด Dark ให้ดู “premium”
   static const Color darkBluePremium = Color(0xFF0B1220);
 
   /// ✅ Premium Dark Gradient (shared)
@@ -19,11 +17,8 @@ class AppTheme {
     colors: [_premiumA, _premiumB, _premiumC],
   );
 
-  /// ✅ Global ThemeMode (shared across pages)
-  /// - เปลี่ยนได้จากหน้า YearPickerPage เท่านั้น (ตามที่คุณต้องการ)
-  /// - หน้าอื่น ๆ แค่อ่านค่าเดียวกัน => theme จะ “เชื่อมกัน” ทั้งแอป
+  /// ✅ Single source of truth: ThemeMode for whole app
   static final ValueNotifier<ThemeMode> mode = ValueNotifier(ThemeMode.light);
-
   static ThemeMode get themeMode => mode.value;
   static bool get isDarkMode => mode.value == ThemeMode.dark;
 
@@ -41,15 +36,16 @@ class AppTheme {
   static RoundedRectangleBorder _r(double r) =>
       RoundedRectangleBorder(borderRadius: BorderRadius.circular(r));
 
-  /// ✅ เลือกฟอนต์ตามภาษา (lo = Noto Sans Lao, อื่นๆ = Inter)
+  // ---- Helpers (avoid withOpacity deprecated) ----
+  static int _alpha(double o) => (o * 255).round().clamp(0, 255);
+  static Color _o(Color c, double opacity) => c.withAlpha(_alpha(opacity));
+
+  /// ✅ font by locale (lo = Noto Sans Lao, else Inter)
   static TextTheme _fontTextTheme(Locale locale) {
-    if (locale.languageCode == 'lo') {
-      return GoogleFonts.notoSansLaoTextTheme();
-    }
+    if (locale.languageCode == 'lo') return GoogleFonts.notoSansLaoTextTheme();
     return GoogleFonts.interTextTheme();
   }
 
-  /// ✅ เพิ่มความ “หนา” + premium spacing ให้ TextTheme
   static TextTheme _makeBold(TextTheme t) {
     return t.copyWith(
       headlineLarge: t.headlineLarge?.copyWith(
@@ -97,11 +93,9 @@ class AppTheme {
     );
   }
 
-  /// ✅ ฟอนต์หลัก (กัน widget บางตัวไปใช้ fontFamily)
   static String? _fontFamily(Locale locale) {
-    if (locale.languageCode == 'lo') {
+    if (locale.languageCode == 'lo')
       return GoogleFonts.notoSansLao().fontFamily;
-    }
     return GoogleFonts.inter().fontFamily;
   }
 
@@ -116,7 +110,6 @@ class AppTheme {
       brightness: Brightness.light,
       fontFamily: _fontFamily(locale),
 
-      // ✅ คุม “พื้นหลังแอป” ด้วย scaffoldBackgroundColor (แทน ColorScheme)
       scaffoldBackgroundColor: AppColors.grayUltraLight,
 
       colorScheme: ColorScheme.fromSeed(
@@ -146,15 +139,15 @@ class AppTheme {
         fillColor: Colors.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(_radiusMd),
-          borderSide: BorderSide(color: AppColors.slate.withOpacity(.18)),
+          borderSide: BorderSide(color: _o(AppColors.slate, .18)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(_radiusMd),
-          borderSide: BorderSide(color: AppColors.slate.withOpacity(.14)),
+          borderSide: BorderSide(color: _o(AppColors.slate, .14)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(_radiusMd),
-          borderSide: BorderSide(color: AppColors.blue400.withOpacity(.65)),
+          borderSide: BorderSide(color: _o(AppColors.blue400, .65)),
         ),
       ),
 
@@ -205,18 +198,18 @@ class AppTheme {
 
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white.withOpacity(.08),
+        fillColor: _o(Colors.white, .08),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(_radiusMd),
-          borderSide: BorderSide(color: Colors.white.withOpacity(.12)),
+          borderSide: BorderSide(color: _o(Colors.white, .12)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(_radiusMd),
-          borderSide: BorderSide(color: Colors.white.withOpacity(.10)),
+          borderSide: BorderSide(color: _o(Colors.white, .10)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(_radiusMd),
-          borderSide: BorderSide(color: Colors.white.withOpacity(.36)),
+          borderSide: BorderSide(color: _o(Colors.white, .36)),
         ),
       ),
 

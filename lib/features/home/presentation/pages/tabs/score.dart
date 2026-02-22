@@ -1,4 +1,6 @@
+// study_plan_page.dart
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -10,12 +12,29 @@ import 'package:alpha_school/core/widgets/app_modern_count_tabbar.dart' as tabs;
 int _alpha(double o) => (o * 255).round().clamp(0, 255);
 Color _o(Color c, double opacity) => c.withAlpha(_alpha(opacity));
 
-// ✅ Same gradient as global tabbar file (default indicator gradient)
-const Gradient _kGlobalTabGradient = LinearGradient(
+// ✅ SavingPage tokens (match /saving_page.dart vibe)
+const Color _kSavingBtnColor = Color(0xFF3B5FD9);
+const Color _kSavingBtnGlow = Color(0xFF284A9D);
+
+// ✅ dark premium gradient that Saving page uses in panels
+const Gradient _kSavingPremiumGradient = LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
-  colors: [Color(0xFF60A5FA), Color(0xFF3B82F6), Color(0xFF2563EB)],
+  colors: [Color(0xFF0B2B5B), Color(0xFF071A33), Color(0xFF060B16)],
 );
+
+// ✅ tab indicator gradient (NOT the bright sky-blue one)
+const Gradient _kSavingTabIndicatorGradient = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [_kSavingBtnColor, _kSavingBtnGlow, Color(0xFF0B2B5B)],
+);
+
+Color _accent(BuildContext context, bool isDark) =>
+    isDark ? _kSavingBtnColor : Theme.of(context).colorScheme.primary;
+
+Color _accentStrong(BuildContext context, bool isDark) =>
+    isDark ? _kSavingBtnGlow : Theme.of(context).colorScheme.tertiary;
 
 class StudyPlanPage extends StatefulWidget {
   const StudyPlanPage({
@@ -52,15 +71,10 @@ class _StudyPlanPageState extends State<StudyPlanPage>
 
   @override
   Widget build(BuildContext context) {
-    final tabGrad = _kGlobalTabGradient;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // ✅ unselected label for tabbar
-    final unselected = const Color.fromARGB(
-      255,
-      71,
-      71,
-      71,
-    ).withAlpha((0.70 * 255).round());
+    // ✅ unselected label (Saving-like)
+    final unselected = isDark ? _o(Colors.white, .60) : _o(Colors.black87, .58);
 
     return AppPageTemplate(
       title: "Study Plan",
@@ -68,8 +82,9 @@ class _StudyPlanPageState extends State<StudyPlanPage>
       showBack: widget.showBack,
       scrollable: false,
 
-      // ✅ Make page premium gradient match global tabbar gradient
-      premiumDarkGradient: tabGrad,
+      // ✅ IMPORTANT: make it look like SavingPage when Dark mode
+      premiumDark: isDark,
+      premiumDarkGradient: _kSavingPremiumGradient,
 
       contentPadding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       child: Column(
@@ -77,7 +92,10 @@ class _StudyPlanPageState extends State<StudyPlanPage>
         children: [
           tabs.AppModernCountTabBar(
             controller: _tab,
-            indicatorGradient: tabGrad,
+
+            // ✅ indicator uses Saving-like gradient (no more bright blue)
+            indicatorGradient: _kSavingTabIndicatorGradient,
+
             labelColor: Colors.white,
             unselectedLabelColor: unselected,
             items: const [
@@ -195,12 +213,14 @@ class _SubjectCardGlass extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cs = Theme.of(context).colorScheme;
 
-    final cardBg = isDark ? _o(Colors.white, .08) : Colors.white;
-    final border = isDark ? _o(Colors.white, .12) : _o(Colors.black, .08);
+    // ✅ Saving-like glass
+    final cardBg = isDark ? _o(Colors.white, .075) : Colors.white;
+    final border = isDark ? _o(Colors.white, .14) : _o(Colors.black, .08);
     final textMain = isDark ? Colors.white : Colors.black87;
-    final textSub = _o(textMain, .65);
+    final textSub = _o(textMain, .66);
+
+    final acc = _accent(context, isDark);
 
     return Material(
       color: Colors.transparent,
@@ -215,8 +235,8 @@ class _SubjectCardGlass extends StatelessWidget {
             border: Border.all(color: border),
             boxShadow: [
               BoxShadow(
-                color: _o(Colors.black, isDark ? .16 : .06),
-                blurRadius: 18,
+                color: _o(Colors.black, isDark ? .22 : .06),
+                blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
             ],
@@ -246,9 +266,9 @@ class _SubjectCardGlass extends StatelessWidget {
                         const SizedBox(width: 8),
                         _MiniChip(
                           text: subject.level,
-                          bg: _o(cs.primary, isDark ? .16 : .10),
-                          fg: isDark ? Colors.white : cs.primary,
-                          border: _o(cs.primary, isDark ? .30 : .18),
+                          bg: _o(acc, isDark ? .18 : .10),
+                          fg: isDark ? Colors.white : acc,
+                          border: _o(acc, isDark ? .34 : .18),
                         ),
                       ],
                     ),
@@ -299,8 +319,13 @@ class _Avatar extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final border = isDark ? _o(Colors.white, .14) : _o(Colors.black, .10);
 
+    // ✅ make avatar colors more “muted” (less neon than before)
     final hue = (seed % 360).toDouble();
-    final bg = HSVColor.fromAHSV(1, hue, 0.35, 0.95).toColor();
+    final bg = HSVColor.fromAHSV(1, hue, 0.25, isDark ? 0.80 : 0.92).toColor();
+
+    final textC = bg.computeLuminance() > 0.62
+        ? _o(Colors.black, .82)
+        : _o(Colors.white, .92);
 
     return Container(
       width: 46,
@@ -313,7 +338,11 @@ class _Avatar extends StatelessWidget {
       ),
       child: Text(
         initials,
-        style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: .4),
+        style: TextStyle(
+          color: textC,
+          fontWeight: FontWeight.w900,
+          letterSpacing: .4,
+        ),
       ),
     );
   }
@@ -356,9 +385,9 @@ class _ScoreBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final bg = isDark ? _o(cs.primary, .18) : _o(cs.primary, .10);
-    final border = _o(cs.primary, isDark ? .30 : .18);
+    final acc = _accent(context, isDark);
+    final bg = isDark ? _o(acc, .18) : _o(acc, .10);
+    final border = _o(acc, isDark ? .34 : .18);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -370,7 +399,7 @@ class _ScoreBadge extends StatelessWidget {
       child: Text(
         text,
         style: TextStyle(
-          color: isDark ? Colors.white : cs.primary,
+          color: isDark ? Colors.white : acc,
           fontWeight: FontWeight.w900,
         ),
       ),
@@ -391,9 +420,9 @@ class _ProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final fg = isDark ? Colors.white : Colors.black87;
     final v = value.clamp(0.0, 1.0);
+    final acc = _accent(context, isDark);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -404,7 +433,7 @@ class _ProgressBar extends StatelessWidget {
               child: Text(
                 label,
                 style: TextStyle(
-                  color: _o(fg, .70),
+                  color: _o(fg, .72),
                   fontWeight: FontWeight.w800,
                   fontSize: 12,
                 ),
@@ -413,7 +442,7 @@ class _ProgressBar extends StatelessWidget {
             Text(
               "${(v * 100).round()}%",
               style: TextStyle(
-                color: _o(fg, .75),
+                color: _o(fg, .78),
                 fontWeight: FontWeight.w900,
                 fontSize: 12,
               ),
@@ -430,7 +459,7 @@ class _ProgressBar extends StatelessWidget {
                 Container(color: _o(fg, .12)),
                 FractionallySizedBox(
                       widthFactor: v,
-                      child: Container(color: _o(cs.primary, .85)),
+                      child: Container(color: _o(acc, .90)),
                     )
                     .animate()
                     .fadeIn(duration: 220.ms)
@@ -530,28 +559,25 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
 
   @override
   Widget build(BuildContext context) {
-    final tabGrad = _kGlobalTabGradient;
-    final unselected = const Color.fromARGB(
-      255,
-      71,
-      71,
-      71,
-    ).withAlpha((0.70 * 255).round());
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final unselected = isDark ? _o(Colors.white, .60) : _o(Colors.black87, .58);
 
     return AppPageTemplate(
       title: widget.subject.name,
       backgroundAsset: widget.backgroundAsset,
+      showBack: true,
       scrollable: false,
 
-      // ✅ Match global tabbar gradient
-      premiumDarkGradient: tabGrad,
+      // ✅ IMPORTANT: same behavior as Saving page in dark
+      premiumDark: isDark,
+      premiumDarkGradient: _kSavingPremiumGradient,
 
       contentPadding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       child: Column(
         children: [
           tabs.AppModernCountTabBar(
             controller: _tab,
-            indicatorGradient: tabGrad,
+            indicatorGradient: _kSavingTabIndicatorGradient,
             labelColor: Colors.white,
             unselectedLabelColor: unselected,
             items: const [
@@ -658,11 +684,11 @@ class _DetailHeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cs = Theme.of(context).colorScheme;
 
-    final cardBg = isDark ? _o(Colors.white, .08) : Colors.white;
-    final border = isDark ? _o(Colors.white, .12) : _o(Colors.black, .08);
+    final cardBg = isDark ? _o(Colors.white, .075) : Colors.white;
+    final border = isDark ? _o(Colors.white, .14) : _o(Colors.black, .08);
     final fg = isDark ? Colors.white : Colors.black87;
+    final acc = _accent(context, isDark);
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -672,8 +698,8 @@ class _DetailHeaderCard extends StatelessWidget {
         border: Border.all(color: border),
         boxShadow: [
           BoxShadow(
-            color: _o(Colors.black, isDark ? .16 : .06),
-            blurRadius: 18,
+            color: _o(Colors.black, isDark ? .22 : .06),
+            blurRadius: 20,
             offset: const Offset(0, 10),
           ),
         ],
@@ -684,7 +710,7 @@ class _DetailHeaderCard extends StatelessWidget {
           Text(
             tabTitle,
             style: TextStyle(
-              color: isDark ? _o(Colors.white, .85) : cs.primary,
+              color: isDark ? _o(Colors.white, .86) : acc,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -772,17 +798,18 @@ class _SelectChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cs = Theme.of(context).colorScheme;
+
+    final acc = _accent(context, isDark);
 
     final bg = selected
-        ? _o(cs.primary, isDark ? .22 : .14)
-        : (isDark ? _o(Colors.white, .08) : Colors.white);
+        ? _o(acc, isDark ? .22 : .14)
+        : (isDark ? _o(Colors.white, .075) : Colors.white);
     final border = selected
-        ? _o(cs.primary, isDark ? .35 : .20)
-        : (isDark ? _o(Colors.white, .12) : _o(Colors.black, .08));
+        ? _o(acc, isDark ? .35 : .20)
+        : (isDark ? _o(Colors.white, .14) : _o(Colors.black, .08));
     final fg = selected
-        ? (isDark ? Colors.white : cs.primary)
-        : (isDark ? _o(Colors.white, .85) : _o(Colors.black87, .75));
+        ? (isDark ? Colors.white : acc)
+        : (isDark ? _o(Colors.white, .86) : _o(Colors.black87, .75));
 
     return Material(
       color: Colors.transparent,
@@ -804,7 +831,7 @@ class _SelectChip extends StatelessWidget {
                     boxShadow: selected
                         ? [
                             BoxShadow(
-                              color: _o(cs.primary, isDark ? .18 : .12),
+                              color: _o(acc, isDark ? .18 : .12),
                               blurRadius: 14,
                               offset: const Offset(0, 8),
                             ),
@@ -821,7 +848,7 @@ class _SelectChip extends StatelessWidget {
                         height: 10,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: selected ? cs.primary : border,
+                          color: selected ? acc : border,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -849,11 +876,13 @@ class _ScoreItemGlassCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cs = Theme.of(context).colorScheme;
 
-    final cardBg = isDark ? _o(Colors.white, .08) : Colors.white;
-    final border = isDark ? _o(Colors.white, .12) : _o(Colors.black, .08);
+    final cardBg = isDark ? _o(Colors.white, .075) : Colors.white;
+    final border = isDark ? _o(Colors.white, .14) : _o(Colors.black, .08);
     final fg = isDark ? Colors.white : Colors.black87;
+
+    final acc = _accent(context, isDark);
+    final accStrong = _accentStrong(context, isDark);
 
     final p = item.total == 0
         ? 0.0
@@ -867,8 +896,8 @@ class _ScoreItemGlassCard extends StatelessWidget {
         border: Border.all(color: border),
         boxShadow: [
           BoxShadow(
-            color: _o(Colors.black, isDark ? .16 : .06),
-            blurRadius: 18,
+            color: _o(Colors.black, isDark ? .22 : .06),
+            blurRadius: 20,
             offset: const Offset(0, 10),
           ),
         ],
@@ -894,16 +923,14 @@ class _ScoreItemGlassCard extends StatelessWidget {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: _o(cs.tertiary, isDark ? .18 : .10),
+                  color: _o(accStrong, isDark ? .18 : .10),
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: _o(cs.tertiary, isDark ? .30 : .18),
-                  ),
+                  border: Border.all(color: _o(accStrong, isDark ? .30 : .18)),
                 ),
                 child: Text(
                   "${item.earned} / ${item.total}",
                   style: TextStyle(
-                    color: isDark ? Colors.white : cs.tertiary,
+                    color: isDark ? Colors.white : accStrong,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -920,7 +947,7 @@ class _ScoreItemGlassCard extends StatelessWidget {
                   Container(color: _o(fg, .12)),
                   FractionallySizedBox(
                         widthFactor: p,
-                        child: Container(color: _o(cs.primary, .85)),
+                        child: Container(color: _o(acc, .90)),
                       )
                       .animate()
                       .fadeIn(duration: 200.ms)
@@ -932,7 +959,7 @@ class _ScoreItemGlassCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             "Topic: ${item.title} — scored ${item.earned} out of ${item.total}",
-            style: TextStyle(color: _o(fg, .70), fontWeight: FontWeight.w700),
+            style: TextStyle(color: _o(fg, .72), fontWeight: FontWeight.w700),
           ),
         ],
       ),

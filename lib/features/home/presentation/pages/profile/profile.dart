@@ -1,16 +1,40 @@
-import 'dart:ui';
+// profile_page.dart
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-/// Profile page UI inspired by the provided design.
-/// - Header uses background image
-/// - Title centered in header (smaller)
-/// - Big white profile card (avatar bigger)
-/// - Verified check mark is GREEN
-/// - "GENERAL" section with modern menu tiles
-/// - Smooth animations using flutter_animate
+// ---- Helpers (avoid withOpacity deprecated) ----
+int _alpha(double o) => (o * 255).round().clamp(0, 255);
+Color _o(Color c, double opacity) => c.withAlpha(_alpha(opacity));
+
+// =======================================================
+// ✅ SavingPage vibe tokens (dark)
+// =======================================================
+const Color _kSavingDarkBg = Color(0xFF0B1220);
+const Color _kSavingBtnColor = Color(0xFF3B5FD9);
+const Color _kSavingBtnGlow = Color(0xFF284A9D);
+
+const Gradient _kSavingPremiumGradient = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFF0B2B5B), Color(0xFF071A33), Color(0xFF060B16)],
+);
+
+const Color _kLightPageBg = Color(0xFFF3F5F9);
+
+Color _accent(BuildContext context, bool isDark) =>
+    isDark ? _kSavingBtnColor : Theme.of(context).colorScheme.primary;
+
+Color _accentStrong(BuildContext context, bool isDark) =>
+    isDark ? _kSavingBtnGlow : Theme.of(context).colorScheme.tertiary;
+
+/// Profile page UI (auto follow Dark/Light mode)
+/// - Dark: Saving vibe (glass + premium gradient overlay)
+/// - Light: clean white cards
+/// - Verified check stays GREEN
+/// - flutter_animate animations
 class ProfilePage extends StatelessWidget {
   const ProfilePage({
     super.key,
@@ -31,20 +55,17 @@ class ProfilePage extends StatelessWidget {
   final String email;
   final bool verified;
   final ImageProvider avatarImage;
-
-  /// ✅ header background image
   final ImageProvider headerImage;
 
   final VoidCallback? onEdit;
-
-  /// Optional custom menu items. If null, demo items are shown.
   final List<ProfileMenuItem>? items;
-
-  static const _pageBg = Color(0xFFF3F5F9);
 
   @override
   Widget build(BuildContext context) {
     final safeTop = MediaQuery.of(context).padding.top;
+
+    // ✅ Follow current theme mode
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final menu =
         items ??
@@ -66,17 +87,17 @@ class ProfilePage extends StatelessWidget {
           ),
         ];
 
-    void goBackHomeShell() {
-      if (Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
+    void goBack() {
+      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
     }
 
+    final pageBg = isDark ? _kSavingDarkBg : _kLightPageBg;
+
     return Scaffold(
-      backgroundColor: _pageBg,
+      backgroundColor: pageBg,
       body: Stack(
         children: [
-          // ✅ Header background IMAGE ONLY
+          // Header background image + overlay (dark/light adaptive)
           SizedBox(
             height: 330 + safeTop,
             width: double.infinity,
@@ -88,8 +109,11 @@ class ProfilePage extends StatelessWidget {
                             image: headerImage,
                             fit: BoxFit.cover,
                             filterQuality: FilterQuality.high,
-                            errorBuilder: (_, __, ___) =>
-                                Container(color: const Color(0xFF0B5FE0)),
+                            errorBuilder: (_, __, ___) => Container(
+                              color: isDark
+                                  ? _kSavingDarkBg
+                                  : const Color(0xFF0B5FE0),
+                            ),
                           )
                           .animate()
                           .fadeIn(duration: 260.ms)
@@ -100,6 +124,55 @@ class ProfilePage extends StatelessWidget {
                             curve: Curves.easeOutCubic,
                           ),
                 ),
+
+                // readability overlay
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: isDark
+                            ? LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  _o(Colors.black, .28),
+                                  _o(Colors.black, .48),
+                                  _o(_kSavingDarkBg, .96),
+                                ],
+                              )
+                            : LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  _o(Colors.black, .12),
+                                  _o(Colors.black, .20),
+                                  _o(Colors.black, .06),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // premium tint in dark (Saving vibe)
+                if (isDark)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              _o(const Color(0xFF0B2B5B), .40),
+                              _o(const Color(0xFF071A33), .38),
+                              _o(const Color(0xFF060B16), .20),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -111,11 +184,7 @@ class ProfilePage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _CenteredTopBar(
-                        title: title,
-                        onBack: goBackHomeShell,
-                        onEdit: onEdit,
-                      )
+                  _CenteredTopBar(title: title, onBack: goBack, onEdit: onEdit)
                       .animate()
                       .fadeIn(duration: 280.ms)
                       .slideY(begin: -0.06, end: 0, duration: 320.ms),
@@ -141,13 +210,22 @@ class ProfilePage extends StatelessWidget {
 
                   const SizedBox(height: 26),
 
-                  Text(
-                        'GENERAL',
-                        style: TextStyle(
-                          color: Colors.black.withAlpha(120),
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.4,
-                        ),
+                  Builder(
+                        builder: (context) {
+                          final isDark =
+                              Theme.of(context).brightness == Brightness.dark;
+                          final fg = isDark
+                              ? _o(Colors.white, .62)
+                              : Colors.black.withAlpha(120);
+                          return Text(
+                            'GENERAL',
+                            style: TextStyle(
+                              color: fg,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.4,
+                            ),
+                          );
+                        },
                       )
                       .animate()
                       .fadeIn(duration: 260.ms, delay: 140.ms)
@@ -165,6 +243,8 @@ class ProfilePage extends StatelessWidget {
                         .fadeIn(duration: 260.ms, delay: (160 + i * 70).ms)
                         .slideX(begin: 0.06, end: 0, duration: 340.ms);
                   }),
+
+                  const SizedBox(height: 8),
                 ],
               ),
             ),
@@ -175,7 +255,6 @@ class ProfilePage extends StatelessWidget {
   }
 }
 
-// ✅ Top bar with true centered title (smaller)
 class _CenteredTopBar extends StatelessWidget {
   const _CenteredTopBar({
     required this.title,
@@ -189,11 +268,14 @@ class _CenteredTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return SizedBox(
       height: 44,
       child: Stack(
         alignment: Alignment.center,
         children: [
+          const SizedBox.expand(),
           Text(
             title,
             textAlign: TextAlign.center,
@@ -207,11 +289,19 @@ class _CenteredTopBar extends StatelessWidget {
           ),
           Align(
             alignment: Alignment.centerLeft,
-            child: _BackPillButton(onTap: onBack),
+            child: _PillIconButton(
+              icon: Icons.arrow_back_rounded,
+              onTap: onBack,
+              isDark: isDark,
+            ),
           ),
           Align(
             alignment: Alignment.centerRight,
-            child: _EditButton(onTap: onEdit),
+            child: _PillIconButton(
+              icon: Icons.edit_rounded,
+              onTap: onEdit,
+              isDark: isDark,
+            ),
           ),
         ],
       ),
@@ -219,9 +309,16 @@ class _CenteredTopBar extends StatelessWidget {
   }
 }
 
-class _BackPillButton extends StatelessWidget {
-  const _BackPillButton({required this.onTap});
-  final VoidCallback onTap;
+class _PillIconButton extends StatelessWidget {
+  const _PillIconButton({
+    required this.icon,
+    required this.onTap,
+    required this.isDark,
+  });
+
+  final IconData icon;
+  final VoidCallback? onTap;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -234,13 +331,11 @@ class _BackPillButton extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: Colors.white.withAlpha(28),
+                color: _o(Colors.white, isDark ? .10 : .16),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withAlpha(40)),
+                border: Border.all(color: _o(Colors.white, isDark ? .18 : .22)),
               ),
-              child: const Center(
-                child: Icon(Icons.arrow_back_rounded, color: Colors.white),
-              ),
+              child: Center(child: Icon(icon, color: Colors.white)),
             ),
           ),
         )
@@ -270,7 +365,20 @@ class _ProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shadow = Colors.black.withAlpha(25);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final acc = _accent(context, isDark);
+
+    final shadow = _o(Colors.black, isDark ? .35 : .10);
+
+    final cardBg = isDark
+        ? _o(Colors.white, .075)
+        : Colors.white.withAlpha(245);
+    final border = isDark ? _o(Colors.white, .14) : Colors.white.withAlpha(160);
+
+    final textMain = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSub = isDark
+        ? _o(Colors.white, .64)
+        : Colors.black.withAlpha(120);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(22),
@@ -280,9 +388,9 @@ class _ProfileCard extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
           decoration: BoxDecoration(
-            color: Colors.white.withAlpha(245),
+            color: cardBg,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: Colors.white.withAlpha(160)),
+            border: Border.all(color: border),
             boxShadow: [
               BoxShadow(
                 color: shadow,
@@ -293,16 +401,19 @@ class _ProfileCard extends StatelessWidget {
           ),
           child: Column(
             children: [
-              // ✅ Avatar (bigger a bit more)
+              // Avatar
               Container(
-                    width: 132, // ✅ bigger
-                    height: 132, // ✅ bigger
+                    width: 132,
+                    height: 132,
                     decoration: BoxDecoration(
-                      color: Colors.grey.withAlpha(20),
-                      borderRadius: BorderRadius.circular(34), // ✅ match size
+                      color: _o(Colors.white, isDark ? .06 : .08),
+                      borderRadius: BorderRadius.circular(34),
+                      border: Border.all(
+                        color: _o(Colors.white, isDark ? .14 : .10),
+                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withAlpha(18),
+                          color: _o(Colors.black, isDark ? .30 : .08),
                           blurRadius: 18,
                           offset: const Offset(0, 10),
                         ),
@@ -313,8 +424,12 @@ class _ProfileCard extends StatelessWidget {
                       child: Image(
                         image: avatarImage,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Center(
-                          child: Icon(Icons.person_rounded, size: 60),
+                        errorBuilder: (_, __, ___) => Center(
+                          child: Icon(
+                            Icons.person_rounded,
+                            size: 60,
+                            color: _o(textMain, .85),
+                          ),
                         ),
                       ),
                     ),
@@ -330,7 +445,7 @@ class _ProfileCard extends StatelessWidget {
 
               const SizedBox(height: 14),
 
-              // Name + verified (GREEN)
+              // Name + verified
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -339,10 +454,10 @@ class _ProfileCard extends StatelessWidget {
                       name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF0F172A),
+                        color: textMain,
                       ),
                     ),
                   ),
@@ -352,7 +467,7 @@ class _ProfileCard extends StatelessWidget {
                           width: 22,
                           height: 22,
                           decoration: const BoxDecoration(
-                            color: Color(0xFF22C55E), // ✅ green
+                            color: Color(0xFF22C55E),
                             shape: BoxShape.circle,
                           ),
                           child: const Center(
@@ -377,13 +492,13 @@ class _ProfileCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: Colors.black.withAlpha(120),
+                  color: textSub,
                 ),
               ).animate().fadeIn(duration: 240.ms, delay: 120.ms),
 
               const SizedBox(height: 16),
 
-              // Badges row
+              // Badges row (dark/light adaptive)
               Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
@@ -391,32 +506,44 @@ class _ProfileCard extends StatelessWidget {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF6F8FC),
+                      color: isDark
+                          ? _o(Colors.white, .06)
+                          : const Color(0xFFF6F8FC),
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: Colors.black.withAlpha(10)),
+                      border: Border.all(
+                        color: isDark
+                            ? _o(Colors.white, .10)
+                            : Colors.black.withAlpha(10),
+                      ),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         _Badge(
                           icon: FontAwesomeIcons.medal,
-                          bg: Color(0xFFD1FAE5),
-                          fg: Color(0xFF10B981),
+                          bg: isDark
+                              ? _o(const Color(0xFF10B981), .18)
+                              : const Color(0xFFD1FAE5),
+                          fg: const Color(0xFF10B981),
                         ),
                         _Badge(
                           icon: FontAwesomeIcons.award,
-                          bg: Color(0xFFEDE9FE),
-                          fg: Color(0xFF7C3AED),
+                          bg: isDark
+                              ? _o(const Color(0xFF7C3AED), .18)
+                              : const Color(0xFFEDE9FE),
+                          fg: const Color(0xFF7C3AED),
                         ),
                         _Badge(
                           icon: FontAwesomeIcons.shield,
-                          bg: Color(0xFFDBEAFE),
-                          fg: Color(0xFF2563EB),
+                          bg: isDark ? _o(acc, .18) : _o(acc, .14),
+                          fg: isDark ? Colors.white : acc,
                         ),
                         _Badge(
                           icon: FontAwesomeIcons.sackDollar,
-                          bg: Color(0xFFFFEDD5),
-                          fg: Color(0xFFF97316),
+                          bg: isDark
+                              ? _o(const Color(0xFFF97316), .18)
+                              : const Color(0xFFFFEDD5),
+                          fg: const Color(0xFFF97316),
                         ),
                       ],
                     ),
@@ -441,12 +568,17 @@ class _Badge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       width: 54,
       height: 54,
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? _o(Colors.white, .10) : Colors.black.withAlpha(10),
+        ),
       ),
       child: Center(child: FaIcon(icon, size: 22, color: fg)),
     ).animate().scale(
@@ -465,8 +597,22 @@ class _MenuTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const iconBg = Color(0xFFEAF1FF);
-    const iconFg = Color(0xFF2563EB);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final acc = _accent(context, isDark);
+    final accStrong = _accentStrong(context, isDark);
+
+    final cardBg = isDark ? _o(Colors.white, .075) : Colors.white;
+    final border = isDark ? _o(Colors.white, .14) : Colors.black.withAlpha(14);
+    final shadow = isDark ? _o(Colors.black, .28) : Colors.black.withAlpha(14);
+
+    final textMain = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSub = isDark
+        ? _o(Colors.white, .62)
+        : Colors.black.withAlpha(120);
+
+    final iconBg = isDark ? _o(acc, .18) : _o(acc, .12);
+    final iconFg = isDark ? Colors.white : acc;
 
     return Material(
       color: Colors.transparent,
@@ -476,12 +622,12 @@ class _MenuTile extends StatelessWidget {
         child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cardBg,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.black.withAlpha(14)),
+            border: Border.all(color: border),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withAlpha(14),
+                color: shadow,
                 blurRadius: 18,
                 offset: const Offset(0, 10),
               ),
@@ -495,6 +641,20 @@ class _MenuTile extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: iconBg,
                   borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark
+                        ? _o(Colors.white, .10)
+                        : Colors.black.withAlpha(10),
+                  ),
+                  boxShadow: isDark
+                      ? [
+                          BoxShadow(
+                            color: _o(accStrong, .12),
+                            blurRadius: 14,
+                            offset: const Offset(0, 8),
+                          ),
+                        ]
+                      : [],
                 ),
                 child: Center(
                   child: FaIcon(item.icon, size: 20, color: iconFg),
@@ -507,10 +667,10 @@ class _MenuTile extends StatelessWidget {
                   children: [
                     Text(
                       item.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF0F172A),
+                        color: textMain,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -519,58 +679,19 @@ class _MenuTile extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: Colors.black.withAlpha(120),
+                        color: textSub,
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 10),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: Colors.black.withAlpha(90),
-              ),
+              Icon(Icons.chevron_right_rounded, color: _o(textMain, .55)),
             ],
           ),
         ),
       ),
     );
-  }
-}
-
-class _EditButton extends StatelessWidget {
-  const _EditButton({this.onTap});
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: onTap,
-            child: Ink(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(28),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withAlpha(40)),
-              ),
-              child: const Center(
-                child: Icon(Icons.edit_rounded, color: Colors.white),
-              ),
-            ),
-          ),
-        )
-        .animate()
-        .fadeIn(duration: 260.ms, delay: 120.ms)
-        .scale(
-          begin: const Offset(0.96, 0.96),
-          end: const Offset(1, 1),
-          duration: 280.ms,
-          curve: Curves.easeOutBack,
-        );
   }
 }
 

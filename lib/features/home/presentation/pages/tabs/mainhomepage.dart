@@ -1,4 +1,5 @@
 import 'dart:ui';
+
 import 'package:alpha_school/core/widgets/scanqrcode/scan_qr_code_page.dart';
 import 'package:alpha_school/features/demo/DemoTest.dart';
 import 'package:alpha_school/features/home/presentation/pages/appointment/appointment_page.dart';
@@ -7,7 +8,9 @@ import 'package:alpha_school/features/home/presentation/pages/calendar/calendar_
 import 'package:alpha_school/features/home/presentation/pages/calendar/calendar_year.dart';
 import 'package:alpha_school/features/home/presentation/pages/contact/contact_page.dart';
 import 'package:alpha_school/features/home/presentation/pages/gallery/gallery_page.dart';
+import 'package:alpha_school/features/home/presentation/pages/homework/homework_page.dart';
 import 'package:alpha_school/features/home/presentation/pages/news/news_page.dart';
+import 'package:alpha_school/features/home/presentation/pages/notifications/notifications_page.dart';
 import 'package:alpha_school/features/home/presentation/pages/profile/profile.dart';
 import 'package:alpha_school/features/home/presentation/pages/saving/saving_page.dart';
 import 'package:alpha_school/features/home/presentation/pages/task/task_page.dart';
@@ -20,22 +23,134 @@ import 'package:remixicon/remixicon.dart';
 
 import '../../../../../core/theme/app_colors.dart';
 
-// ✅ ADD: profile page
-
-class ExplorePage extends StatelessWidget {
+class ExplorePage extends StatefulWidget {
   const ExplorePage({super.key});
 
   static const _bgAsset = "assets/images/homepagewall/homepagewallpaper.jpg";
-
-  // ✅ ADD: profile avatar asset (shown in top bar)
   static const _profileAvatarAsset = "assets/images/profile/me.jpg";
+
+  @override
+  State<ExplorePage> createState() => _ExplorePageState();
+}
+
+class _ExplorePageState extends State<ExplorePage> {
+  final GlobalKey _bellKey = GlobalKey();
+
+  late List<_NotificationItem> _notifications;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final now = DateTime.now();
+    _notifications = [
+      _NotificationItem(
+        sender: "Alpha School",
+        title: "ປະກາດສຳຄັນ",
+        body: "ພົບກັນໃນການປະຊຸມຜູ້ປົກຄອງວັນສຸກ 15:00",
+        time: now.subtract(const Duration(minutes: 18)),
+        isUnread: true,
+      ),
+      _NotificationItem(
+        sender: "Teacher - Ms. Lina",
+        title: "ວຽກບ້ານ",
+        body: "ສົ່ງວຽກບ້ານຄະນິດສາດ ກ່ອນ 18:00",
+        time: now.subtract(const Duration(hours: 9)),
+        isUnread: true,
+      ),
+      _NotificationItem(
+        sender: "Finance Office",
+        title: "ແຈ້ງເຕືອນຄ່າຮຽນ",
+        body: "ກະລຸນາຊຳລະຄ່າຮຽນກ່ອນວັນທີ 28",
+        time: now.subtract(const Duration(days: 1, hours: 3)),
+        isUnread: false,
+      ),
+      _NotificationItem(
+        sender: "Library",
+        title: "ຄືນປຶ້ມ",
+        body: "ປຶ້ມທີ່ຢືມຈະຄົບກຳນົດໃນ 2 ມື້",
+        time: now.subtract(const Duration(days: 3, hours: 2)),
+        isUnread: false,
+      ),
+    ];
+  }
+
+  void _markAllRead() {
+    setState(() {
+      _notifications = _notifications
+          .map((e) => e.copyWith(isUnread: false))
+          .toList();
+    });
+  }
+
+  int get _unreadCount => _notifications.where((e) => e.isUnread).length;
+
+  // ✅ ตามที่คุณต้องการ: View all -> notifications_page.dart
+  void _openAllNotifications() {
+    final items = _notifications
+        .map(
+          (n) => NotificationEntry.fromPopup(
+            sender: n.sender,
+            title: n.title,
+            body: n.body,
+            time: n.time,
+            isUnread: n.isUnread,
+          ),
+        )
+        .toList();
+
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => NotificationDetailsPage(items: items)),
+    );
+  }
+
+  void _showNotificationPopup() {
+    final overlay = Overlay.of(context);
+    final renderBox = _bellKey.currentContext?.findRenderObject() as RenderBox?;
+    if (overlay == null || renderBox == null) return;
+
+    final overlayBox = overlay.context.findRenderObject() as RenderBox;
+    final bellSize = renderBox.size;
+    final bellTopLeft = renderBox.localToGlobal(
+      Offset.zero,
+      ancestor: overlayBox,
+    );
+
+    final double screenW = MediaQuery.of(context).size.width;
+    final double maxW = (screenW * 0.86).clamp(280.0, 380.0);
+
+    final double top = bellTopLeft.dy + bellSize.height + 10;
+    double left = (bellTopLeft.dx + bellSize.width) - maxW;
+    left = left.clamp(12.0, screenW - maxW - 12.0);
+
+    late OverlayEntry entry;
+
+    entry = OverlayEntry(
+      builder: (_) {
+        return _NotificationPopupOverlay(
+          top: top,
+          left: left,
+          width: maxW,
+          items: _notifications,
+          onViewAll: () {
+            _openAllNotifications();
+          },
+          onClosed: () {
+            entry.remove();
+            _markAllRead();
+          },
+        );
+      },
+    );
+
+    overlay.insert(entry);
+  }
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
     final isDark = t.brightness == Brightness.dark;
 
-    // ✅ ตัวอย่างข้อมูล (ค่อยผูกกับ API/State จริงได้)
     final today = DateTime.now();
     final bool checkedIn = true;
     final TimeOfDay checkinTime = const TimeOfDay(hour: 8, minute: 15);
@@ -47,7 +162,6 @@ class ExplorePage extends StatelessWidget {
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
     }
 
-    // ✅ ADD: open profile page
     void openProfile() {
       Navigator.of(
         context,
@@ -61,12 +175,10 @@ class ExplorePage extends StatelessWidget {
           final w = constraints.maxWidth;
           final h = constraints.maxHeight;
 
-          // ===== Breakpoints =====
           final isSmallPhone = w < 360;
           final isTablet = w >= 600 && w < 1024;
           final isLargeTablet = w >= 1024;
 
-          // ===== Responsive scalars =====
           double clamp(double v, double min, double max) =>
               v.clamp(min, max).toDouble();
           final s = clamp(w / 375.0, 0.88, 1.35);
@@ -107,7 +219,6 @@ class ExplorePage extends StatelessWidget {
           );
           final headerH = clamp(desiredHeader, 280.0, headerMax);
 
-          // ✅ for FAB safe positioning
           final bottomInset = MediaQuery.of(context).padding.bottom;
 
           return SizedBox(
@@ -115,11 +226,10 @@ class ExplorePage extends StatelessWidget {
             width: w,
             child: Stack(
               children: [
-                // ===== BACKGROUND IMAGE =====
                 Positioned.fill(
                   child:
                       Image.asset(
-                            _bgAsset,
+                            ExplorePage._bgAsset,
                             fit: BoxFit.cover,
                             filterQuality: FilterQuality.high,
                             alignment: Alignment.topCenter,
@@ -134,7 +244,6 @@ class ExplorePage extends StatelessWidget {
                           ),
                 ),
 
-                // ===== SOFT BLUR =====
                 Positioned.fill(
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: bgBlur, sigmaY: bgBlur),
@@ -142,7 +251,6 @@ class ExplorePage extends StatelessWidget {
                   ),
                 ),
 
-                // ===== DARK OVERLAY =====
                 Positioned.fill(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
@@ -159,7 +267,6 @@ class ExplorePage extends StatelessWidget {
                   ),
                 ),
 
-                // ===== OPTIONAL GLOW BLOBS =====
                 Positioned.fill(
                   child: IgnorePointer(
                     child: Stack(
@@ -189,7 +296,6 @@ class ExplorePage extends StatelessWidget {
                   bottom: false,
                   child: Column(
                     children: [
-                      // ===== HEADER CONTENT =====
                       SizedBox(
                         height: headerH,
                         child: Padding(
@@ -202,10 +308,8 @@ class ExplorePage extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // ✅ TOP BAR
                               Row(
                                 children: [
-                                  // ✅ UPDATE: show avatar IMAGE from assets + tap -> profile
                                   InkResponse(
                                         onTap: openProfile,
                                         radius: avatarRadius + 12,
@@ -224,7 +328,7 @@ class ExplorePage extends StatelessWidget {
                                           ),
                                           child: ClipOval(
                                             child: Image.asset(
-                                              _profileAvatarAsset,
+                                              ExplorePage._profileAvatarAsset,
                                               fit: BoxFit.cover,
                                               filterQuality: FilterQuality.high,
                                               errorBuilder: (_, __, ___) =>
@@ -247,9 +351,7 @@ class ExplorePage extends StatelessWidget {
                                         curve: Curves.easeOutBack,
                                         duration: 260.ms,
                                       ),
-
                                   SizedBox(width: isSmallPhone ? 10 : 12),
-
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment:
@@ -288,15 +390,53 @@ class ExplorePage extends StatelessWidget {
                                     duration: 220.ms,
                                   ),
 
-                                  _TopIconButton(
-                                        icon: FontAwesomeIcons.bell,
-                                        onTap: () {},
-                                        size: topBtnSize,
-                                        iconSize: topBtnIcon,
-                                      )
-                                      .animate()
-                                      .fadeIn(delay: 100.ms, duration: 220.ms)
-                                      .slideX(begin: .15, end: 0),
+                                  // ✅ BELL + badge + popup (adaptive popup)
+                                  Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      _TopIconButton(
+                                            key: _bellKey,
+                                            icon: FontAwesomeIcons.bell,
+                                            onTap: _showNotificationPopup,
+                                            size: topBtnSize,
+                                            iconSize: topBtnIcon,
+                                          )
+                                          .animate()
+                                          .fadeIn(
+                                            delay: 100.ms,
+                                            duration: 220.ms,
+                                          )
+                                          .slideX(begin: .15, end: 0),
+
+                                      if (_unreadCount > 0)
+                                        Positioned(
+                                          right: 8,
+                                          top: 7,
+                                          child: Container(
+                                            width: 9,
+                                            height: 9,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: const Color(0xFFFF3B30),
+                                              border: Border.all(
+                                                color: Colors.white.withOpacity(
+                                                  .92,
+                                                ),
+                                                width: 1.3,
+                                              ),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  blurRadius: 10,
+                                                  offset: const Offset(0, 4),
+                                                  color: Colors.black
+                                                      .withOpacity(.25),
+                                                ),
+                                              ],
+                                            ),
+                                          ).animate().fadeIn(duration: 180.ms),
+                                        ),
+                                    ],
+                                  ),
 
                                   const SizedBox(width: 10),
 
@@ -321,7 +461,6 @@ class ExplorePage extends StatelessWidget {
 
                               SizedBox(height: gapAfterTopbar),
 
-                              // ✅ Card 1
                               _AttendanceCalendarCard(
                                     height: topCardH,
                                     blur: headerBlur,
@@ -331,10 +470,7 @@ class ExplorePage extends StatelessWidget {
                                     checkedIn: checkedIn,
                                     checkinTime: checkinTime,
                                     isDark: isDark,
-
-                                    // ✅ participant 70%
                                     participantPercent: 0.70,
-
                                     onTapAttendance: () {
                                       Navigator.of(context).push(
                                         MaterialPageRoute(
@@ -365,7 +501,6 @@ class ExplorePage extends StatelessWidget {
 
                               SizedBox(height: gapBetweenCards),
 
-                              // ✅ Event & Announcement card (PREVIEW ONLY — no tap)
                               IgnorePointer(
                                     ignoring: true,
                                     child: _MiniInfoCard(
@@ -405,9 +540,6 @@ class ExplorePage extends StatelessWidget {
                   ),
                 ),
 
-                // ==========================================================
-                // ✅ Scan QR Floating Button
-                // ==========================================================
                 Positioned(
                   right: (isTablet || isLargeTablet) ? 22 : 16,
                   bottom: (12 + bottomInset).toDouble(),
@@ -440,6 +572,668 @@ class ExplorePage extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+// ======================================================
+// ✅ Notification Popup Overlay (FOLLOW DARK/LIGHT MODE)
+// ======================================================
+
+class _PopTokens {
+  final bool isDark;
+
+  final Color cardBgA;
+  final Color cardBgB;
+  final Color cardBgC;
+
+  final Color title;
+  final Color text;
+  final Color sub;
+  final Color line;
+
+  final Color barrier;
+
+  final Color blue;
+  final Color green;
+  final Color amber;
+  final Color red;
+
+  const _PopTokens({
+    required this.isDark,
+    required this.cardBgA,
+    required this.cardBgB,
+    required this.cardBgC,
+    required this.title,
+    required this.text,
+    required this.sub,
+    required this.line,
+    required this.barrier,
+    required this.blue,
+    required this.green,
+    required this.amber,
+    required this.red,
+  });
+
+  static int _alpha(double o) => (o * 255).round().clamp(0, 255);
+  static Color _o(Color c, double opacity) => c.withAlpha(_alpha(opacity));
+
+  factory _PopTokens.of(BuildContext context) {
+    final t = Theme.of(context);
+    final isDark = t.brightness == Brightness.dark;
+    final cs = t.colorScheme;
+
+    if (!isDark) {
+      const base = Color(0xFFFFFFFF);
+      return _PopTokens(
+        isDark: false,
+        cardBgA: _o(base, 0.92),
+        cardBgB: _o(base, 0.82),
+        cardBgC: _o(base, 0.74),
+        title: const Color(0xFF111827),
+        text: const Color(0xFF374151),
+        sub: const Color(0xFF6B7280),
+        line: const Color(0xFFE5E7EB),
+        barrier: _o(Colors.black, 0.10),
+        blue: const Color(0xFF2563EB),
+        green: const Color(0xFF16A34A),
+        amber: const Color(0xFFF59E0B),
+        red: const Color(0xFFFF3B30),
+      );
+    }
+
+    // dark / premium glass vibe (ตาม ColorScheme ของ AppTheme.darkTheme)
+    const darkBase = Color(0xFF0B1220);
+    final onSurface = cs.onSurface;
+    final surface = cs.surface;
+
+    return _PopTokens(
+      isDark: true,
+      cardBgA: _o(surface, 0.72),
+      cardBgB: _o(darkBase, 0.62),
+      cardBgC: _o(darkBase, 0.52),
+      title: _o(onSurface, 0.96),
+      text: _o(onSurface, 0.78),
+      sub: _o(onSurface, 0.62),
+      line: _o(Colors.white, 0.12),
+      barrier: _o(Colors.black, 0.22),
+      blue: cs.primary,
+      green: const Color(0xFF22C55E),
+      amber: const Color(0xFFFBBF24),
+      red: const Color(0xFFFF453A),
+    );
+  }
+}
+
+class _PillStyle {
+  final Color bg;
+  final Color border;
+  final Color fg;
+  const _PillStyle(this.bg, this.border, this.fg);
+}
+
+class _NotificationPopupOverlay extends StatefulWidget {
+  final double top;
+  final double left;
+  final double width;
+  final List<_NotificationItem> items;
+
+  final VoidCallback onViewAll;
+  final VoidCallback onClosed;
+
+  const _NotificationPopupOverlay({
+    required this.top,
+    required this.left,
+    required this.width,
+    required this.items,
+    required this.onViewAll,
+    required this.onClosed,
+  });
+
+  @override
+  State<_NotificationPopupOverlay> createState() =>
+      _NotificationPopupOverlayState();
+}
+
+class _NotificationPopupOverlayState extends State<_NotificationPopupOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 240),
+      reverseDuration: const Duration(milliseconds: 200),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  Future<void> _close() async {
+    if (_c.status == AnimationStatus.dismissed) return;
+    await _c.reverse();
+    widget.onClosed();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tok = _PopTokens.of(context);
+
+    final maxH = (MediaQuery.of(context).size.height * 0.55).clamp(
+      260.0,
+      420.0,
+    );
+
+    final fade = CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
+    final scale = Tween<double>(
+      begin: 0.985,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _c, curve: Curves.easeOutBack));
+    final slideY = Tween<double>(
+      begin: -10.0,
+      end: 0.0,
+    ).animate(CurvedAnimation(parent: _c, curve: Curves.easeOutCubic));
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: FadeTransition(
+            opacity: fade,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _close,
+              child: Container(color: tok.barrier),
+            ),
+          ),
+        ),
+        Positioned(
+          top: widget.top,
+          left: widget.left,
+          width: widget.width,
+          child: AnimatedBuilder(
+            animation: _c,
+            builder: (_, __) {
+              return Opacity(
+                opacity: fade.value,
+                child: Transform.translate(
+                  offset: Offset(0, slideY.value),
+                  child: Transform.scale(
+                    scale: scale.value,
+                    alignment: Alignment.topCenter,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: () {},
+                        child: _NotificationPopupCard(
+                          width: widget.width,
+                          maxHeight: maxH,
+                          items: widget.items,
+                          onClose: _close,
+                          onViewAll: () async {
+                            await _c.reverse();
+                            widget.onClosed();
+                            widget.onViewAll();
+                          },
+                          tok: tok,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NotificationPopupCard extends StatelessWidget {
+  final double width;
+  final double maxHeight;
+  final List<_NotificationItem> items;
+  final VoidCallback onClose;
+  final VoidCallback onViewAll;
+  final _PopTokens tok;
+
+  const _NotificationPopupCard({
+    required this.width,
+    required this.maxHeight,
+    required this.items,
+    required this.onClose,
+    required this.onViewAll,
+    required this.tok,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final border = tok.line;
+
+    final viewAllBg = tok.isDark
+        ? _PopTokens._o(tok.blue, 0.16)
+        : _PopTokens._o(tok.blue, 0.10);
+    final viewAllBd = tok.isDark
+        ? _PopTokens._o(tok.blue, 0.28)
+        : _PopTokens._o(tok.blue, 0.22);
+
+    final closeBg = tok.isDark
+        ? _PopTokens._o(Colors.white, 0.06)
+        : _PopTokens._o(Colors.white, 0.75);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: border, width: 1),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [tok.cardBgA, tok.cardBgB, tok.cardBgC],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: _PopTokens._o(Colors.black, tok.isDark ? 0.48 : 0.14),
+                blurRadius: 28,
+                offset: const Offset(0, 18),
+              ),
+            ],
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxHeight),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 10, 10),
+                  child: Row(
+                    children: [
+                      FaIcon(FontAwesomeIcons.bell, color: tok.blue, size: 14),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          "Notifications",
+                          style: TextStyle(
+                            color: tok.title,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 14.5,
+                          ),
+                        ),
+                      ),
+                      InkResponse(
+                        onTap: onViewAll,
+                        radius: 24,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: viewAllBg,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: viewAllBd),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                "View all",
+                                style: TextStyle(
+                                  color: tok.blue,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 11.5,
+                                  height: 1.0,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Icon(
+                                Icons.arrow_forward_rounded,
+                                size: 14,
+                                color: _PopTokens._o(tok.blue, 0.95),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      InkResponse(
+                        onTap: onClose,
+                        radius: 22,
+                        child: Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: closeBg,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: tok.line),
+                          ),
+                          child: Center(
+                            child: Icon(
+                              Icons.close_rounded,
+                              size: 18,
+                              color: tok.title,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(height: 1, color: tok.line),
+                Flexible(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (context, i) {
+                      final it = items[i];
+                      final label = _timeGroupLabel(it.time);
+                      final timeText = _fmtTime(it.time);
+
+                      return _NotificationTile(
+                            sender: it.sender,
+                            title: it.title,
+                            body: it.body,
+                            timeText: timeText,
+                            groupLabel: label,
+                            unread: it.isUnread,
+                            tok: tok,
+                          )
+                          .animate()
+                          .fadeIn(delay: (40 + i * 45).ms, duration: 200.ms)
+                          .slideX(
+                            begin: .05,
+                            end: 0,
+                            duration: 240.ms,
+                            curve: Curves.easeOutCubic,
+                          );
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          "Tap outside to close",
+                          style: TextStyle(
+                            color: tok.sub,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11.5,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: tok.isDark
+                              ? _PopTokens._o(Colors.white, 0.06)
+                              : _PopTokens._o(Colors.white, 0.75),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: tok.line),
+                        ),
+                        child: Text(
+                          "Recent: ${_recentScopeLabel(items)}",
+                          style: TextStyle(
+                            color: tok.sub,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 11.0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _fmtTime(DateTime dt) {
+    final hh = dt.hour.toString().padLeft(2, "0");
+    final mm = dt.minute.toString().padLeft(2, "0");
+    return "$hh:$mm";
+  }
+
+  static String _timeGroupLabel(DateTime dt) {
+    final now = DateTime.now();
+    final d0 = DateTime(now.year, now.month, now.day);
+    final d1 = DateTime(dt.year, dt.month, dt.day);
+    final diffDays = d0.difference(d1).inDays;
+
+    if (diffDays == 0) return "Today";
+    if (diffDays == 1) return "Yesterday";
+    if (diffDays <= 7) return "This week";
+    return "Earlier";
+  }
+
+  static String _recentScopeLabel(List<_NotificationItem> items) {
+    if (items.isEmpty) return "-";
+    final latest = items
+        .map((e) => e.time)
+        .reduce((a, b) => a.isAfter(b) ? a : b);
+    return _timeGroupLabel(latest);
+  }
+}
+
+class _NotificationTile extends StatelessWidget {
+  final String sender;
+  final String title;
+  final String body;
+  final String timeText;
+  final String groupLabel;
+  final bool unread;
+  final _PopTokens tok;
+
+  const _NotificationTile({
+    required this.sender,
+    required this.title,
+    required this.body,
+    required this.timeText,
+    required this.groupLabel,
+    required this.unread,
+    required this.tok,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = tok.isDark
+        ? (unread
+              ? _PopTokens._o(tok.blue, 0.14)
+              : _PopTokens._o(Colors.white, 0.06))
+        : (unread
+              ? _PopTokens._o(tok.blue, 0.06)
+              : _PopTokens._o(Colors.white, 0.70));
+
+    final bd = tok.isDark
+        ? (unread ? _PopTokens._o(tok.blue, 0.30) : tok.line)
+        : (unread ? _PopTokens._o(tok.blue, 0.18) : tok.line);
+
+    final pill = _pillStyle(groupLabel, tok);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: bd),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 2),
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: unread ? tok.red : tok.line,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      sender,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: tok.sub,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12.2,
+                        height: 1.0,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: tok.title,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13.6,
+                        height: 1.0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    timeText,
+                    style: TextStyle(
+                      color: tok.sub,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 11.2,
+                      height: 1.0,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: pill.bg,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: pill.border),
+                    ),
+                    child: Text(
+                      groupLabel,
+                      style: TextStyle(
+                        color: pill.fg,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 10.2,
+                        height: 1.0,
+                        letterSpacing: .2,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            body,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: tok.text,
+              fontWeight: FontWeight.w800,
+              fontSize: 12.3,
+              height: 1.20,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static _PillStyle _pillStyle(String groupLabel, _PopTokens tok) {
+    if (groupLabel == "Today") {
+      return _PillStyle(
+        _PopTokens._o(tok.blue, tok.isDark ? 0.18 : 0.12),
+        _PopTokens._o(tok.blue, tok.isDark ? 0.32 : 0.25),
+        tok.blue,
+      );
+    }
+    if (groupLabel == "Yesterday") {
+      return _PillStyle(
+        _PopTokens._o(tok.amber, tok.isDark ? 0.18 : 0.14),
+        _PopTokens._o(tok.amber, tok.isDark ? 0.32 : 0.25),
+        tok.amber,
+      );
+    }
+    if (groupLabel == "This week") {
+      return _PillStyle(
+        _PopTokens._o(tok.green, tok.isDark ? 0.16 : 0.12),
+        _PopTokens._o(tok.green, tok.isDark ? 0.30 : 0.22),
+        tok.green,
+      );
+    }
+    return _PillStyle(
+      tok.isDark
+          ? _PopTokens._o(Colors.white, 0.06)
+          : _PopTokens._o(Colors.white, 0.75),
+      tok.line,
+      tok.sub,
+    );
+  }
+}
+
+// ======================================================
+// ✅ Model
+// ======================================================
+class _NotificationItem {
+  final String sender;
+  final String title;
+  final String body;
+  final DateTime time;
+  final bool isUnread;
+
+  const _NotificationItem({
+    required this.sender,
+    required this.title,
+    required this.body,
+    required this.time,
+    required this.isUnread,
+  });
+
+  _NotificationItem copyWith({bool? isUnread}) {
+    return _NotificationItem(
+      sender: sender,
+      title: title,
+      body: body,
+      time: time,
+      isUnread: isUnread ?? this.isUnread,
     );
   }
 }
@@ -512,10 +1306,8 @@ class _AttendanceCalendarCard extends StatelessWidget {
   final TimeOfDay checkinTime;
   final bool isDark;
 
-  // ✅ participant percent (0.0 - 1.0)
   final double participantPercent;
 
-  // ✅ taps
   final VoidCallback onTapAttendance;
   final VoidCallback onTapCalendar;
   final VoidCallback? onTapParticipant;
@@ -576,14 +1368,12 @@ class _AttendanceCalendarCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // ✅ LEFT
               Expanded(
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(padL, padT, padR, padB),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ===== TITLE ROW =====
                       Row(
                         children: [
                           FaIcon(
@@ -606,9 +1396,7 @@ class _AttendanceCalendarCard extends StatelessWidget {
                           ),
                         ],
                       ),
-
                       SizedBox(height: isSmallPhone ? 10 : 12),
-
                       Expanded(
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(18),
@@ -622,7 +1410,6 @@ class _AttendanceCalendarCard extends StatelessWidget {
                             ),
                             child: Column(
                               children: [
-                                // Row 1
                                 Expanded(
                                   flex: 2,
                                   child: _TapScale(
@@ -685,10 +1472,7 @@ class _AttendanceCalendarCard extends StatelessWidget {
                                     ),
                                   ),
                                 ),
-
                                 rowDivider,
-
-                                // Row 2: Participant (bar + %ท้าย bar)
                                 Expanded(
                                   flex: 3,
                                   child: _TapScale(
@@ -782,10 +1566,7 @@ class _AttendanceCalendarCard extends StatelessWidget {
                   ),
                 ),
               ),
-
               Container(width: 1, color: Colors.white.withOpacity(.12)),
-
-              // ✅ RIGHT (Calendar)
               Expanded(
                 child: _TapScale(
                   onTap: onTapCalendar,
@@ -1002,8 +1783,6 @@ class _MiniInfoCard extends StatelessWidget {
   final double scale;
   final bool isSmallPhone;
   final bool isTablet;
-
-  /// ✅ Event content (วันนี้มี Event อะไร)
   final String eventText;
 
   const _MiniInfoCard({
@@ -1042,7 +1821,6 @@ class _MiniInfoCard extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Header: icon + title + small pill
                 Row(
                   children: [
                     FaIcon(
@@ -1088,10 +1866,7 @@ class _MiniInfoCard extends StatelessWidget {
                     ),
                   ],
                 ),
-
                 SizedBox(height: isSmallPhone ? 8.0 : 10.0),
-
-                // Body: calendar icon + event text
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1243,6 +2018,7 @@ class _TopIconButton extends StatelessWidget {
   final double iconSize;
 
   const _TopIconButton({
+    super.key,
     required this.icon,
     required this.onTap,
     required this.size,
@@ -1275,7 +2051,7 @@ class _TopIconButton extends StatelessWidget {
 }
 
 // =====================
-// ✅ GLASS MENU SHEET (คงเดิม)
+// ✅ GLASS MENU SHEET
 // =====================
 class _WalletSheet extends StatelessWidget {
   final bool isDark;
@@ -1373,7 +2149,12 @@ class _WalletSheet extends StatelessWidget {
       _QuickMenuItem(
         icon: FontAwesomeIcons.book,
         label: "ວຽກບ້ານ",
-        onTap: () {},
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const HomeworkPage()),
+          );
+        },
       ),
       _QuickMenuItem(
         icon: FontAwesomeIcons.plus,
@@ -1607,9 +2388,6 @@ class _GlowBlob extends StatelessWidget {
   }
 }
 
-// =====================
-// ✅ Tap helper (UPDATED: support enabled=false)
-// =====================
 class _TapScale extends StatefulWidget {
   final Widget child;
   final VoidCallback onTap;
