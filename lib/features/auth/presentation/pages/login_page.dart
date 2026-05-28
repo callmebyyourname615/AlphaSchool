@@ -2,9 +2,14 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/network/api_exception.dart';
+import '../../../../core/services/session_service.dart';
+import '../../../../core/widgets/scanqrcode/scan_qr_code_page.dart';
+import '../../data/auth_service.dart';
 
 // ✅ ปรับ path ให้ตรงกับโปรเจกต์คุณ
 import '../../../home/presentation/pages/year_picker_page.dart'
@@ -43,11 +48,13 @@ class _LoginPageState extends State<LoginPage>
   static const double _s18 = 18;
   static const double _s20 = 20;
   static const double _s24 = 24;
+  static const String _savedEmailKey = 'login_saved_email';
+  static const String _savedPassKey = 'login_saved_pass';
 
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
+  final _authService = AuthService();
 
-  bool _remember = true;
   bool _driver = false;
   bool _obscure = true;
   bool _loading = false;
@@ -83,6 +90,12 @@ class _LoginPageState extends State<LoginPage>
       );
 
   @override
+  void initState() {
+    super.initState();
+    _loadSavedCredentials();
+  }
+
+  @override
   void dispose() {
     _emailCtrl.dispose();
     _passCtrl.dispose();
@@ -90,18 +103,67 @@ class _LoginPageState extends State<LoginPage>
     super.dispose();
   }
 
-  // ✅ Login -> StudentsCardListPage
+  Future<void> _loadSavedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedEmail = prefs.getString(_savedEmailKey) ?? '';
+    final savedPass = prefs.getString(_savedPassKey) ?? '';
+    if (!mounted) return;
+    setState(() {
+      if (savedEmail.isNotEmpty) _emailCtrl.text = savedEmail;
+      if (savedPass.isNotEmpty) _passCtrl.text = savedPass;
+    });
+  }
+
+  Future<void> _saveCredentials(String email, String password) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_savedEmailKey, email);
+    await prefs.setString(_savedPassKey, password);
+  }
+
   Future<void> _submit() async {
     if (_loading || _navLock) return;
+    final login = _emailCtrl.text.trim();
+    final password = _passCtrl.text;
+
+    if (login.isEmpty || password.isEmpty) {
+      _showLoginError('Please enter your username/email and password');
+      return;
+    }
+
     setState(() => _loading = true);
 
-    await Future.delayed(const Duration(milliseconds: 220));
-    if (!mounted) return;
+    try {
+      final admin = await _authService.login(login: login, password: password);
+      if (!mounted) return;
 
-    _navLock = true;
-    await Navigator.of(
-      context,
-    ).pushReplacement(_smoothRoute(StudentsCardListPage()));
+      await _saveCredentials(login, password);
+      await SessionService().save(admin.json);
+      if (!mounted) return;
+      final nextPage = admin.isParent
+          ? StudentsCardListPage()
+          : const ScanQrCodePage();
+      _navLock = true;
+      await Navigator.of(context).pushReplacement(_smoothRoute(nextPage));
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      _showLoginError(error.message);
+    } catch (e) {
+      if (!mounted) return;
+      _showLoginError('Unable to sign in: $e');
+    } finally {
+      if (mounted && !_navLock) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  void _showLoginError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+      );
   }
 
   // ✅ Back จากหน้า login ต้องไป YearPickerPage เสมอ
@@ -469,43 +531,16 @@ class _LoginPageState extends State<LoginPage>
                                                             0.44,
                                                             1.0,
                                                           ),
-                                                          child: Wrap(
-                                                            spacing: 12,
-                                                            runSpacing: 12,
-                                                            crossAxisAlignment:
-                                                                WrapCrossAlignment
-                                                                    .center,
-                                                            children: [
-                                                              _CheckPill(
-                                                                isDark: isDark,
-                                                                value:
-                                                                    _remember,
-                                                                onChanged: (v) =>
-                                                                    setState(
-                                                                      () =>
-                                                                          _remember =
-                                                                              v,
-                                                                    ),
-                                                                icon: FontAwesomeIcons
-                                                                    .bookmark,
-                                                                label:
-                                                                    "Remember me",
-                                                              ),
-                                                              _CheckPill(
-                                                                isDark: isDark,
-                                                                value: _driver,
-                                                                onChanged: (v) =>
-                                                                    setState(
-                                                                      () =>
-                                                                          _driver =
-                                                                              v,
-                                                                    ),
-                                                                icon:
-                                                                    FontAwesomeIcons
-                                                                        .carSide,
-                                                                label: "Driver",
-                                                              ),
-                                                            ],
+                                                          child: _CheckPill(
+                                                            isDark: isDark,
+                                                            value: _driver,
+                                                            onChanged: (v) =>
+                                                                setState(
+                                                                  () => _driver = v,
+                                                                ),
+                                                            icon: FontAwesomeIcons
+                                                                .carSide,
+                                                            label: "Driver",
                                                           ),
                                                         ),
                                                       ),
@@ -513,79 +548,91 @@ class _LoginPageState extends State<LoginPage>
                                                         height: _s20,
                                                       ),
                                                       FadeTransition(
-                                                        opacity: _itemFade(
-                                                          0.52,
-                                                          1.0,
-                                                        ),
+                                                        opacity: _itemFade(0.52, 1.0),
                                                         child: SlideTransition(
-                                                          position: _itemSlide(
-                                                            0.52,
-                                                            1.0,
-                                                          ),
-                                                          child: _GradientButton(
-                                                            height: 58,
-                                                            radius: 18,
-                                                            gradient: LinearGradient(
-                                                              begin: Alignment
-                                                                  .topLeft,
-                                                              end: Alignment
-                                                                  .bottomRight,
-                                                              colors: [
-                                                                btnG1,
-                                                                btnG2,
-                                                              ],
-                                                            ),
-                                                            borderColor: isDark
-                                                                ? Colors.white
-                                                                      .withOpacity(
-                                                                        .14,
-                                                                      )
-                                                                : Colors.white
-                                                                      .withOpacity(
-                                                                        .85,
+                                                          position: _itemSlide(0.52, 1.0),
+                                                          child: Row(
+                                                            children: [
+                                                              Expanded(
+                                                                flex: 3,
+                                                                child: _GradientButton(
+                                                                  height: 58,
+                                                                  radius: 18,
+                                                                  gradient: LinearGradient(
+                                                                    begin: Alignment.topLeft,
+                                                                    end: Alignment.bottomRight,
+                                                                    colors: [btnG1, btnG2],
+                                                                  ),
+                                                                  borderColor: isDark
+                                                                      ? Colors.white.withOpacity(.14)
+                                                                      : Colors.white.withOpacity(.85),
+                                                                  shadowColor: Colors.black.withOpacity(isDark ? .32 : .12),
+                                                                  loading: _loading,
+                                                                  onTap: _loading ? null : _submit,
+                                                                  child: Row(
+                                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                                    children: const [
+                                                                      FaIcon(
+                                                                        FontAwesomeIcons.rightToBracket,
+                                                                        size: 17,
+                                                                        color: Colors.white,
                                                                       ),
-                                                            shadowColor: Colors
-                                                                .black
-                                                                .withOpacity(
-                                                                  isDark
-                                                                      ? .32
-                                                                      : .12,
-                                                                ),
-                                                            loading: _loading,
-                                                            onTap: _loading
-                                                                ? null
-                                                                : _submit,
-                                                            child: Row(
-                                                              mainAxisAlignment:
-                                                                  MainAxisAlignment
-                                                                      .center,
-                                                              children: const [
-                                                                FaIcon(
-                                                                  FontAwesomeIcons
-                                                                      .rightToBracket,
-                                                                  size: 17,
-                                                                  color: Colors
-                                                                      .white,
-                                                                ),
-                                                                SizedBox(
-                                                                  width: 10,
-                                                                ),
-                                                                Text(
-                                                                  "Sign in",
-                                                                  style: TextStyle(
-                                                                    color: Colors
-                                                                        .white,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w900,
-                                                                    fontSize:
-                                                                        17,
-                                                                    letterSpacing:
-                                                                        .2,
+                                                                      SizedBox(width: 10),
+                                                                      Text(
+                                                                        "Sign in",
+                                                                        style: TextStyle(
+                                                                          color: Colors.white,
+                                                                          fontWeight: FontWeight.w900,
+                                                                          fontSize: 17,
+                                                                          letterSpacing: .2,
+                                                                        ),
+                                                                      ),
+                                                                    ],
                                                                   ),
                                                                 ),
-                                                              ],
-                                                            ),
+                                                              ),
+                                                              const SizedBox(width: 10),
+                                                              Expanded(
+                                                                flex: 2,
+                                                                child: _GradientButton(
+                                                                  height: 58,
+                                                                  radius: 18,
+                                                                  gradient: LinearGradient(
+                                                                    begin: Alignment.topLeft,
+                                                                    end: Alignment.bottomRight,
+                                                                    colors: isDark
+                                                                        ? [AppColors.blue400.withOpacity(.6), AppColors.blue500.withOpacity(.4)]
+                                                                        : [AppColors.blue300.withOpacity(.18), AppColors.blue200.withOpacity(.12)],
+                                                                  ),
+                                                                  borderColor: isDark
+                                                                      ? Colors.white.withOpacity(.18)
+                                                                      : AppColors.blue400.withOpacity(.30),
+                                                                  shadowColor: Colors.black.withOpacity(isDark ? .20 : .06),
+                                                                  loading: false,
+                                                                  onTap: _loading ? null : () {},
+                                                                  child: Row(
+                                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                                    children: [
+                                                                      FaIcon(
+                                                                        FontAwesomeIcons.fingerprint,
+                                                                        size: 17,
+                                                                        color: isDark ? Colors.white : AppColors.blue500,
+                                                                      ),
+                                                                      const SizedBox(width: 8),
+                                                                      Text(
+                                                                        "Scan Login",
+                                                                        style: TextStyle(
+                                                                          color: isDark ? Colors.white : AppColors.blue500,
+                                                                          fontWeight: FontWeight.w900,
+                                                                          fontSize: 13,
+                                                                          letterSpacing: .2,
+                                                                        ),
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ],
                                                           ),
                                                         ),
                                                       ),

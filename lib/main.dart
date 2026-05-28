@@ -1,11 +1,15 @@
 import 'package:alpha_school/features/home/presentation/pages/home_shell_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'core/services/global_alert_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/home/presentation/pages/year_picker_page.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: '.env', isOptional: true);
   runApp(const CConnectApp());
 }
 
@@ -28,6 +32,7 @@ class _CConnectAppState extends State<CConnectApp> {
       valueListenable: AppTheme.mode,
       builder: (context, mode, _) {
         return MaterialApp(
+          navigatorKey: GlobalAlert.navigatorKey,
           debugShowCheckedModeBanner: false,
 
           theme: AppTheme.lightTheme(_locale),

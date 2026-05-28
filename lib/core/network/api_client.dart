@@ -1,0 +1,154 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+
+import 'api_config.dart';
+import 'api_exception.dart';
+
+class ApiClient {
+  ApiClient({
+    http.Client? httpClient,
+    String? baseUrl,
+    Duration timeout = const Duration(seconds: 20),
+  }) : _httpClient = httpClient ?? http.Client(),
+       _baseUri = Uri.parse(baseUrl ?? ApiConfig.baseUrl),
+       _timeout = timeout;
+
+  final http.Client _httpClient;
+  final Uri _baseUri;
+  final Duration _timeout;
+
+  Future<dynamic> get(
+    String path, {
+    Map<String, String>? headers,
+    Map<String, dynamic>? queryParameters,
+  }) {
+    return _send(
+      'GET',
+      path,
+      headers: headers,
+      queryParameters: queryParameters,
+    );
+  }
+
+  Future<dynamic> post(
+    String path, {
+    Map<String, String>? headers,
+    Map<String, dynamic>? queryParameters,
+    Object? body,
+  }) {
+    return _send(
+      'POST',
+      path,
+      headers: headers,
+      queryParameters: queryParameters,
+      body: body,
+    );
+  }
+
+  Future<dynamic> put(
+    String path, {
+    Map<String, String>? headers,
+    Map<String, dynamic>? queryParameters,
+    Object? body,
+  }) {
+    return _send(
+      'PUT',
+      path,
+      headers: headers,
+      queryParameters: queryParameters,
+      body: body,
+    );
+  }
+
+  Future<dynamic> delete(
+    String path, {
+    Map<String, String>? headers,
+    Map<String, dynamic>? queryParameters,
+    Object? body,
+  }) {
+    return _send(
+      'DELETE',
+      path,
+      headers: headers,
+      queryParameters: queryParameters,
+      body: body,
+    );
+  }
+
+  void close() => _httpClient.close();
+
+  Future<dynamic> _send(
+    String method,
+    String path, {
+    Map<String, String>? headers,
+    Map<String, dynamic>? queryParameters,
+    Object? body,
+  }) async {
+    final uri = _buildUri(path, queryParameters);
+    final request = http.Request(method, uri);
+
+    request.headers.addAll({
+      'Accept': 'application/json',
+      if (body != null) 'Content-Type': 'application/json',
+      ...?headers,
+    });
+
+    if (body != null) {
+      request.body = jsonEncode(body);
+    }
+
+    try {
+      final streamedResponse = await _httpClient
+          .send(request)
+          .timeout(_timeout);
+      final response = await http.Response.fromStream(streamedResponse);
+      return _decodeResponse(response);
+    } on TimeoutException catch (error) {
+      throw ApiException('Request timed out', cause: error);
+    } on http.ClientException catch (error) {
+      throw ApiException('Could not connect to the API', cause: error);
+    } on FormatException catch (error) {
+      throw ApiException('Invalid response from API', cause: error);
+    }
+  }
+
+  Uri _buildUri(String path, Map<String, dynamic>? queryParameters) {
+    final normalizedPath = path.startsWith('/') ? path.substring(1) : path;
+    final basePath = _baseUri.path.endsWith('/')
+        ? _baseUri.path
+        : '${_baseUri.path}/';
+
+    return _baseUri.replace(
+      path: '$basePath$normalizedPath',
+      queryParameters: {
+        ..._baseUri.queryParameters,
+        for (final entry in (queryParameters ?? {}).entries)
+          if (entry.value != null) entry.key: entry.value.toString(),
+      },
+    );
+  }
+
+  dynamic _decodeResponse(http.Response response) {
+    final body = response.body.trim();
+    final decoded = body.isEmpty ? null : jsonDecode(body);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return decoded;
+    }
+
+    throw ApiException(
+      _errorMessage(decoded) ?? 'API request failed',
+      statusCode: response.statusCode,
+    );
+  }
+
+  String? _errorMessage(dynamic decoded) {
+    if (decoded is Map<String, dynamic>) {
+      final message = decoded['message'] ?? decoded['error'];
+      return message?.toString();
+    }
+    return null;
+  }
+}

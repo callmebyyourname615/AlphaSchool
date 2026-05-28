@@ -2,6 +2,16 @@
 
 A new Flutter project.
 
+## API
+
+The app reads its API base URL from `.env`:
+
+```text
+API_BASE_URL=<your-api-base-url>
+```
+
+API calls should go through `ApiClient` in `lib/core/network/api_client.dart`.
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
