@@ -141,6 +141,7 @@ class ApiClient {
     throw ApiException(
       _errorMessage(decoded) ?? 'API request failed',
       statusCode: response.statusCode,
+      body: decoded,
     );
   }
 

@@ -11,7 +11,6 @@ class AppointmentService {
   final ApiClient _apiClient;
 
   Future<List<AppointmentModel>> fetchAppointments() async {
-    final session = await SessionService().load();
     final response = await _apiClient.get('/appointments');
     final rawItems = _extractItems(response);
 
@@ -20,7 +19,6 @@ class AppointmentService {
             .whereType<Map<String, dynamic>>()
             .where((item) => item['is_deleted'] != true)
             .where((item) => item['is_active'] != false)
-            .where((item) => session == null || _belongsToUser(item, session))
             .map(_fromJson)
             .whereType<AppointmentModel>()
             .toList()
@@ -35,6 +33,17 @@ class AppointmentService {
 
   Future<void> createAppointment(AppointmentModel model) async {
     String _pad(int n) => n.toString().padLeft(2, '0');
+
+    final session = await SessionService().load();
+
+    // Use branchId from session; fall back to fetching from /admins if missing
+    String branchId = session?.branchId ?? '';
+    if (branchId.isEmpty && session != null && session.id.isNotEmpty) {
+      branchId = await _fetchBranchId(session.id);
+    }
+
+    final academicYearId = await _fetchActiveAcademicYearId(branchId);
+
     await _apiClient.post('/appointments', body: {
       'title': model.title,
       'date': '${model.date.year}-${_pad(model.date.month)}-${_pad(model.date.day)}',
@@ -42,78 +51,93 @@ class AppointmentService {
       'to_time': '${_pad(model.end.hour)}:${_pad(model.end.minute)}',
       if (model.note != null && model.note!.isNotEmpty) 'description': model.note,
       'status': 'PENDING',
+      if (branchId.isNotEmpty) 'branch_id': branchId,
+      if (academicYearId.isNotEmpty) 'academic_year_id': academicYearId,
+      if (session?.id.isNotEmpty == true) 'created_by': session!.id,
+      if (model.participantIds.isNotEmpty)
+        'participants': model.participantIds
+            .map((id) => {'person_id': id, 'person_type': 'TEACHER'})
+            .toList(),
     });
   }
 
-  bool _belongsToUser(Map<String, dynamic> json, SessionData session) {
-    // Check direct scalar ID fields
-    for (final key in const [
-      'admin_id',
-      'user_id',
-      'created_by',
-      'created_by_id',
-      'organizer_id',
-      'owner_id',
-    ]) {
-      final val = json[key]?.toString();
-      if (val != null && val.isNotEmpty) {
-        if (session.id.isNotEmpty && val == session.id) return true;
-      }
-    }
-
-    // Check nested single-object fields (e.g. "admin": { "id": "...", "email": "..." })
-    for (final key in const ['admin', 'user', 'created_by', 'organizer', 'owner']) {
-      final obj = json[key];
-      if (obj is Map<String, dynamic>) {
-        if (_objectMatchesSession(obj, session)) return true;
-      }
-    }
-
-    // Check array fields (e.g. "participants": [...], "admins": [...])
-    for (final key in const [
-      'participants',
-      'admins',
-      'users',
-      'attendees',
-      'members',
-    ]) {
-      final list = json[key];
-      if (list is List) {
-        for (final item in list) {
-          if (item is Map<String, dynamic>) {
-            if (_objectMatchesSession(item, session)) return true;
-          } else if (item != null && session.id.isNotEmpty) {
-            if (item.toString() == session.id) return true;
-          }
+  Future<String> _fetchBranchId(String userId) async {
+    try {
+      final response = await _apiClient.get('/admins');
+      final List<dynamic> admins = response is List ? response : [];
+      for (final admin in admins) {
+        if (admin is Map && admin['id']?.toString() == userId) {
+          final branch = admin['branch'];
+          if (branch is Map) return branch['id']?.toString() ?? '';
         }
       }
-    }
-
-    return false;
+    } catch (_) {}
+    return '';
   }
 
-  bool _objectMatchesSession(Map<String, dynamic> obj, SessionData session) {
-    final id = obj['id']?.toString() ?? '';
-    final username = obj['username']?.toString() ?? '';
-    final email = obj['email']?.toString() ?? '';
+  Future<String> _fetchActiveAcademicYearId(String branchId) async {
+    if (branchId.isEmpty) return '';
+    try {
+      final response = await _apiClient.get(
+        '/academic-years',
+        queryParameters: {'branch_id': branchId},
+      );
+      final List<dynamic> items = response is List
+          ? response
+          : (response is Map
+              ? ((response['data'] ?? response['results']) as List? ?? [])
+              : []);
+      for (final item in items) {
+        if (item is Map<String, dynamic> && item['is_active'] == true) {
+          return item['id']?.toString() ?? '';
+        }
+      }
+    } catch (_) {}
+    return '';
+  }
 
-    if (session.id.isNotEmpty && id == session.id) return true;
-    if (session.username.isNotEmpty &&
-        username.toLowerCase() == session.username.toLowerCase()) return true;
-    if (session.email.isNotEmpty &&
-        email.toLowerCase() == session.email.toLowerCase()) return true;
+  Future<List<AdminModel>> fetchAdmins() async {
+    final response = await _apiClient.get('/admins');
+    final List<dynamic> raw = response is List ? response : [];
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .where((j) => j['is_active'] != false)
+        .map(AdminModel.fromJson)
+        .toList();
+  }
 
-    return false;
+  Future<void> confirmAppointment(String id) async {
+    await _apiClient.put('/appointments/$id', body: {'status': 'CONFIRMED'});
+  }
+
+  Future<void> rescheduleAppointment(
+    String id,
+    DateTime date,
+    TimeOfDay start,
+    TimeOfDay end,
+  ) async {
+    String _pad(int n) => n.toString().padLeft(2, '0');
+    await _apiClient.put('/appointments/$id', body: {
+      'status': 'RESCHEDULED',
+      'rescheduled_date': '${date.year}-${_pad(date.month)}-${_pad(date.day)}',
+      'rescheduled_from_time': '${_pad(start.hour)}:${_pad(start.minute)}',
+      'rescheduled_to_time': '${_pad(end.hour)}:${_pad(end.minute)}',
+    });
+  }
+
+  Future<void> deleteAppointment(String id) async {
+    await _apiClient.delete('/appointments/$id');
   }
 
   List<dynamic> _extractItems(dynamic response) {
-    return switch (response) {
-      List<dynamic>() => response,
-      {'data': final List<dynamic> data} => data,
-      {'appointments': final List<dynamic> appointments} => appointments,
-      {'results': final List<dynamic> results} => results,
-      _ => const <dynamic>[],
-    };
+    if (response is List) return response;
+    if (response is Map) {
+      for (final key in ['data', 'appointments', 'results']) {
+        final val = response[key];
+        if (val is List) return val;
+      }
+    }
+    return const <dynamic>[];
   }
 
   AppointmentModel? _fromJson(Map<String, dynamic> json) {
@@ -135,11 +159,25 @@ class AppointmentService {
     final place = _readString(json['appointment_place']);
     final description = _readString(json['description']);
 
+    // Max reschedule_count across all participants
+    int rescheduleCount = 0;
+    final participants = json['participants'];
+    if (participants is List) {
+      for (final p in participants) {
+        if (p is Map<String, dynamic>) {
+          final c = int.tryParse(p['reschedule_count']?.toString() ?? '0') ?? 0;
+          if (c > rescheduleCount) rescheduleCount = c;
+        }
+      }
+    }
+
     return AppointmentModel(
       id: _readString(
         json['id'],
       ).ifEmpty('appointment_${date.millisecondsSinceEpoch}'),
       title: _readString(json['title']).ifEmpty('Appointment'),
+      rescheduleCount: rescheduleCount,
+      createdBy: _readString(json['created_by']),
       note: [
         description,
         if (place.isNotEmpty) place,

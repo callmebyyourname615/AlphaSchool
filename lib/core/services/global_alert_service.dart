@@ -98,6 +98,7 @@ class GlobalAlert {
     VoidCallback? onCancel,
     bool dismissible = true,
     IconData? icon,
+    Color? confirmColor,
   }) {
     return _show<bool>(
       type: GlobalAlertType.confirm,
@@ -113,6 +114,7 @@ class GlobalAlert {
       },
       dismissible: dismissible,
       icon: icon,
+      confirmColor: confirmColor,
       primaryResult: true,
       secondaryResult: false,
     );
@@ -151,6 +153,7 @@ class GlobalAlert {
     VoidCallback? onSecondary,
     bool dismissible = true,
     IconData? icon,
+    Color? confirmColor,
     T? primaryResult,
     T? secondaryResult,
   }) async {
@@ -171,6 +174,7 @@ class GlobalAlert {
           primaryText: primaryText,
           secondaryText: secondaryText,
           icon: icon,
+          confirmColor: confirmColor,
           onPrimary: () {
             Navigator.of(context).pop(primaryResult);
             onPrimary?.call();

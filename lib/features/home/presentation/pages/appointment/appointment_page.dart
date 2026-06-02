@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../../core/services/global_alert_service.dart';
+import '../../../../../core/services/session_service.dart';
 import 'appointment_model.dart';
 import 'appointment_service.dart';
 
@@ -33,10 +37,15 @@ class _AppointmentPageState extends State<AppointmentPage> {
   late DateTime _visibleMonth;
   late List<AppointmentModel> _all;
   final _svc = AppointmentService();
+  SharedPreferences? _prefs;
+  String _sessionUserId = '';
+
+  static const _prefKey = 'appt_reschedule_counts';
 
   bool _loading = true;
   String? _error;
   AppointmentStatus? _filterStatus;
+  Set<DateTime> _markedDates = {};
 
   @override
   void initState() {
@@ -45,20 +54,75 @@ class _AppointmentPageState extends State<AppointmentPage> {
     _selectedDate = _date(now);
     _visibleMonth = DateTime(now.year, now.month);
     _all = [];
+    _loadSessionUserId();
     _load();
+  }
+
+  Future<void> _loadSessionUserId() async {
+    final session = await SessionService().load();
+    if (mounted && session != null) {
+      setState(() => _sessionUserId = session.id);
+    }
+  }
+
+  // ── local reschedule-count store ─────────────────────────────────────────────
+  Future<SharedPreferences> _getPrefs() async {
+    _prefs ??= await SharedPreferences.getInstance();
+    return _prefs!;
+  }
+
+  Future<int> _localCount(String id) async {
+    final prefs = await _getPrefs();
+    final raw = prefs.getString(_prefKey);
+    if (raw == null) return 0;
+    final map = Map<String, dynamic>.from(
+      raw.split(',').where((e) => e.contains(':')).fold(<String, dynamic>{}, (m, e) {
+        final parts = e.split(':');
+        if (parts.length == 2) m[parts[0]] = int.tryParse(parts[1]) ?? 0;
+        return m;
+      }),
+    );
+    return (map[id] as int?) ?? 0;
+  }
+
+  Future<void> _saveCount(String id, int count) async {
+    final prefs = await _getPrefs();
+    final raw = prefs.getString(_prefKey) ?? '';
+    final map = Map<String, int>.from(
+      raw.split(',').where((e) => e.contains(':')).fold(<String, int>{}, (m, e) {
+        final parts = e.split(':');
+        if (parts.length == 2) m[parts[0]] = int.tryParse(parts[1]) ?? 0;
+        return m;
+      }),
+    );
+    map[id] = count;
+    await prefs.setString(_prefKey, map.entries.map((e) => '${e.key}:${e.value}').join(','));
   }
 
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
     try {
       final list = await _svc.fetchAppointments();
+      // Merge with locally persisted counts — take the higher value
+      final prefs = await _getPrefs();
+      final raw = prefs.getString(_prefKey) ?? '';
+      final localMap = Map<String, int>.from(
+        raw.split(',').where((e) => e.contains(':')).fold(<String, int>{}, (m, e) {
+          final parts = e.split(':');
+          if (parts.length == 2) m[parts[0]] = int.tryParse(parts[1]) ?? 0;
+          return m;
+        }),
+      );
+      for (final appt in list) {
+        final stored = localMap[appt.id] ?? 0;
+        if (stored > appt.rescheduleCount) {
+          appt.rescheduleCount = stored;
+        }
+      }
       if (!mounted) return;
       setState(() {
         _all = list;
-        if (_all.isNotEmpty && _forDay(_selectedDate).isEmpty) {
-          _selectedDate = _date(_all.first.date);
-          _visibleMonth = DateTime(_selectedDate.year, _selectedDate.month);
-        }
+        _markedDates = {for (final a in list) _date(a.date)};
         _loading = false;
       });
     } catch (_) {
@@ -67,8 +131,6 @@ class _AppointmentPageState extends State<AppointmentPage> {
     }
   }
 
-  void _post(VoidCallback fn) =>
-      WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) setState(fn); });
 
   List<AppointmentModel> get _filtered {
     var list = _forDay(_selectedDate);
@@ -82,27 +144,110 @@ class _AppointmentPageState extends State<AppointmentPage> {
   List<AppointmentModel> _forDay(DateTime d) =>
       _all.where((a) => _same(a.date, d)).toList();
 
-  Set<DateTime> get _marked => {for (final a in _all) _date(a.date)};
 
   // ── actions ─────────────────────────────────────────────────────────────
   void _confirm(AppointmentModel a) {
     if (a.status == AppointmentStatus.cancelled) return;
-    setState(() => a.status = AppointmentStatus.confirmed);
-    _snack('Confirmed');
+    GlobalAlert.showConfirmation(
+      title: 'Confirm Appointment',
+      message: 'Confirm "${a.title}" scheduled on ${_shortDate(a.date)}?',
+      confirmText: 'Confirm',
+      cancelText: 'Cancel',
+      icon: Icons.check_circle_outline_rounded,
+    ).then((confirmed) {
+      if (confirmed != true) return;
+      GlobalAlert.showLoading(message: 'Confirming...');
+      _svc.confirmAppointment(a.id).then((_) {
+        GlobalAlert.dismiss();
+        if (!mounted) return;
+        setState(() => a.status = AppointmentStatus.confirmed);
+        GlobalAlert.showSuccess(
+          title: 'Confirmed!',
+          message: 'The appointment has been confirmed successfully.',
+        );
+      }).catchError((_) {
+        GlobalAlert.dismiss();
+        GlobalAlert.showError(
+          title: 'Failed',
+          message: 'Could not confirm the appointment. Please try again.',
+        );
+      });
+    });
   }
 
   void _reschedule(AppointmentModel a) {
     if (a.status == AppointmentStatus.cancelled) return;
-    setState(() {
-      a.status = AppointmentStatus.postponed;
-      a.date = _date(a.date.add(const Duration(days: 1)));
+    showModalBottomSheet<(DateTime, TimeOfDay, TimeOfDay)>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _RescheduleSheet(appt: a),
+    ).then((result) {
+      if (result == null) return;
+      final (newDate, newStart, newEnd) = result;
+      final dateStr = _shortDate(newDate);
+      GlobalAlert.showConfirmation(
+        title: 'Confirm Reschedule',
+        message: 'Move "${a.title}" to $dateStr?',
+        confirmText: 'Reschedule',
+        cancelText: 'Cancel',
+        icon: Icons.calendar_month_outlined,
+      ).then((confirmed) {
+        if (confirmed != true || !mounted) return;
+        GlobalAlert.showLoading(message: 'Rescheduling...');
+        _svc.rescheduleAppointment(a.id, newDate, newStart, newEnd).then((_) {
+          GlobalAlert.dismiss();
+          if (!mounted) return;
+          final newCount = a.rescheduleCount + 1;
+          setState(() {
+            a.status = AppointmentStatus.postponed;
+            a.date = newDate;
+            a.start = newStart;
+            a.end = newEnd;
+            a.rescheduleCount = newCount;
+            _selectedDate = _date(newDate);
+            _visibleMonth = DateTime(newDate.year, newDate.month);
+          });
+          _saveCount(a.id, newCount);
+          GlobalAlert.showSuccess(
+            title: 'Rescheduled!',
+            message: 'Appointment has been moved to $dateStr.',
+          );
+        }).catchError((_) {
+          GlobalAlert.dismiss();
+          GlobalAlert.showError(
+            title: 'Failed',
+            message: 'Could not reschedule the appointment. Please try again.',
+          );
+        });
+      });
     });
-    _snack('Rescheduled to ${_shortDate(a.date)}');
   }
 
   void _cancel(AppointmentModel a) {
-    setState(() => a.status = AppointmentStatus.cancelled);
-    _snack('Cancelled');
+    GlobalAlert.showConfirmation(
+      title: 'Cancel Appointment',
+      message: 'Cancel "${a.title}"? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Keep',
+      icon: FontAwesomeIcons.trashCan,
+      confirmColor: _kRed,
+    ).then((confirmed) {
+      if (confirmed != true) return;
+      GlobalAlert.showLoading(message: 'Deleting...');
+      _svc.deleteAppointment(a.id).then((_) {
+        GlobalAlert.dismiss();
+        if (!mounted) return;
+        setState(() => _all.removeWhere((item) => item.id == a.id));
+        _snack('Appointment cancelled');
+      }).catchError((_) {
+        GlobalAlert.dismiss();
+        GlobalAlert.showError(
+          title: 'Failed',
+          message: 'Could not cancel the appointment. Please try again.',
+        );
+      });
+    });
   }
 
   void _snack(String msg) {
@@ -141,22 +286,38 @@ class _AppointmentPageState extends State<AppointmentPage> {
       builder: (_) => _AddAppointmentSheet(initialDate: _selectedDate),
     );
     if (result == null || !mounted) return;
-    setState(() {
-      _all.add(result);
-      _selectedDate = _date(result.date);
-      _visibleMonth = DateTime(result.date.year, result.date.month);
-    });
-    _snack('Appointment added');
-    // persist to API (fire-and-forget; local state already updated)
-    _svc.createAppointment(result).catchError((_) {});
+    GlobalAlert.showLoading(message: 'Saving appointment...');
+    try {
+      await _svc.createAppointment(result);
+      GlobalAlert.dismiss();
+      if (!mounted) return;
+      setState(() {
+        _all.add(result);
+        _markedDates = {for (final a in _all) _date(a.date)};
+        _selectedDate = _date(result.date);
+        _visibleMonth = DateTime(result.date.year, result.date.month);
+      });
+      GlobalAlert.showSuccess(
+        title: 'Appointment Created',
+        message: 'The appointment has been saved successfully.',
+      );
+    } catch (_) {
+      GlobalAlert.dismiss();
+      GlobalAlert.showError(
+        title: 'Failed',
+        message: 'Could not save the appointment. Please try again.',
+      );
+    }
   }
 
   // ── build ────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
     return Scaffold(
       backgroundColor: _kBg,
       body: SafeArea(
+        bottom: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -167,19 +328,19 @@ class _AppointmentPageState extends State<AppointmentPage> {
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+                padding: EdgeInsets.fromLTRB(16, 4, 16, 24 + bottomInset),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _CalendarCard(
                       visibleMonth: _visibleMonth,
                       selectedDate: _selectedDate,
-                      marked: _marked,
-                      onPrev: () => _post(() => _visibleMonth =
+                      marked: _markedDates,
+                      onPrev: () => setState(() => _visibleMonth =
                           DateTime(_visibleMonth.year, _visibleMonth.month - 1)),
-                      onNext: () => _post(() => _visibleMonth =
+                      onNext: () => setState(() => _visibleMonth =
                           DateTime(_visibleMonth.year, _visibleMonth.month + 1)),
-                      onPick: (d) => _post(() {
+                      onPick: (d) => setState(() {
                         _selectedDate = _date(d);
                         _visibleMonth = DateTime(d.year, d.month);
                       }),
@@ -206,6 +367,8 @@ class _AppointmentPageState extends State<AppointmentPage> {
                           padding: const EdgeInsets.only(bottom: 12),
                           child: _ApptCard(
                             appt: _filtered[i],
+                            isOwner: _sessionUserId.isNotEmpty &&
+                                _filtered[i].createdBy == _sessionUserId,
                             onConfirm: () => _confirm(_filtered[i]),
                             onReschedule: () => _reschedule(_filtered[i]),
                             onCancel: () => _cancel(_filtered[i]),
@@ -219,12 +382,10 @@ class _AppointmentPageState extends State<AppointmentPage> {
                                 curve: Curves.easeOutCubic,
                               ),
                         ),
-                      _NoMoreCard()
-                          .animate()
-                          .fadeIn(
-                            delay: Duration(milliseconds: 100 + _filtered.length * 60),
-                            duration: 240.ms,
-                          ),
+                      if (_filtered.isEmpty)
+                        _NoMoreCard()
+                            .animate()
+                            .fadeIn(delay: 100.ms, duration: 240.ms),
                     ],
                   ],
                 ),
@@ -520,56 +681,84 @@ class _DayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color textColor;
-    Color? bgColor;
+    final Color textColor;
+    final Color? bgColor;
+    final Border? ring;
 
     if (faded) {
       textColor = _kMuted.withValues(alpha: .45);
       bgColor = null;
+      ring = null;
     } else if (isSelected) {
       textColor = Colors.white;
       bgColor = _kBlue;
+      ring = null;
+    } else if (isToday) {
+      textColor = _kBlue;
+      bgColor = null;
+      ring = Border.all(color: _kBlue, width: 1.5);
+    } else if (hasMark) {
+      textColor = _kOrange;
+      bgColor = _kOrange.withValues(alpha: .12);
+      ring = null;
     } else {
       textColor = _kText;
       bgColor = null;
+      ring = null;
     }
+
+    final showBadge = hasMark && !isSelected && !faded;
 
     return GestureDetector(
       onTap: onTap,
       child: SizedBox(
-        height: 38,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: bgColor,
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                '$day',
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
-                  color: textColor,
+        height: 44,
+        child: Center(
+          child: SizedBox(
+            width: 36,
+            height: 36,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Day circle
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: bgColor,
+                      shape: BoxShape.circle,
+                      border: ring,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$day',
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: isSelected || isToday || hasMark
+                            ? FontWeight.w900
+                            : FontWeight.w600,
+                        color: textColor,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                // Badge dot — top-right corner
+                if (showBadge)
+                  Positioned(
+                    top: -1,
+                    right: -1,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: _kRed,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            const SizedBox(height: 2),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              width: 4,
-              height: 4,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: (isToday && !isSelected) ? _kBlue : Colors.transparent,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -650,12 +839,14 @@ class _SectionHeader extends StatelessWidget {
 
 class _ApptCard extends StatelessWidget {
   final AppointmentModel appt;
+  final bool isOwner;
   final VoidCallback onConfirm;
   final VoidCallback onReschedule;
   final VoidCallback onCancel;
 
   const _ApptCard({
     required this.appt,
+    required this.isOwner,
     required this.onConfirm,
     required this.onReschedule,
     required this.onCancel,
@@ -841,35 +1032,33 @@ class _ApptCard extends StatelessWidget {
           // ── Action buttons ──
           Row(
             children: [
+              // Confirm — disabled after first confirm
               Expanded(
                 child: _ActionBtn(
                   label: isConfirmed ? 'Confirmed' : 'Confirm',
                   icon: Icons.check_rounded,
                   filled: !isConfirmed,
                   color: isConfirmed ? _kGreen : _kNavy,
-                  disabled: isCancelled,
-                  onTap: isCancelled ? null : onConfirm,
+                  disabled: isCancelled || isConfirmed,
+                  onTap: (isCancelled || isConfirmed) ? null : onConfirm,
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Reschedule — disabled after 3 times, shows remaining badge
+              Expanded(
+                child: _RescheduleBtn(
+                  remaining: appt.rescheduleRemaining,
+                  disabled: isCancelled || !appt.canReschedule,
+                  onTap: (isCancelled || !appt.canReschedule) ? null : onReschedule,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: _ActionBtn(
-                  label: 'Reschedule',
-                  icon: Icons.calendar_month_outlined,
-                  iconOverride: Image.asset('assets/images/icons/Calendar.png', width: 14, height: 14),
-                  filled: false,
-                  color: _kText,
-                  disabled: isCancelled,
-                  onTap: isCancelled ? null : onReschedule,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _ActionBtn(
-                  label: 'Cancel',
-                  icon: Icons.close_rounded,
-                  filled: false,
-                  color: _kText,
+                  label: isOwner ? 'Delete' : 'Cancel',
+                  icon: isOwner ? Icons.delete_outline_rounded : Icons.close_rounded,
+                  filled: isOwner,
+                  color: isOwner ? _kRed : _kText,
                   disabled: isCancelled,
                   onTap: isCancelled ? null : onCancel,
                 ),
@@ -877,6 +1066,86 @@ class _ApptCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Reschedule button with remaining-count badge ──────────────────────────────
+
+class _RescheduleBtn extends StatelessWidget {
+  final int remaining;
+  final bool disabled;
+  final VoidCallback? onTap;
+
+  const _RescheduleBtn({
+    required this.remaining,
+    required this.disabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveColor = disabled ? _kMuted.withValues(alpha: .5) : _kText;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        height: 38,
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _kBorder),
+        ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.calendar_month_outlined, size: 13, color: effectiveColor),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      'Reschedule',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: effectiveColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Remaining count badge — top-right
+            Positioned(
+              top: -6,
+              right: -6,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: disabled ? _kMuted : _kOrange,
+                  borderRadius: BorderRadius.circular(99),
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: Text(
+                  '$remaining',
+                  style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    height: 1,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1286,11 +1555,17 @@ class _AddAppointmentSheet extends StatefulWidget {
 class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
   final _titleCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
+  final _svc = AppointmentService();
 
   late DateTime _date;
   late TimeOfDay _start;
   late TimeOfDay _end;
   bool _saving = false;
+  bool _employeeError = false;
+
+  List<AdminModel> _admins = [];
+  List<AdminModel> _selectedAdmins = [];
+  bool _loadingAdmins = true;
 
   @override
   void initState() {
@@ -1298,6 +1573,36 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
     _date = widget.initialDate;
     _start = const TimeOfDay(hour: 9, minute: 0);
     _end = const TimeOfDay(hour: 10, minute: 0);
+    _fetchAdmins();
+  }
+
+  Future<void> _fetchAdmins() async {
+    try {
+      final list = await _svc.fetchAdmins();
+      if (!mounted) return;
+      setState(() { _admins = list; _loadingAdmins = false; });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingAdmins = false);
+    }
+  }
+
+  Future<void> _pickEmployees() async {
+    final result = await showModalBottomSheet<List<AdminModel>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _AdminPickerSheet(
+        admins: _admins,
+        selected: _selectedAdmins,
+      ),
+    );
+    if (result != null) {
+      setState(() {
+        _selectedAdmins = result;
+        if (result.isNotEmpty) _employeeError = false;
+      });
+    }
   }
 
   @override
@@ -1313,6 +1618,7 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
     return '${d.day} ${mo[d.month - 1]} ${d.year}';
   }
   String _fmtTime(TimeOfDay t) => '${_fmt2(t.hour)}:${_fmt2(t.minute)}';
+  int _toMins(TimeOfDay t) => t.hour * 60 + t.minute;
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
@@ -1330,33 +1636,47 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
     if (picked != null) setState(() => _date = picked);
   }
 
-  Future<void> _pickTime(bool isStart) async {
-    final picked = await showTimePicker(
+  Future<TimeOfDay?> _showScrollPicker(TimeOfDay initial) {
+    return showModalBottomSheet<TimeOfDay>(
       context: context,
-      initialTime: isStart ? _start : _end,
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(primary: _kBlue),
-        ),
-        child: child!,
-      ),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _ScrollTimePickerSheet(initial: initial),
     );
-    if (picked == null) return;
+  }
+
+  Future<void> pickStartAt() async {
+    final picked = await _showScrollPicker(_start);
+    if (picked == null || !mounted) return;
     setState(() {
-      if (isStart) {
-        _start = picked;
-        // auto-advance end by 1h if now <= start
-        if (_toMins(picked) >= _toMins(_end)) {
-          final total = _toMins(picked) + 60;
-          _end = TimeOfDay(hour: (total ~/ 60) % 24, minute: total % 60);
-        }
-      } else {
-        _end = picked;
-      }
+      _start = picked;
+      if (!_isAfter(_end, _start)) _end = _addHour(_start);
     });
   }
 
-  int _toMins(TimeOfDay t) => t.hour * 60 + t.minute;
+  Future<void> pickEndAt() async {
+    final picked = await _showScrollPicker(_end);
+    if (picked == null || !mounted) return;
+    if (!_isAfter(picked, _start)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('End time must be after start time'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    setState(() => _end = picked);
+  }
+
+  bool _isAfter(TimeOfDay end, TimeOfDay start) =>
+      _toMins(end) > _toMins(start);
+
+  TimeOfDay _addHour(TimeOfDay t) {
+    final total = _toMins(t) + 60;
+    return TimeOfDay(hour: (total ~/ 60) % 24, minute: total % 60);
+  }
 
   void _submit() {
     final title = _titleCtrl.text.trim();
@@ -1366,17 +1686,36 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
       );
       return;
     }
-    setState(() => _saving = true);
-    final model = AppointmentModel(
-      id: 'local_${DateTime.now().millisecondsSinceEpoch}',
-      title: title,
-      note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
-      date: DateTime(_date.year, _date.month, _date.day),
-      start: _start,
-      end: _end,
-      status: AppointmentStatus.pending,
-    );
-    Navigator.pop(context, model);
+    if (_selectedAdmins.isEmpty) {
+      setState(() => _employeeError = true);
+      return;
+    }
+
+    final empLabel = _selectedAdmins.isEmpty
+        ? 'No employees selected'
+        : '${_selectedAdmins.length} employee${_selectedAdmins.length > 1 ? 's' : ''} selected';
+
+    GlobalAlert.showConfirmation(
+      title: 'Create Appointment',
+      message: '"$title"\n${_fmtDate(_date)} · ${_fmtTime(_start)} – ${_fmtTime(_end)}\n$empLabel',
+      confirmText: 'Create',
+      cancelText: 'Back',
+      icon: Icons.event_note_rounded,
+    ).then((confirmed) {
+      if (confirmed != true) return;
+      setState(() => _saving = true);
+      final model = AppointmentModel(
+        id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+        title: title,
+        note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
+        date: DateTime(_date.year, _date.month, _date.day),
+        start: _start,
+        end: _end,
+        status: AppointmentStatus.pending,
+        participantIds: _selectedAdmins.map((a) => a.id).toList(),
+      );
+      Navigator.pop(context, model);
+    });
   }
 
   @override
@@ -1436,32 +1775,20 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
             Row(
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _FieldLabel(label: 'Start'),
-                      const SizedBox(height: 6),
-                      _PickerTile(
-                        icon: Icons.access_time_rounded,
-                        label: _fmtTime(_start),
-                        onTap: () => _pickTime(true),
-                      ),
-                    ],
+                  child: _TimeCard(
+                    label: 'Start At',
+                    value: _fmtTime(_start),
+                    icon: Icons.access_time_rounded,
+                    onTap: pickStartAt,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _FieldLabel(label: 'End'),
-                      const SizedBox(height: 6),
-                      _PickerTile(
-                        icon: Icons.access_time_filled_rounded,
-                        label: _fmtTime(_end),
-                        onTap: () => _pickTime(false),
-                      ),
-                    ],
+                  child: _TimeCard(
+                    label: 'End At',
+                    value: _fmtTime(_end),
+                    icon: Icons.timer_outlined,
+                    onTap: pickEndAt,
                   ),
                 ),
               ],
@@ -1469,9 +1796,28 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
             const SizedBox(height: 14),
 
             // Note / location
-            _FieldLabel(label: 'Location / Note (optional)'),
+            _FieldLabel(label: 'Note (optional)'),
             const SizedBox(height: 6),
-            _TextField(controller: _noteCtrl, hint: 'e.g. Room 101', maxLines: 2),
+            _TextField(controller: _noteCtrl, hint: 'Add a note...', maxLines: 2),
+            const SizedBox(height: 14),
+
+            // Employee / Participants
+            _FieldLabel(label: 'Employees *', error: _employeeError),
+            const SizedBox(height: 6),
+            _EmployeeTile(
+              selected: _selectedAdmins,
+              loading: _loadingAdmins,
+              hasError: _employeeError,
+              onTap: _admins.isEmpty && !_loadingAdmins ? null : _pickEmployees,
+            ),
+            if (_employeeError)
+              const Padding(
+                padding: EdgeInsets.only(top: 5, left: 2),
+                child: Text(
+                  'Please select at least one employee',
+                  style: TextStyle(fontSize: 11.5, color: _kRed, fontWeight: FontWeight.w600),
+                ),
+              ),
             const SizedBox(height: 24),
 
             // Save button
@@ -1504,11 +1850,16 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
 
 class _FieldLabel extends StatelessWidget {
   final String label;
-  const _FieldLabel({required this.label});
+  final bool error;
+  const _FieldLabel({required this.label, this.error = false});
   @override
   Widget build(BuildContext context) => Text(
     label,
-    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kMuted),
+    style: TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w700,
+      color: error ? _kRed : _kMuted,
+    ),
   );
 }
 
@@ -1547,6 +1898,576 @@ class _TextField extends StatelessWidget {
   }
 }
 
+// ── Employee tile (dropdown trigger) ─────────────────────────────────────────
+
+class _EmployeeTile extends StatelessWidget {
+  final List<AdminModel> selected;
+  final bool loading;
+  final bool hasError;
+  final VoidCallback? onTap;
+
+  const _EmployeeTile({
+    required this.selected,
+    required this.loading,
+    this.hasError = false,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: hasError ? _kRed.withValues(alpha: .04) : _kBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: hasError ? _kRed : _kBorder,
+            width: hasError ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.people_alt_rounded, size: 16,
+                color: hasError ? _kRed : (selected.isEmpty ? _kMuted : _kBlue)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: loading
+                  ? const Text('Loading employees...',
+                      style: TextStyle(fontSize: 14, color: _kMuted))
+                  : selected.isEmpty
+                      ? const Text('Select employees',
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: _kMuted))
+                      : Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: selected.map((a) => Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: _kBlue.withValues(alpha: .10),
+                              borderRadius: BorderRadius.circular(99),
+                              border: Border.all(
+                                  color: _kBlue.withValues(alpha: .25)),
+                            ),
+                            child: Text(
+                              a.name,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: _kBlue,
+                              ),
+                            ),
+                          )).toList(),
+                        ),
+            ),
+            const SizedBox(width: 6),
+            Icon(Icons.keyboard_arrow_down_rounded,
+                size: 18, color: loading ? _kMuted : _kNavy),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Admin picker sheet ────────────────────────────────────────────────────────
+
+class _AdminPickerSheet extends StatefulWidget {
+  final List<AdminModel> admins;
+  final List<AdminModel> selected;
+
+  const _AdminPickerSheet({required this.admins, required this.selected});
+
+  @override
+  State<_AdminPickerSheet> createState() => _AdminPickerSheetState();
+}
+
+class _AdminPickerSheetState extends State<_AdminPickerSheet> {
+  late List<AdminModel> _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = List.from(widget.selected);
+  }
+
+  bool _isSelected(AdminModel a) => _selected.any((s) => s.id == a.id);
+
+  void _toggle(AdminModel a) {
+    setState(() {
+      if (_isSelected(a)) {
+        _selected.removeWhere((s) => s.id == a.id);
+      } else {
+        _selected.add(a);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final safe = MediaQuery.of(context).padding.bottom;
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, safe + 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Handle
+          Center(
+            child: Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                  color: _kBorder,
+                  borderRadius: BorderRadius.circular(99)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Header
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Select Employees',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: _kNavy,
+                    letterSpacing: -.2,
+                  ),
+                ),
+              ),
+              if (_selected.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _kBlue.withValues(alpha: .10),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Text(
+                    '${_selected.length} selected',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: _kBlue,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // List
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.45,
+            ),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: widget.admins.length,
+              itemBuilder: (_, i) {
+                final admin = widget.admins[i];
+                final picked = _isSelected(admin);
+                return GestureDetector(
+                  onTap: () => _toggle(admin),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 13),
+                    decoration: BoxDecoration(
+                      color: picked
+                          ? _kBlue.withValues(alpha: .07)
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: picked
+                            ? _kBlue.withValues(alpha: .35)
+                            : _kBorder,
+                        width: picked ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 34, height: 34,
+                          decoration: BoxDecoration(
+                            color: picked
+                                ? _kBlue.withValues(alpha: .12)
+                                : _kBg,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              admin.name.isNotEmpty
+                                  ? admin.name[0].toUpperCase()
+                                  : '?',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
+                                color: picked ? _kBlue : _kMuted,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                admin.name,
+                                style: TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: picked ? _kNavy : _kText,
+                                ),
+                              ),
+                              if (admin.role.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: picked
+                                        ? _kBlue.withValues(alpha: .12)
+                                        : _kNavy.withValues(alpha: .07),
+                                    borderRadius: BorderRadius.circular(99),
+                                  ),
+                                  child: Text(
+                                    admin.role,
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: picked ? _kBlue : _kMuted,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          width: 22, height: 22,
+                          decoration: BoxDecoration(
+                            color: picked ? _kBlue : Colors.transparent,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: picked ? _kBlue : _kBorder,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: picked
+                              ? const Icon(Icons.check_rounded,
+                                  size: 13, color: Colors.white)
+                              : null,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 14),
+          // Done button — disabled when nothing selected
+          GestureDetector(
+            onTap: _selected.isEmpty ? null : () => Navigator.pop(context, _selected),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              height: 50,
+              decoration: BoxDecoration(
+                color: _selected.isEmpty ? _kMuted.withValues(alpha: .35) : _kNavy,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                _selected.isEmpty
+                    ? 'Select at least one employee'
+                    : 'Done  (${_selected.length})',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: _selected.isEmpty
+                      ? _kMuted
+                      : Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Scroll Time Picker Sheet ──────────────────────────────────────────────────
+
+class _ScrollTimePickerSheet extends StatefulWidget {
+  final TimeOfDay initial;
+  const _ScrollTimePickerSheet({required this.initial});
+
+  @override
+  State<_ScrollTimePickerSheet> createState() => _ScrollTimePickerSheetState();
+}
+
+class _ScrollTimePickerSheetState extends State<_ScrollTimePickerSheet> {
+  late FixedExtentScrollController _hourCtrl;
+  late FixedExtentScrollController _minCtrl;
+  late int _hour;
+  late int _minute;
+
+  @override
+  void initState() {
+    super.initState();
+    _hour   = widget.initial.hour;
+    _minute = widget.initial.minute;
+    _hourCtrl = FixedExtentScrollController(initialItem: _hour);
+    _minCtrl  = FixedExtentScrollController(initialItem: _minute);
+  }
+
+  @override
+  void dispose() {
+    _hourCtrl.dispose();
+    _minCtrl.dispose();
+    super.dispose();
+  }
+
+  static String _two(int n) => n.toString().padLeft(2, '0');
+
+  Widget _wheel({
+    required FixedExtentScrollController ctrl,
+    required int itemCount,
+    required ValueChanged<int> onChanged,
+  }) {
+    return SizedBox(
+      width: 80,
+      child: ListWheelScrollView.useDelegate(
+        controller: ctrl,
+        itemExtent: 48,
+        perspective: 0.003,
+        diameterRatio: 1.6,
+        physics: const FixedExtentScrollPhysics(),
+        onSelectedItemChanged: onChanged,
+        childDelegate: ListWheelChildListDelegate(
+          children: List.generate(
+            itemCount,
+            (i) => Center(
+              child: Text(
+                _two(i),
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w600,
+                  color: _kNavy,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final safe = MediaQuery.of(context).padding.bottom;
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, safe + 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle
+          Container(
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: _kBorder, borderRadius: BorderRadius.circular(99),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Header
+          Row(
+            children: [
+              const Text(
+                'Select Time',
+                style: TextStyle(
+                  fontSize: 17, fontWeight: FontWeight.w900,
+                  color: _kNavy, letterSpacing: -.2,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Navigator.pop(
+                  context,
+                  TimeOfDay(hour: _hour, minute: _minute),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _kNavy,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: const Text(
+                    'Done',
+                    style: TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Wheels
+          SizedBox(
+            height: 200,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Selection highlight
+                Container(
+                  height: 48,
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: _kNavy.withValues(alpha: .07),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                // Hour + separator + Minute
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _wheel(
+                      ctrl: _hourCtrl,
+                      itemCount: 24,
+                      onChanged: (v) => _hour = v,
+                    ),
+                    const Text(
+                      ':',
+                      style: TextStyle(
+                        fontSize: 26, fontWeight: FontWeight.w900,
+                        color: _kNavy,
+                      ),
+                    ),
+                    _wheel(
+                      ctrl: _minCtrl,
+                      itemCount: 60,
+                      onChanged: (v) => _minute = v,
+                    ),
+                  ],
+                ),
+                // Top fade
+                Positioned(
+                  top: 0, left: 0, right: 0,
+                  child: IgnorePointer(
+                    child: Container(
+                      height: 72,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.white, Color(0x00FFFFFF)],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                // Bottom fade
+                Positioned(
+                  bottom: 0, left: 0, right: 0,
+                  child: IgnorePointer(
+                    child: Container(
+                      height: 72,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [Colors.white, Color(0x00FFFFFF)],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Time Card ─────────────────────────────────────────────────────────────────
+
+class _TimeCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _TimeCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+        decoration: BoxDecoration(
+          color: _kBg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _kBorder),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 18, color: _kBlue),
+            const SizedBox(height: 10),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: _kMuted,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                color: _kNavy,
+                letterSpacing: 1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PickerTile extends StatelessWidget {
   final IconData icon;
   final Widget? iconOverride;
@@ -1576,6 +2497,645 @@ class _PickerTile extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Reschedule Sheet ──────────────────────────────────────────────────────────
+
+class _RescheduleSheet extends StatefulWidget {
+  final AppointmentModel appt;
+  const _RescheduleSheet({required this.appt});
+
+  @override
+  State<_RescheduleSheet> createState() => _RescheduleSheetState();
+}
+
+class _RescheduleSheetState extends State<_RescheduleSheet> {
+  late DateTime _date;
+  late DateTime _visibleMonth;
+  late TimeOfDay _start;
+  late TimeOfDay _end;
+
+  late final FixedExtentScrollController _sHour;
+  late final FixedExtentScrollController _sMin;
+  late final FixedExtentScrollController _eHour;
+  late final FixedExtentScrollController _eMin;
+
+  int _dir = 1;
+
+  static const _monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+  static const _wdLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  static final _mins5 = List.generate(12, (i) => i * 5);
+
+  @override
+  void initState() {
+    super.initState();
+    _date = widget.appt.date;
+    _visibleMonth = DateTime(_date.year, _date.month);
+    _start = widget.appt.start;
+    _end = widget.appt.end;
+    _sHour = FixedExtentScrollController(initialItem: _start.hour);
+    _sMin  = FixedExtentScrollController(initialItem: _minIdx(_start.minute));
+    _eHour = FixedExtentScrollController(initialItem: _end.hour);
+    _eMin  = FixedExtentScrollController(initialItem: _minIdx(_end.minute));
+  }
+
+  int _minIdx(int min) {
+    int best = 0, diff = 999;
+    for (int i = 0; i < _mins5.length; i++) {
+      final d = (_mins5[i] - min).abs();
+      if (d < diff) { diff = d; best = i; }
+    }
+    return best;
+  }
+
+  @override
+  void dispose() {
+    _sHour.dispose(); _sMin.dispose();
+    _eHour.dispose(); _eMin.dispose();
+    super.dispose();
+  }
+
+  static bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+  static String _two(int n) => n.toString().padLeft(2, '0');
+
+  void _prev() => setState(() {
+        _dir = -1;
+        _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month - 1);
+      });
+
+  void _next() => setState(() {
+        _dir = 1;
+        _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month + 1);
+      });
+
+  void _confirm() => Navigator.pop(context, (_date, _start, _end));
+
+  Widget _buildGrid(DateTime vm) {
+    final y = vm.year;
+    final m = vm.month;
+    final daysInMonth = DateTime(y, m + 1, 0).day;
+    final offset = DateTime(y, m, 1).weekday % 7;
+    final todayRaw = DateTime.now();
+    final today = DateTime(todayRaw.year, todayRaw.month, todayRaw.day);
+    final prevDays = DateTime(y, m, 0).day;
+
+    final cells = <Widget>[];
+    for (int i = 0; i < offset; i++) {
+      cells.add(_DayCell(day: prevDays - offset + i + 1, faded: true, onTap: null));
+    }
+    for (int d = 1; d <= daysInMonth; d++) {
+      final date = DateTime(y, m, d);
+      cells.add(_RSDay(
+        day: d,
+        isToday: _sameDay(date, today),
+        isSelected: _sameDay(date, _date),
+        onTap: () => setState(() => _date = date),
+      ));
+    }
+    final trailing = (7 - cells.length % 7) % 7;
+    for (int i = 1; i <= trailing; i++) {
+      cells.add(_DayCell(day: i, faded: true, onTap: null));
+    }
+    final rows = cells.length ~/ 7;
+    return Column(
+      children: [
+        for (int r = 0; r < rows; r++)
+          Padding(
+            padding: EdgeInsets.only(bottom: r < rows - 1 ? 4 : 0),
+            child: Row(
+              children: List.generate(7, (c) => Expanded(child: cells[r * 7 + c])),
+            ),
+          ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final safe = MediaQuery.of(context).padding.bottom;
+    final screenH = MediaQuery.of(context).size.height;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: screenH * 0.94),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 4),
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: _kBorder, borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(20, 6, 20, safe + 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Header
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Reschedule',
+                                style: TextStyle(
+                                  fontSize: 22, fontWeight: FontWeight.w900,
+                                  color: _kNavy, letterSpacing: -.4,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Pick a new date & time',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _kMuted),
+                              ),
+                            ],
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            width: 34, height: 34,
+                            decoration: BoxDecoration(
+                              color: _kBg, shape: BoxShape.circle,
+                              border: Border.all(color: _kBorder),
+                            ),
+                            child: const Icon(Icons.close_rounded, size: 18, color: _kMuted),
+                          ),
+                        ),
+                      ],
+                    ).animate().fadeIn(duration: 200.ms),
+                    const SizedBox(height: 10),
+
+                    // Appointment context chip
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                      decoration: BoxDecoration(
+                        color: _kBlue.withValues(alpha: .07),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _kBlue.withValues(alpha: .16)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.event_note_rounded, size: 14, color: _kBlue),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              widget.appt.title,
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kNavy),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${_two(widget.appt.start.hour)}:${_two(widget.appt.start.minute)}'
+                            ' → ${_two(widget.appt.end.hour)}:${_two(widget.appt.end.minute)}',
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _kMuted),
+                          ),
+                        ],
+                      ),
+                    ).animate().fadeIn(delay: 50.ms, duration: 220.ms)
+                        .slideY(begin: .04, end: 0, duration: 280.ms, curve: Curves.easeOutCubic),
+
+                    const SizedBox(height: 22),
+
+                    // Date label
+                    const _RSLabel(label: 'New Date', icon: Icons.calendar_today_rounded)
+                        .animate().fadeIn(delay: 90.ms, duration: 200.ms),
+                    const SizedBox(height: 10),
+
+                    // Calendar card
+                    Container(
+                      decoration: BoxDecoration(
+                        color: _kBg,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: _kBorder),
+                      ),
+                      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              _NavBtn(icon: Icons.chevron_left_rounded, onTap: _prev),
+                              Expanded(
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 260),
+                                  transitionBuilder: (child, anim) =>
+                                      FadeTransition(opacity: anim, child: child),
+                                  child: Text(
+                                    '${_monthNames[_visibleMonth.month - 1]} ${_visibleMonth.year}',
+                                    key: ValueKey(_visibleMonth),
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontSize: 16, fontWeight: FontWeight.w900,
+                                      color: _kNavy, letterSpacing: -.2,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              _NavBtn(icon: Icons.chevron_right_rounded, onTap: _next),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              for (final w in _wdLabels)
+                                Expanded(
+                                  child: Center(
+                                    child: Text(w,
+                                      style: const TextStyle(
+                                        fontSize: 12, fontWeight: FontWeight.w700, color: _kMuted,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            transitionBuilder: (child, anim) {
+                              final isNew = child.key == ValueKey(_visibleMonth);
+                              final begin = Offset(isNew ? _dir * 0.28 : -_dir * 0.28, 0);
+                              return FadeTransition(
+                                opacity: anim,
+                                child: SlideTransition(
+                                  position: Tween<Offset>(begin: begin, end: Offset.zero)
+                                      .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: SizedBox(
+                              key: ValueKey(_visibleMonth),
+                              child: _buildGrid(_visibleMonth),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ).animate().fadeIn(delay: 120.ms, duration: 260.ms)
+                        .slideY(begin: .04, end: 0, duration: 320.ms, curve: Curves.easeOutCubic),
+
+                    const SizedBox(height: 22),
+
+                    // Time label
+                    const _RSLabel(label: 'New Time', icon: Icons.access_time_rounded)
+                        .animate().fadeIn(delay: 160.ms, duration: 200.ms),
+                    const SizedBox(height: 10),
+
+                    // Time wheels
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _TimeWheelCard(
+                            label: 'START',
+                            hourCtrl: _sHour,
+                            minCtrl: _sMin,
+                            mins: _mins5,
+                            onHourChanged: (h) =>
+                                setState(() => _start = TimeOfDay(hour: h, minute: _start.minute)),
+                            onMinChanged: (i) =>
+                                setState(() => _start = TimeOfDay(hour: _start.hour, minute: _mins5[i])),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _TimeWheelCard(
+                            label: 'END',
+                            hourCtrl: _eHour,
+                            minCtrl: _eMin,
+                            mins: _mins5,
+                            onHourChanged: (h) =>
+                                setState(() => _end = TimeOfDay(hour: h, minute: _end.minute)),
+                            onMinChanged: (i) =>
+                                setState(() => _end = TimeOfDay(hour: _end.hour, minute: _mins5[i])),
+                          ),
+                        ),
+                      ],
+                    ).animate().fadeIn(delay: 190.ms, duration: 260.ms)
+                        .slideY(begin: .04, end: 0, duration: 320.ms, curve: Curves.easeOutCubic),
+
+                    const SizedBox(height: 26),
+
+                    _RSConfirmBtn(onTap: _confirm)
+                        .animate().fadeIn(delay: 230.ms, duration: 240.ms)
+                        .slideY(begin: .04, end: 0, duration: 280.ms, curve: Curves.easeOutCubic),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Reschedule: selectable day cell ──────────────────────────────────────────
+
+class _RSDay extends StatelessWidget {
+  final int day;
+  final bool isToday;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _RSDay({
+    required this.day,
+    required this.isToday,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final Color textColor;
+    final Color? bgColor;
+
+    if (isSelected) {
+      textColor = Colors.white;
+      bgColor = _kNavy;
+    } else if (isToday) {
+      textColor = _kBlue;
+      bgColor = _kBlue.withValues(alpha: .10);
+    } else {
+      textColor = _kText;
+      bgColor = null;
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        height: 38,
+        child: Center(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
+            alignment: Alignment.center,
+            child: Text(
+              '$day',
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: isSelected
+                    ? FontWeight.w900
+                    : (isToday ? FontWeight.w800 : FontWeight.w600),
+                color: textColor,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Reschedule: section label ─────────────────────────────────────────────────
+
+class _RSLabel extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  const _RSLabel({required this.label, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 26, height: 26,
+          decoration: BoxDecoration(
+            color: _kNavy.withValues(alpha: .08),
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: Icon(icon, size: 13, color: _kNavy),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14, fontWeight: FontWeight.w900,
+            color: _kNavy, letterSpacing: -.1,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Reschedule: time wheel card ───────────────────────────────────────────────
+
+class _TimeWheelCard extends StatelessWidget {
+  final String label;
+  final FixedExtentScrollController hourCtrl;
+  final FixedExtentScrollController minCtrl;
+  final List<int> mins;
+  final ValueChanged<int> onHourChanged;
+  final ValueChanged<int> onMinChanged;
+
+  const _TimeWheelCard({
+    required this.label,
+    required this.hourCtrl,
+    required this.minCtrl,
+    required this.mins,
+    required this.onHourChanged,
+    required this.onMinChanged,
+  });
+
+  static String _two(int n) => n.toString().padLeft(2, '0');
+
+  Widget _wheel({
+    required FixedExtentScrollController ctrl,
+    required List<String> items,
+    required ValueChanged<int> onChanged,
+  }) {
+    return SizedBox(
+      width: 46,
+      child: ListWheelScrollView.useDelegate(
+        controller: ctrl,
+        itemExtent: 42,
+        perspective: 0.003,
+        diameterRatio: 1.45,
+        physics: const FixedExtentScrollPhysics(),
+        onSelectedItemChanged: onChanged,
+        childDelegate: ListWheelChildLoopingListDelegate(
+          children: items
+              .map((e) => Center(
+                    child: Text(
+                      e,
+                      style: const TextStyle(
+                        fontSize: 21,
+                        fontWeight: FontWeight.w800,
+                        color: _kNavy,
+                        height: 1,
+                      ),
+                    ),
+                  ))
+              .toList(),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hours = List.generate(24, (i) => _two(i));
+    final minLabels = mins.map((m) => _two(m)).toList();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: _kBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _kBorder),
+      ),
+      padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10.5, fontWeight: FontWeight.w800,
+              color: _kMuted, letterSpacing: .8,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 126,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  height: 42,
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  decoration: BoxDecoration(
+                    color: _kNavy.withValues(alpha: .07),
+                    borderRadius: BorderRadius.circular(11),
+                    border: Border.all(color: _kNavy.withValues(alpha: .10)),
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _wheel(ctrl: hourCtrl, items: hours, onChanged: onHourChanged),
+                    const SizedBox(
+                      width: 10, height: 42,
+                      child: Center(
+                        child: Text(':',
+                          style: TextStyle(
+                            fontSize: 22, fontWeight: FontWeight.w900, color: _kNavy,
+                          ),
+                        ),
+                      ),
+                    ),
+                    _wheel(ctrl: minCtrl, items: minLabels, onChanged: onMinChanged),
+                  ],
+                ),
+                Positioned(
+                  top: 0, left: 0, right: 0,
+                  child: IgnorePointer(
+                    child: Container(
+                      height: 40,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0xFFF5F7FA), Color(0x00F5F7FA)],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 0, left: 0, right: 0,
+                  child: IgnorePointer(
+                    child: Container(
+                      height: 40,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [Color(0xFFF5F7FA), Color(0x00F5F7FA)],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Reschedule: confirm button ────────────────────────────────────────────────
+
+class _RSConfirmBtn extends StatefulWidget {
+  final VoidCallback onTap;
+  const _RSConfirmBtn({required this.onTap});
+
+  @override
+  State<_RSConfirmBtn> createState() => _RSConfirmBtnState();
+}
+
+class _RSConfirmBtnState extends State<_RSConfirmBtn> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _down = true),
+      onTapUp: (_) { setState(() => _down = false); widget.onTap(); },
+      onTapCancel: () => setState(() => _down = false),
+      child: AnimatedScale(
+        scale: _down ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 130),
+        curve: Curves.easeOut,
+        child: Container(
+          height: 52,
+          decoration: BoxDecoration(
+            color: _kNavy,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: _kNavy.withValues(alpha: .28),
+                blurRadius: 18,
+                offset: const Offset(0, 7),
+              ),
+            ],
+          ),
+          alignment: Alignment.center,
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.check_rounded, size: 18, color: Colors.white),
+              SizedBox(width: 8),
+              Text(
+                'Confirm Reschedule',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white),
+              ),
+            ],
+          ),
         ),
       ),
     );
