@@ -23,39 +23,26 @@ class CConnectApp extends StatefulWidget {
 class _CConnectAppState extends State<CConnectApp> {
   Locale _locale = const Locale('en');
 
-  void _toggleTheme() => AppTheme.toggleThemeMode();
-  void _setLocale(Locale locale) => setState(() => _locale = locale);
-
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: AppTheme.mode,
-      builder: (context, mode, _) {
-        return MaterialApp(
-          navigatorKey: GlobalAlert.navigatorKey,
-          debugShowCheckedModeBanner: false,
+    return MaterialApp(
+      navigatorKey: GlobalAlert.navigatorKey,
+      debugShowCheckedModeBanner: false,
 
-          theme: AppTheme.lightTheme(_locale),
-          darkTheme: AppTheme.darkTheme(_locale),
-          themeMode: mode,
+      theme: AppTheme.lightTheme(_locale),
+      themeMode: ThemeMode.light,
 
-          locale: _locale,
-          supportedLocales: const [Locale('en'), Locale('lo'), Locale('th')],
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
+      locale: _locale,
+      supportedLocales: const [Locale('en'), Locale('lo'), Locale('th')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
 
-          routes: {'/homeShell': (_) => const HomeShellPage()},
+      routes: {'/homeShell': (_) => const HomeShellPage()},
 
-          home: YearPickerPage(
-            onToggleTheme: _toggleTheme,
-            themeMode: mode,
-            // onSetLocale: _setLocale,
-          ),
-        );
-      },
+      home: const YearPickerPage(),
     );
   }
 }

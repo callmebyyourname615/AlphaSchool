@@ -80,6 +80,10 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
       return;
     }
 
+    String studentName = studentId.length > 8
+        ? '${studentId.substring(0, 8).toUpperCase()}...'
+        : studentId;
+
     try {
       final now   = TimeOfDay.now();
       final today = _todayString();
@@ -92,9 +96,6 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
       });
 
       // Try to get student name
-      String studentName = studentId.length > 8
-          ? '${studentId.substring(0, 8).toUpperCase()}...'
-          : studentId;
       try {
         final s = await _api.get('/students/$studentId');
         if (s is Map) {

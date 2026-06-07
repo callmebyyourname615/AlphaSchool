@@ -87,6 +87,9 @@ flutter:
     - assets/images/homepagewall/mainbg.jpeg
     - assets/images/profile/me.jpg
     - assets/images/icons/
+    - assets/images/register/
+    - assets/images/login/
+    - assets/images/logo/
 
   #   - images/a_dot_ham.jpeg
 

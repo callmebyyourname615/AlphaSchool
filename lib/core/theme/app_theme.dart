@@ -17,18 +17,10 @@ class AppTheme {
     colors: [_premiumA, _premiumB, _premiumC],
   );
 
-  /// ✅ Single source of truth: ThemeMode for whole app
+  /// Light mode is the only supported appearance.
   static final ValueNotifier<ThemeMode> mode = ValueNotifier(ThemeMode.light);
-  static ThemeMode get themeMode => mode.value;
-  static bool get isDarkMode => mode.value == ThemeMode.dark;
-
-  static void setThemeMode(ThemeMode newMode) => mode.value = newMode;
-
-  static void toggleThemeMode() {
-    mode.value = (mode.value == ThemeMode.dark)
-        ? ThemeMode.light
-        : ThemeMode.dark;
-  }
+  static ThemeMode get themeMode => ThemeMode.light;
+  static bool get isDarkMode => false;
 
   static const double _radiusLg = 20;
   static const double _radiusMd = 16;
@@ -113,10 +105,10 @@ class AppTheme {
       scaffoldBackgroundColor: AppColors.grayUltraLight,
 
       colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.blue500,
+        seedColor: AppColors.blue300,
         brightness: Brightness.light,
-        primary: AppColors.blue500,
-        secondary: AppColors.blue200,
+        primary: AppColors.blue300,
+        secondary: AppColors.blue100,
         surface: Colors.white,
       ),
 
@@ -147,7 +139,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(_radiusMd),
-          borderSide: BorderSide(color: _o(AppColors.blue400, .65)),
+          borderSide: BorderSide(color: _o(AppColors.blue300, .72)),
         ),
       ),
 
@@ -161,65 +153,8 @@ class AppTheme {
     );
   }
 
-  // =========================
-  // ✅ Dark Theme (by locale)
-  // =========================
+  /// Retained for compatibility with older pages; always returns light theme.
   static ThemeData darkTheme(Locale locale) {
-    final textTheme = _makeBold(_fontTextTheme(locale));
-
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
-      fontFamily: _fontFamily(locale),
-
-      scaffoldBackgroundColor: darkBluePremium,
-
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.blue500,
-        brightness: Brightness.dark,
-        primary: AppColors.blue200,
-        secondary: AppColors.blue300,
-        surface: darkBluePremium,
-      ),
-
-      textTheme: textTheme,
-
-      appBarTheme: const AppBarTheme(
-        centerTitle: true,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-      ),
-
-      cardTheme: CardThemeData(
-        elevation: 0,
-        shape: _r(_radiusLg),
-        clipBehavior: Clip.antiAlias,
-      ),
-
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: _o(Colors.white, .08),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_radiusMd),
-          borderSide: BorderSide(color: _o(Colors.white, .12)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_radiusMd),
-          borderSide: BorderSide(color: _o(Colors.white, .10)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_radiusMd),
-          borderSide: BorderSide(color: _o(Colors.white, .36)),
-        ),
-      ),
-
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          shape: _r(_radiusMd),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          textStyle: const TextStyle(fontWeight: FontWeight.w900),
-        ),
-      ),
-    );
+    return lightTheme(locale);
   }
 }
