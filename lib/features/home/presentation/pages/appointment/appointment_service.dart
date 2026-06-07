@@ -11,6 +11,10 @@ class AppointmentService {
   final ApiClient _apiClient;
 
   Future<List<AppointmentModel>> fetchAppointments() async {
+    final session = await SessionService().load();
+    final userId = session?.id.trim() ?? '';
+    if (userId.isEmpty) return const [];
+
     final response = await _apiClient.get('/appointments');
     final rawItems = _extractItems(response);
 
@@ -19,7 +23,8 @@ class AppointmentService {
             .whereType<Map<String, dynamic>>()
             .where((item) => item['is_deleted'] != true)
             .where((item) => item['is_active'] != false)
-            .map(_fromJson)
+            .where((item) => _isAssignedToUser(item, userId))
+            .map((item) => _fromJson(item, userId))
             .whereType<AppointmentModel>()
             .toList()
           ..sort((a, b) {
@@ -29,6 +34,19 @@ class AppointmentService {
           });
 
     return appointments;
+  }
+
+  bool _isAssignedToUser(Map<String, dynamic> appointment, String userId) {
+    final participants = appointment['participants'];
+    if (participants is! List) return false;
+
+    return participants.whereType<Map<String, dynamic>>().any((participant) {
+      if (participant['is_deleted'] == true) return false;
+      if (participant['is_active'] == false) return false;
+
+      return _readString(participant['person_id'] ?? participant['personId']) ==
+          userId;
+    });
   }
 
   Future<void> createAppointment(AppointmentModel model) async {
@@ -44,21 +62,26 @@ class AppointmentService {
 
     final academicYearId = await _fetchActiveAcademicYearId(branchId);
 
-    await _apiClient.post('/appointments', body: {
-      'title': model.title,
-      'date': '${model.date.year}-${_pad(model.date.month)}-${_pad(model.date.day)}',
-      'from_time': '${_pad(model.start.hour)}:${_pad(model.start.minute)}',
-      'to_time': '${_pad(model.end.hour)}:${_pad(model.end.minute)}',
-      if (model.note != null && model.note!.isNotEmpty) 'description': model.note,
-      'status': 'PENDING',
-      if (branchId.isNotEmpty) 'branch_id': branchId,
-      if (academicYearId.isNotEmpty) 'academic_year_id': academicYearId,
-      if (session?.id.isNotEmpty == true) 'created_by': session!.id,
-      if (model.participantIds.isNotEmpty)
-        'participants': model.participantIds
-            .map((id) => {'person_id': id, 'person_type': 'TEACHER'})
-            .toList(),
-    });
+    await _apiClient.post(
+      '/appointments',
+      body: {
+        'title': model.title,
+        'date':
+            '${model.date.year}-${_pad(model.date.month)}-${_pad(model.date.day)}',
+        'from_time': '${_pad(model.start.hour)}:${_pad(model.start.minute)}',
+        'to_time': '${_pad(model.end.hour)}:${_pad(model.end.minute)}',
+        if (model.note != null && model.note!.isNotEmpty)
+          'description': model.note,
+        'status': 'PENDING',
+        if (branchId.isNotEmpty) 'branch_id': branchId,
+        if (academicYearId.isNotEmpty) 'academic_year_id': academicYearId,
+        if (session?.id.isNotEmpty == true) 'created_by': session!.id,
+        if (model.participantIds.isNotEmpty)
+          'participants': model.participantIds
+              .map((id) => {'person_id': id, 'person_type': 'TEACHER'})
+              .toList(),
+      },
+    );
   }
 
   Future<String> _fetchBranchId(String userId) async {
@@ -85,8 +108,8 @@ class AppointmentService {
       final List<dynamic> items = response is List
           ? response
           : (response is Map
-              ? ((response['data'] ?? response['results']) as List? ?? [])
-              : []);
+                ? ((response['data'] ?? response['results']) as List? ?? [])
+                : []);
       for (final item in items) {
         if (item is Map<String, dynamic> && item['is_active'] == true) {
           return item['id']?.toString() ?? '';
@@ -106,27 +129,48 @@ class AppointmentService {
         .toList();
   }
 
-  Future<void> confirmAppointment(String id) async {
-    await _apiClient.put('/appointments/$id', body: {'status': 'CONFIRMED'});
+  Future<void> confirmAppointment(AppointmentModel model) async {
+    if (model.appointmentPersonId.isEmpty) {
+      throw StateError('Missing appointment participant id');
+    }
+
+    await _apiClient.patch(
+      '/appointments/participants/${model.appointmentPersonId}/respond',
+      body: {'status': 'ACCEPTED'},
+    );
+  }
+
+  Future<void> declineAppointment(AppointmentModel model) async {
+    if (model.appointmentPersonId.isEmpty) {
+      throw StateError('Missing appointment participant id');
+    }
+
+    await _apiClient.patch(
+      '/appointments/participants/${model.appointmentPersonId}/respond',
+      body: {'status': 'DECLINED'},
+    );
   }
 
   Future<void> rescheduleAppointment(
-    String id,
+    AppointmentModel model,
     DateTime date,
     TimeOfDay start,
     TimeOfDay end,
   ) async {
-    String _pad(int n) => n.toString().padLeft(2, '0');
-    await _apiClient.put('/appointments/$id', body: {
-      'status': 'RESCHEDULED',
-      'rescheduled_date': '${date.year}-${_pad(date.month)}-${_pad(date.day)}',
-      'rescheduled_from_time': '${_pad(start.hour)}:${_pad(start.minute)}',
-      'rescheduled_to_time': '${_pad(end.hour)}:${_pad(end.minute)}',
-    });
-  }
+    String pad(int n) => n.toString().padLeft(2, '0');
+    if (model.appointmentPersonId.isEmpty) {
+      throw StateError('Missing appointment participant id');
+    }
 
-  Future<void> deleteAppointment(String id) async {
-    await _apiClient.delete('/appointments/$id');
+    await _apiClient.patch(
+      '/appointments/participants/${model.appointmentPersonId}/respond',
+      body: {
+        'status': 'RESCHEDULED',
+        'proposed_date': '${date.year}-${pad(date.month)}-${pad(date.day)}',
+        'proposed_from_time': '${pad(start.hour)}:${pad(start.minute)}',
+        'proposed_to_time': '${pad(end.hour)}:${pad(end.minute)}',
+      },
+    );
   }
 
   List<dynamic> _extractItems(dynamic response) {
@@ -140,41 +184,59 @@ class AppointmentService {
     return const <dynamic>[];
   }
 
-  AppointmentModel? _fromJson(Map<String, dynamic> json) {
-    final status = _statusFromJson(json['status']);
-    final useRescheduled = status == AppointmentStatus.postponed;
+  AppointmentModel? _fromJson(Map<String, dynamic> json, String userId) {
+    final currentParticipant = _currentParticipant(json, userId);
+    final status = _statusFromJson(
+      currentParticipant?['status'] ?? json['status'],
+    );
+    final proposedReschedule = _latestProposedReschedule(currentParticipant);
+    final hasProposedDate = _readString(
+      proposedReschedule?['proposed_date'],
+    ).isNotEmpty;
+    final hasProposedStart = _readString(
+      proposedReschedule?['proposed_from_time'],
+    ).isNotEmpty;
+    final useProposedReschedule =
+        status == AppointmentStatus.postponed &&
+        hasProposedDate &&
+        hasProposedStart;
 
-    final date = _parseDate(
-      useRescheduled ? json['rescheduled_date'] : json['date'],
-    );
-    final start = _parseTime(
-      useRescheduled ? json['rescheduled_from_time'] : json['from_time'],
-    );
-    final end = _parseTime(
-      useRescheduled ? json['rescheduled_to_time'] : json['to_time'],
-    );
+    final hasRescheduledDate = _readString(json['rescheduled_date']).isNotEmpty;
+    final hasRescheduledStart = _readString(
+      json['rescheduled_from_time'],
+    ).isNotEmpty;
+    final useRescheduled = hasRescheduledDate && hasRescheduledStart;
+
+    Object? dateValue = json['date'];
+    Object? startValue = json['from_time'];
+    Object? endValue = json['to_time'];
+    if (useRescheduled) {
+      dateValue = json['rescheduled_date'];
+      startValue = json['rescheduled_from_time'];
+      endValue = json['rescheduled_to_time'];
+    }
+    if (useProposedReschedule) {
+      dateValue = proposedReschedule?['proposed_date'];
+      startValue = proposedReschedule?['proposed_from_time'];
+      endValue = proposedReschedule?['proposed_to_time'];
+    }
+
+    final date = _parseDate(dateValue);
+    final start = _parseTime(startValue);
+    final end = _parseTime(endValue);
 
     if (date == null || start == null) return null;
 
     final place = _readString(json['appointment_place']);
     final description = _readString(json['description']);
 
-    // Max reschedule_count across all participants
-    int rescheduleCount = 0;
-    final participants = json['participants'];
-    if (participants is List) {
-      for (final p in participants) {
-        if (p is Map<String, dynamic>) {
-          final c = int.tryParse(p['reschedule_count']?.toString() ?? '0') ?? 0;
-          if (c > rescheduleCount) rescheduleCount = c;
-        }
-      }
-    }
+    final rescheduleCount = _participantRescheduleCount(currentParticipant);
 
     return AppointmentModel(
       id: _readString(
         json['id'],
       ).ifEmpty('appointment_${date.millisecondsSinceEpoch}'),
+      appointmentPersonId: _readString(currentParticipant?['id']),
       title: _readString(json['title']).ifEmpty('Appointment'),
       rescheduleCount: rescheduleCount,
       createdBy: _readString(json['created_by']),
@@ -187,6 +249,53 @@ class AppointmentService {
       end: end ?? _addMinutes(start, 30),
       status: status,
     );
+  }
+
+  int _participantRescheduleCount(Map<String, dynamic>? participant) {
+    if (participant == null) return 0;
+    return int.tryParse(
+          (participant['reschedule_count'] ?? participant['rescheduled_count'])
+                  ?.toString() ??
+              '0',
+        ) ??
+        0;
+  }
+
+  Map<String, dynamic>? _latestProposedReschedule(
+    Map<String, dynamic>? participant,
+  ) {
+    final history = participant?['response_history'];
+    if (history is! List) return null;
+
+    Map<String, dynamic>? latest;
+    for (final entry in history.whereType<Map<String, dynamic>>()) {
+      if (_readString(entry['status']).toUpperCase() != 'RESCHEDULED') {
+        continue;
+      }
+      if (_readString(entry['proposed_date']).isEmpty) continue;
+      latest = entry;
+    }
+
+    return latest;
+  }
+
+  Map<String, dynamic>? _currentParticipant(
+    Map<String, dynamic> appointment,
+    String userId,
+  ) {
+    final participants = appointment['participants'];
+    if (participants is! List) return null;
+
+    for (final participant in participants.whereType<Map<String, dynamic>>()) {
+      if (participant['is_deleted'] == true) continue;
+      if (participant['is_active'] == false) continue;
+      if (_readString(participant['person_id'] ?? participant['personId']) ==
+          userId) {
+        return participant;
+      }
+    }
+
+    return null;
   }
 
   AppointmentStatus _statusFromJson(dynamic value) {

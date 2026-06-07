@@ -62,6 +62,21 @@ class ApiClient {
     );
   }
 
+  Future<dynamic> patch(
+    String path, {
+    Map<String, String>? headers,
+    Map<String, dynamic>? queryParameters,
+    Object? body,
+  }) {
+    return _send(
+      'PATCH',
+      path,
+      headers: headers,
+      queryParameters: queryParameters,
+      body: body,
+    );
+  }
+
   Future<dynamic> delete(
     String path, {
     Map<String, String>? headers,

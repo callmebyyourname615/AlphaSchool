@@ -11,8 +11,8 @@ class AdminModel {
 
   static AdminModel fromJson(Map<String, dynamic> json) {
     final first = (json['first_name'] ?? '').toString().trim();
-    final last  = (json['last_name']  ?? '').toString().trim();
-    final full  = [first, last].where((s) => s.isNotEmpty).join(' ');
+    final last = (json['last_name'] ?? '').toString().trim();
+    final full = [first, last].where((s) => s.isNotEmpty).join(' ');
 
     String role = '';
     final roles = json['roles'];
@@ -22,8 +22,10 @@ class AdminModel {
     }
 
     return AdminModel(
-      id:   json['id']?.toString() ?? '',
-      name: full.isNotEmpty ? full : (json['username']?.toString() ?? 'Unknown'),
+      id: json['id']?.toString() ?? '',
+      name: full.isNotEmpty
+          ? full
+          : (json['username']?.toString() ?? 'Unknown'),
       role: role,
     );
   }
@@ -31,6 +33,7 @@ class AdminModel {
 
 class AppointmentModel {
   final String id;
+  final String appointmentPersonId;
   final String title;
   final String? note;
 
@@ -47,6 +50,7 @@ class AppointmentModel {
 
   AppointmentModel({
     required this.id,
+    this.appointmentPersonId = '',
     required this.title,
     this.note,
     required this.date,

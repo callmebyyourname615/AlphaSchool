@@ -155,7 +155,7 @@ class _HomeShellPageState extends State<HomeShellPage>
     final bg = isDark ? AppColors.dark : Colors.white;
 
     final pages = <Widget>[
-      const ExplorePage(),
+      ExplorePage(selectedStudent: widget.selectedStudent),
       const ClassroomPage(),
       const StudyPlanPage(),
       const FeePage(),

@@ -4,6 +4,7 @@ import 'package:alpha_school/core/widgets/scanqrcode/scan_qr_code_page.dart';
 import 'package:alpha_school/features/demo/DemoTest.dart';
 import 'package:alpha_school/features/home/presentation/pages/appointment/appointment_page.dart';
 import 'package:alpha_school/features/home/presentation/pages/attendance/attendance_page.dart';
+import 'package:alpha_school/features/home/presentation/pages/attendance/attendance_service.dart';
 import 'package:alpha_school/features/home/presentation/pages/calendar/calendar_page.dart';
 import 'package:alpha_school/features/home/presentation/pages/calendar/calendar_year.dart';
 import 'package:alpha_school/features/home/presentation/pages/contact/contact_page.dart';
@@ -22,9 +23,12 @@ import 'package:alpha_school/features/students/presentation/pages/choose_student
 import 'package:remixicon/remixicon.dart';
 
 import '../../../../../core/theme/app_colors.dart';
+import '../../../../../shared/models/student_card_item.dart';
 
 class ExplorePage extends StatefulWidget {
-  const ExplorePage({super.key});
+  final StudentCardItem? selectedStudent;
+
+  const ExplorePage({super.key, this.selectedStudent});
 
   static const _bgAsset = "assets/images/homepagewall/homepagewallpaper.jpg";
   static const _profileAvatarAsset = "assets/images/profile/me.jpg";
@@ -35,12 +39,18 @@ class ExplorePage extends StatefulWidget {
 
 class _ExplorePageState extends State<ExplorePage> {
   final GlobalKey _bellKey = GlobalKey();
+  final _attendanceService = AttendanceService();
 
   late List<_NotificationItem> _notifications;
+
+  bool _checkedIn = false;
+  bool _isLate = false;
+  TimeOfDay? _checkinTime;
 
   @override
   void initState() {
     super.initState();
+    _loadTodayAttendance();
 
     final now = DateTime.now();
     _notifications = [
@@ -73,6 +83,28 @@ class _ExplorePageState extends State<ExplorePage> {
         isUnread: false,
       ),
     ];
+  }
+
+  /// Loads the selected student's check-in status/time for today from
+  /// `GET /attendances`. Failures (including "no selected student" / "no
+  /// record yet for today") are swallowed and simply leave the card showing
+  /// its "Not Checked-In" default -- a flaky fetch shouldn't block the page.
+  Future<void> _loadTodayAttendance() async {
+    final student = widget.selectedStudent;
+    if (student == null) return;
+
+    try {
+      final attendance = await _attendanceService.fetchTodayAttendance(student);
+      if (!mounted || attendance == null) return;
+
+      setState(() {
+        _checkedIn = attendance.checkedIn;
+        _isLate = attendance.isLate;
+        _checkinTime = attendance.checkinTime;
+      });
+    } catch (_) {
+      // Keep the default "Not Checked-In" state on failure.
+    }
   }
 
   void _markAllRead() {
@@ -152,11 +184,17 @@ class _ExplorePageState extends State<ExplorePage> {
     final isDark = t.brightness == Brightness.dark;
 
     final today = DateTime.now();
-    final bool checkedIn = true;
-    final TimeOfDay checkinTime = const TimeOfDay(hour: 8, minute: 15);
+    final bool checkedIn = _checkedIn;
+    final bool isLate = _isLate;
+    final TimeOfDay? checkinTime = _checkinTime;
 
-    final String studentName = "Student Name";
-    final String studentClass = "Class 5A";
+    final student = widget.selectedStudent;
+    final studentName = student?.name.trim().isNotEmpty == true
+        ? student!.name.trim()
+        : "Student";
+    final studentClass = student?.className?.trim().isNotEmpty == true
+        ? student!.className!.trim()
+        : "Class not assigned";
 
     void go(Widget page) {
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
@@ -468,6 +506,7 @@ class _ExplorePageState extends State<ExplorePage> {
                                     isSmallPhone: isSmallPhone,
                                     date: today,
                                     checkedIn: checkedIn,
+                                    isLate: isLate,
                                     checkinTime: checkinTime,
                                     isDark: isDark,
                                     participantPercent: 0.70,
@@ -1303,7 +1342,8 @@ class _AttendanceCalendarCard extends StatelessWidget {
 
   final DateTime date;
   final bool checkedIn;
-  final TimeOfDay checkinTime;
+  final bool isLate;
+  final TimeOfDay? checkinTime;
   final bool isDark;
 
   final double participantPercent;
@@ -1319,6 +1359,7 @@ class _AttendanceCalendarCard extends StatelessWidget {
     required this.isSmallPhone,
     required this.date,
     required this.checkedIn,
+    required this.isLate,
     required this.checkinTime,
     required this.isDark,
     required this.onTapAttendance,
@@ -1339,8 +1380,19 @@ class _AttendanceCalendarCard extends StatelessWidget {
     final valueSize = isSmallPhone ? 15.0 : 16.0;
     final labelSize = isSmallPhone ? 11.0 : 12.0;
 
-    final statusColor = checkedIn ? Colors.greenAccent : Colors.redAccent;
-    final statusText = checkedIn ? "Checked-In" : "Not Checked-In";
+    final statusColor = isLate
+        ? Colors.orangeAccent
+        : checkedIn
+        ? Colors.greenAccent
+        : Colors.redAccent;
+    final statusText = isLate
+        ? "Check-in Late"
+        : checkedIn
+        ? "Checked-In"
+        : "Not Checked-In";
+    // Local copy so the null check below promotes it to a non-nullable
+    // `TimeOfDay` for `_fmtTime` (the field itself can't be promoted).
+    final checkinTime = this.checkinTime;
 
     final pct = participantPercent.clamp(0.0, 1.0);
     final pctLabel = "${(pct * 100).round()}%";
@@ -1438,35 +1490,37 @@ class _AttendanceCalendarCard extends StatelessWidget {
                                               ),
                                             ),
                                           ),
-                                          const SizedBox(width: 12),
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              FaIcon(
-                                                FontAwesomeIcons.clock,
-                                                size: isSmallPhone
-                                                    ? 12.0
-                                                    : 13.0,
-                                                color: Colors.white.withOpacity(
-                                                  .88,
+                                          if (checkinTime != null) ...[
+                                            const SizedBox(width: 12),
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                FaIcon(
+                                                  FontAwesomeIcons.clock,
+                                                  size: isSmallPhone
+                                                      ? 12.0
+                                                      : 13.0,
+                                                  color: Colors.white
+                                                      .withOpacity(.88),
                                                 ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              FittedBox(
-                                                fit: BoxFit.scaleDown,
-                                                child: Text(
-                                                  _fmtTime(checkinTime),
-                                                  style: TextStyle(
-                                                    color: Colors.white
-                                                        .withOpacity(.95),
-                                                    fontWeight: FontWeight.w900,
-                                                    fontSize: valueSize,
-                                                    height: 1.0,
+                                                const SizedBox(width: 8),
+                                                FittedBox(
+                                                  fit: BoxFit.scaleDown,
+                                                  child: Text(
+                                                    _fmtTime(checkinTime),
+                                                    style: TextStyle(
+                                                      color: Colors.white
+                                                          .withOpacity(.95),
+                                                      fontWeight:
+                                                          FontWeight.w900,
+                                                      fontSize: valueSize,
+                                                      height: 1.0,
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
-                                            ],
-                                          ),
+                                              ],
+                                            ),
+                                          ],
                                         ],
                                       ),
                                     ),

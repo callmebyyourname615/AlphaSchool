@@ -6,7 +6,9 @@ import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/session_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/scanqrcode/scan_qr_code_page.dart';
+import '../../../../shared/models/student_card_item.dart';
 import '../../../home/presentation/pages/year_picker_page.dart';
+import '../../../students/data/student_service.dart';
 import '../../../students/presentation/pages/choose_students.dart';
 import '../../data/auth_service.dart';
 import 'register_page.dart';
@@ -27,6 +29,7 @@ class _LoginPageState extends State<LoginPage> {
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   final _authService = AuthService();
+  final _studentService = StudentService();
 
   bool _rememberMe = true;
   bool _obscure = true;
@@ -73,16 +76,25 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() => _loading = true);
     try {
-      final admin = await _authService.login(login: login, password: password);
+      final account = await _authService.login(
+        login: login,
+        password: password,
+      );
       if (!mounted) return;
       await _saveCredentials(login, password);
-      await SessionService().save(admin.json);
+      await SessionService().save(account.json);
       if (!mounted) return;
 
+      Widget nextPage;
+      if (account.isParent) {
+        final students = await _fetchParentStudents(account);
+        if (!mounted) return;
+        nextPage = StudentsCardListPage(students: students);
+      } else {
+        nextPage = const ScanQrCodePage();
+      }
+
       _navLock = true;
-      final nextPage = admin.isParent
-          ? const StudentsCardListPage()
-          : const ScanQrCodePage();
       await Navigator.of(context).pushReplacement(_route(nextPage));
     } on ApiException catch (error) {
       if (mounted) _showError(error.message);
@@ -90,6 +102,24 @@ class _LoginPageState extends State<LoginPage> {
       if (mounted) _showError('Unable to sign in: $error');
     } finally {
       if (mounted && !_navLock) setState(() => _loading = false);
+    }
+  }
+
+  /// Looks up the students linked to this parent account via `GET /students`
+  /// (there's no dedicated "students by parent" endpoint — `StudentService`
+  /// matches client-side against each student's `parents[].id`). Fetch
+  /// failures are swallowed so a flaky secondary call can't block an
+  /// otherwise-successful login; the picker just shows no students then.
+  Future<List<StudentCardItem>> _fetchParentStudents(
+    AuthenticatedUser account,
+  ) async {
+    final parentId = account.json['id']?.toString().trim() ?? '';
+    if (parentId.isEmpty) return const [];
+
+    try {
+      return await _studentService.fetchStudentsForParent(parentId);
+    } catch (_) {
+      return const [];
     }
   }
 

@@ -76,7 +76,10 @@ class _AppointmentPageState extends State<AppointmentPage> {
     final raw = prefs.getString(_prefKey);
     if (raw == null) return 0;
     final map = Map<String, dynamic>.from(
-      raw.split(',').where((e) => e.contains(':')).fold(<String, dynamic>{}, (m, e) {
+      raw.split(',').where((e) => e.contains(':')).fold(<String, dynamic>{}, (
+        m,
+        e,
+      ) {
         final parts = e.split(':');
         if (parts.length == 2) m[parts[0]] = int.tryParse(parts[1]) ?? 0;
         return m;
@@ -89,25 +92,37 @@ class _AppointmentPageState extends State<AppointmentPage> {
     final prefs = await _getPrefs();
     final raw = prefs.getString(_prefKey) ?? '';
     final map = Map<String, int>.from(
-      raw.split(',').where((e) => e.contains(':')).fold(<String, int>{}, (m, e) {
+      raw.split(',').where((e) => e.contains(':')).fold(<String, int>{}, (
+        m,
+        e,
+      ) {
         final parts = e.split(':');
         if (parts.length == 2) m[parts[0]] = int.tryParse(parts[1]) ?? 0;
         return m;
       }),
     );
     map[id] = count;
-    await prefs.setString(_prefKey, map.entries.map((e) => '${e.key}:${e.value}').join(','));
+    await prefs.setString(
+      _prefKey,
+      map.entries.map((e) => '${e.key}:${e.value}').join(','),
+    );
   }
 
   Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final list = await _svc.fetchAppointments();
       // Merge with locally persisted counts — take the higher value
       final prefs = await _getPrefs();
       final raw = prefs.getString(_prefKey) ?? '';
       final localMap = Map<String, int>.from(
-        raw.split(',').where((e) => e.contains(':')).fold(<String, int>{}, (m, e) {
+        raw.split(',').where((e) => e.contains(':')).fold(<String, int>{}, (
+          m,
+          e,
+        ) {
           final parts = e.split(':');
           if (parts.length == 2) m[parts[0]] = int.tryParse(parts[1]) ?? 0;
           return m;
@@ -127,10 +142,12 @@ class _AppointmentPageState extends State<AppointmentPage> {
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() { _error = 'Could not load appointments'; _loading = false; });
+      setState(() {
+        _error = 'Could not load appointments';
+        _loading = false;
+      });
     }
   }
-
 
   List<AppointmentModel> get _filtered {
     var list = _forDay(_selectedDate);
@@ -144,7 +161,6 @@ class _AppointmentPageState extends State<AppointmentPage> {
   List<AppointmentModel> _forDay(DateTime d) =>
       _all.where((a) => _same(a.date, d)).toList();
 
-
   // ── actions ─────────────────────────────────────────────────────────────
   void _confirm(AppointmentModel a) {
     if (a.status == AppointmentStatus.cancelled) return;
@@ -157,21 +173,24 @@ class _AppointmentPageState extends State<AppointmentPage> {
     ).then((confirmed) {
       if (confirmed != true) return;
       GlobalAlert.showLoading(message: 'Confirming...');
-      _svc.confirmAppointment(a.id).then((_) {
-        GlobalAlert.dismiss();
-        if (!mounted) return;
-        setState(() => a.status = AppointmentStatus.confirmed);
-        GlobalAlert.showSuccess(
-          title: 'Confirmed!',
-          message: 'The appointment has been confirmed successfully.',
-        );
-      }).catchError((_) {
-        GlobalAlert.dismiss();
-        GlobalAlert.showError(
-          title: 'Failed',
-          message: 'Could not confirm the appointment. Please try again.',
-        );
-      });
+      _svc
+          .confirmAppointment(a)
+          .then((_) {
+            GlobalAlert.dismiss();
+            if (!mounted) return;
+            setState(() => a.status = AppointmentStatus.confirmed);
+            GlobalAlert.showSuccess(
+              title: 'Confirmed!',
+              message: 'The appointment has been confirmed successfully.',
+            );
+          })
+          .catchError((_) {
+            GlobalAlert.dismiss();
+            GlobalAlert.showError(
+              title: 'Failed',
+              message: 'Could not confirm the appointment. Please try again.',
+            );
+          });
     });
   }
 
@@ -195,58 +214,65 @@ class _AppointmentPageState extends State<AppointmentPage> {
       ).then((confirmed) {
         if (confirmed != true || !mounted) return;
         GlobalAlert.showLoading(message: 'Rescheduling...');
-        _svc.rescheduleAppointment(a.id, newDate, newStart, newEnd).then((_) {
-          GlobalAlert.dismiss();
-          if (!mounted) return;
-          final newCount = a.rescheduleCount + 1;
-          setState(() {
-            a.status = AppointmentStatus.postponed;
-            a.date = newDate;
-            a.start = newStart;
-            a.end = newEnd;
-            a.rescheduleCount = newCount;
-            _selectedDate = _date(newDate);
-            _visibleMonth = DateTime(newDate.year, newDate.month);
-          });
-          _saveCount(a.id, newCount);
-          GlobalAlert.showSuccess(
-            title: 'Rescheduled!',
-            message: 'Appointment has been moved to $dateStr.',
-          );
-        }).catchError((_) {
-          GlobalAlert.dismiss();
-          GlobalAlert.showError(
-            title: 'Failed',
-            message: 'Could not reschedule the appointment. Please try again.',
-          );
-        });
+        _svc
+            .rescheduleAppointment(a, newDate, newStart, newEnd)
+            .then((_) {
+              GlobalAlert.dismiss();
+              if (!mounted) return;
+              final newCount = a.rescheduleCount + 1;
+              setState(() {
+                a.status = AppointmentStatus.postponed;
+                a.date = newDate;
+                a.start = newStart;
+                a.end = newEnd;
+                a.rescheduleCount = newCount;
+                _selectedDate = _date(newDate);
+                _visibleMonth = DateTime(newDate.year, newDate.month);
+              });
+              _saveCount(a.id, newCount);
+              GlobalAlert.showSuccess(
+                title: 'Rescheduled!',
+                message: 'Appointment has been moved to $dateStr.',
+              );
+            })
+            .catchError((_) {
+              GlobalAlert.dismiss();
+              GlobalAlert.showError(
+                title: 'Failed',
+                message:
+                    'Could not reschedule the appointment. Please try again.',
+              );
+            });
       });
     });
   }
 
   void _cancel(AppointmentModel a) {
     GlobalAlert.showConfirmation(
-      title: 'Cancel Appointment',
-      message: 'Cancel "${a.title}"? This action cannot be undone.',
-      confirmText: 'Delete',
+      title: 'Decline Appointment',
+      message: 'Decline "${a.title}"?',
+      confirmText: 'Decline',
       cancelText: 'Keep',
-      icon: FontAwesomeIcons.trashCan,
+      icon: FontAwesomeIcons.circleXmark,
       confirmColor: _kRed,
     ).then((confirmed) {
       if (confirmed != true) return;
-      GlobalAlert.showLoading(message: 'Deleting...');
-      _svc.deleteAppointment(a.id).then((_) {
-        GlobalAlert.dismiss();
-        if (!mounted) return;
-        setState(() => _all.removeWhere((item) => item.id == a.id));
-        _snack('Appointment cancelled');
-      }).catchError((_) {
-        GlobalAlert.dismiss();
-        GlobalAlert.showError(
-          title: 'Failed',
-          message: 'Could not cancel the appointment. Please try again.',
-        );
-      });
+      GlobalAlert.showLoading(message: 'Declining...');
+      _svc
+          .declineAppointment(a)
+          .then((_) {
+            GlobalAlert.dismiss();
+            if (!mounted) return;
+            setState(() => a.status = AppointmentStatus.cancelled);
+            _snack('Appointment declined');
+          })
+          .catchError((_) {
+            GlobalAlert.dismiss();
+            GlobalAlert.showError(
+              title: 'Failed',
+              message: 'Could not decline the appointment. Please try again.',
+            );
+          });
     });
   }
 
@@ -254,12 +280,14 @@ class _AppointmentPageState extends State<AppointmentPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(msg),
-        duration: const Duration(milliseconds: 900),
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      ));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          duration: const Duration(milliseconds: 900),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        ),
+      );
   }
 
   // ── filter sheet ────────────────────────────────────────────────────────
@@ -333,19 +361,34 @@ class _AppointmentPageState extends State<AppointmentPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _CalendarCard(
-                      visibleMonth: _visibleMonth,
-                      selectedDate: _selectedDate,
-                      marked: _markedDates,
-                      onPrev: () => setState(() => _visibleMonth =
-                          DateTime(_visibleMonth.year, _visibleMonth.month - 1)),
-                      onNext: () => setState(() => _visibleMonth =
-                          DateTime(_visibleMonth.year, _visibleMonth.month + 1)),
-                      onPick: (d) => setState(() {
-                        _selectedDate = _date(d);
-                        _visibleMonth = DateTime(d.year, d.month);
-                      }),
-                    ).animate().fadeIn(duration: 240.ms).slideY(
-                          begin: .04, end: 0, duration: 380.ms, curve: Curves.easeOutCubic),
+                          visibleMonth: _visibleMonth,
+                          selectedDate: _selectedDate,
+                          marked: _markedDates,
+                          onPrev: () => setState(
+                            () => _visibleMonth = DateTime(
+                              _visibleMonth.year,
+                              _visibleMonth.month - 1,
+                            ),
+                          ),
+                          onNext: () => setState(
+                            () => _visibleMonth = DateTime(
+                              _visibleMonth.year,
+                              _visibleMonth.month + 1,
+                            ),
+                          ),
+                          onPick: (d) => setState(() {
+                            _selectedDate = _date(d);
+                            _visibleMonth = DateTime(d.year, d.month);
+                          }),
+                        )
+                        .animate()
+                        .fadeIn(duration: 240.ms)
+                        .slideY(
+                          begin: .04,
+                          end: 0,
+                          duration: 380.ms,
+                          curve: Curves.easeOutCubic,
+                        ),
                     const SizedBox(height: 20),
                     _SectionHeader(
                       count: _filtered.length,
@@ -354,38 +397,48 @@ class _AppointmentPageState extends State<AppointmentPage> {
                     ).animate().fadeIn(delay: 60.ms, duration: 220.ms),
                     const SizedBox(height: 12),
                     if (_loading)
-                      const _LoadCard()
-                          .animate()
-                          .fadeIn(delay: 100.ms, duration: 220.ms)
+                      const _LoadCard().animate().fadeIn(
+                        delay: 100.ms,
+                        duration: 220.ms,
+                      )
                     else if (_error != null)
-                      _ErrorCard(message: _error!, onRetry: _load)
-                          .animate()
-                          .fadeIn(delay: 100.ms, duration: 220.ms)
+                      _ErrorCard(
+                        message: _error!,
+                        onRetry: _load,
+                      ).animate().fadeIn(delay: 100.ms, duration: 220.ms)
                     else ...[
                       for (int i = 0; i < _filtered.length; i++)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12),
-                          child: _ApptCard(
-                            appt: _filtered[i],
-                            isOwner: _sessionUserId.isNotEmpty &&
-                                _filtered[i].createdBy == _sessionUserId,
-                            onConfirm: () => _confirm(_filtered[i]),
-                            onReschedule: () => _reschedule(_filtered[i]),
-                            onCancel: () => _cancel(_filtered[i]),
-                          ).animate().fadeIn(
-                                delay: Duration(milliseconds: 100 + i * 60),
-                                duration: 240.ms,
-                              ).slideY(
-                                begin: .04,
-                                end: 0,
-                                duration: 360.ms,
-                                curve: Curves.easeOutCubic,
-                              ),
+                          child:
+                              _ApptCard(
+                                    appt: _filtered[i],
+                                    isOwner:
+                                        _sessionUserId.isNotEmpty &&
+                                        _filtered[i].createdBy ==
+                                            _sessionUserId,
+                                    onConfirm: () => _confirm(_filtered[i]),
+                                    onReschedule: () =>
+                                        _reschedule(_filtered[i]),
+                                    onCancel: () => _cancel(_filtered[i]),
+                                  )
+                                  .animate()
+                                  .fadeIn(
+                                    delay: Duration(milliseconds: 100 + i * 60),
+                                    duration: 240.ms,
+                                  )
+                                  .slideY(
+                                    begin: .04,
+                                    end: 0,
+                                    duration: 360.ms,
+                                    curve: Curves.easeOutCubic,
+                                  ),
                         ),
                       if (_filtered.isEmpty)
-                        _NoMoreCard()
-                            .animate()
-                            .fadeIn(delay: 100.ms, duration: 240.ms),
+                        _NoMoreCard().animate().fadeIn(
+                          delay: 100.ms,
+                          duration: 240.ms,
+                        ),
                     ],
                   ],
                 ),
@@ -410,7 +463,20 @@ class _AppointmentPageState extends State<AppointmentPage> {
 
   static String formatCardDate(DateTime d) {
     const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const mo = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return '${wd[d.weekday - 1]}, ${d.day} ${mo[d.month - 1]} ${d.year}';
   }
 }
@@ -430,7 +496,11 @@ class _PageHeader extends StatelessWidget {
         children: [
           IconButton(
             onPressed: onBack,
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: _kNavy),
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              size: 20,
+              color: _kNavy,
+            ),
             splashRadius: 22,
           ),
           const SizedBox(width: 2),
@@ -505,8 +575,18 @@ class _CalendarCard extends StatelessWidget {
 
   static const _wdLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   static const _monthNames = [
-    'January','February','March','April','May','June',
-    'July','August','September','October','November','December'
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
 
   static bool _same(DateTime a, DateTime b) =>
@@ -537,60 +617,67 @@ class _CalendarCard extends StatelessWidget {
         ],
       ),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-      child: Column(
-        children: [
-          // ── Month nav ──
-          Row(
-            children: [
-              _NavBtn(icon: Icons.chevron_left_rounded, onTap: onPrev),
-              Expanded(
-                child: Text(
-                  '${_monthNames[month - 1]} $year',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    color: _kNavy,
-                    letterSpacing: -.2,
-                  ),
-                ),
-              ),
-              _NavBtn(icon: Icons.chevron_right_rounded, onTap: onNext),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // ── Weekday labels ──
-          Row(
-            children: [
-              for (final w in _wdLabels)
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      w,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: _kMuted,
+      child:
+          Column(
+                children: [
+                  // ── Month nav ──
+                  Row(
+                    children: [
+                      _NavBtn(icon: Icons.chevron_left_rounded, onTap: onPrev),
+                      Expanded(
+                        child: Text(
+                          '${_monthNames[month - 1]} $year',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            color: _kNavy,
+                            letterSpacing: -.2,
+                          ),
+                        ),
                       ),
-                    ),
+                      _NavBtn(icon: Icons.chevron_right_rounded, onTap: onNext),
+                    ],
                   ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
+                  const SizedBox(height: 14),
 
-          // ── Day grid ──
-          _buildGrid(year, month, daysInMonth, offset, todayD),
-        ],
-      ).animate(key: ValueKey('$year-$month'))
-          .fadeIn(duration: 200.ms)
-          .slideY(begin: .02, end: 0, duration: 240.ms),
+                  // ── Weekday labels ──
+                  Row(
+                    children: [
+                      for (final w in _wdLabels)
+                        Expanded(
+                          child: Center(
+                            child: Text(
+                              w,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: _kMuted,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // ── Day grid ──
+                  _buildGrid(year, month, daysInMonth, offset, todayD),
+                ],
+              )
+              .animate(key: ValueKey('$year-$month'))
+              .fadeIn(duration: 200.ms)
+              .slideY(begin: .02, end: 0, duration: 240.ms),
     );
   }
 
   Widget _buildGrid(
-    int year, int month, int daysInMonth, int offset, DateTime todayD) {
+    int year,
+    int month,
+    int daysInMonth,
+    int offset,
+    DateTime todayD,
+  ) {
     final cells = <Widget>[];
 
     // Leading empty cells (previous month)
@@ -605,13 +692,15 @@ class _CalendarCard extends StatelessWidget {
       final date = DateTime(year, month, d);
       final isToday = _same(date, todayD);
       final isSelected = _same(date, selectedDate);
-      cells.add(_DayCell(
-        day: d,
-        isSelected: isSelected,
-        isToday: isToday,
-        hasMark: marked.contains(DateTime(date.year, date.month, date.day)),
-        onTap: () => onPick(date),
-      ));
+      cells.add(
+        _DayCell(
+          day: d,
+          isSelected: isSelected,
+          isToday: isToday,
+          hasMark: marked.contains(DateTime(date.year, date.month, date.day)),
+          onTap: () => onPick(date),
+        ),
+      );
     }
 
     // Trailing empty cells (next month)
@@ -629,8 +718,7 @@ class _CalendarCard extends StatelessWidget {
             padding: EdgeInsets.only(bottom: r < rows - 1 ? 4 : 0),
             child: Row(
               children: [
-                for (int c = 0; c < 7; c++)
-                  Expanded(child: cells[r * 7 + c]),
+                for (int c = 0; c < 7; c++) Expanded(child: cells[r * 7 + c]),
               ],
             ),
           ),
@@ -801,7 +889,11 @@ class _SectionHeader extends StatelessWidget {
             ),
             child: Text(
               _statusLabel(activeFilter!),
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
             ),
           ),
         ],
@@ -810,7 +902,11 @@ class _SectionHeader extends StatelessWidget {
           onTap: onFilter,
           child: Row(
             children: [
-              Icon(Icons.tune_rounded, size: 18, color: hasFilter ? _kNavy : _kBlue),
+              Icon(
+                Icons.tune_rounded,
+                size: 18,
+                color: hasFilter ? _kNavy : _kBlue,
+              ),
               const SizedBox(width: 4),
               Text(
                 'Filter',
@@ -831,7 +927,7 @@ class _SectionHeader extends StatelessWidget {
     AppointmentStatus.confirmed => 'Confirmed',
     AppointmentStatus.cancelled => 'Cancelled',
     AppointmentStatus.postponed => 'Postponed',
-    AppointmentStatus.pending   => 'Pending',
+    AppointmentStatus.pending => 'Pending',
   };
 }
 
@@ -857,8 +953,11 @@ class _ApptCard extends StatelessWidget {
     if (t.contains('meet') || t.contains('parent') || t.contains('teacher')) {
       return Icons.people_alt_rounded;
     }
-    if (t.contains('vacc') || t.contains('health') || t.contains('medical') ||
-        t.contains('nurse') || t.contains('doctor')) {
+    if (t.contains('vacc') ||
+        t.contains('health') ||
+        t.contains('medical') ||
+        t.contains('nurse') ||
+        t.contains('doctor')) {
       return Icons.vaccines_rounded;
     }
     if (t.contains('sport') || t.contains('activity')) {
@@ -872,8 +971,11 @@ class _ApptCard extends StatelessWidget {
     if (t.contains('meet') || t.contains('parent') || t.contains('teacher')) {
       return const Color(0xFFEEF2FF);
     }
-    if (t.contains('vacc') || t.contains('health') || t.contains('medical') ||
-        t.contains('nurse') || t.contains('doctor')) {
+    if (t.contains('vacc') ||
+        t.contains('health') ||
+        t.contains('medical') ||
+        t.contains('nurse') ||
+        t.contains('doctor')) {
       return const Color(0xFFECFDF5);
     }
     return const Color(0xFFEFF6FF);
@@ -884,8 +986,11 @@ class _ApptCard extends StatelessWidget {
     if (t.contains('meet') || t.contains('parent') || t.contains('teacher')) {
       return const Color(0xFF6366F1);
     }
-    if (t.contains('vacc') || t.contains('health') || t.contains('medical') ||
-        t.contains('nurse') || t.contains('doctor')) {
+    if (t.contains('vacc') ||
+        t.contains('health') ||
+        t.contains('medical') ||
+        t.contains('nurse') ||
+        t.contains('doctor')) {
       return _kGreen;
     }
     return _kBlue;
@@ -971,7 +1076,11 @@ class _ApptCard extends StatelessWidget {
                     const SizedBox(height: 5),
                     Row(
                       children: [
-                        Image.asset('assets/images/icons/Calendar.png', width: 13, height: 13),
+                        Image.asset(
+                          'assets/images/icons/Calendar.png',
+                          width: 13,
+                          height: 13,
+                        ),
                         const SizedBox(width: 4),
                         Flexible(
                           child: Text(
@@ -985,9 +1094,16 @@ class _ApptCard extends StatelessWidget {
                         ),
                         const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 6),
-                          child: Text('|', style: TextStyle(color: _kMuted, fontSize: 12)),
+                          child: Text(
+                            '|',
+                            style: TextStyle(color: _kMuted, fontSize: 12),
+                          ),
                         ),
-                        const Icon(Icons.access_time_rounded, size: 13, color: _kMuted),
+                        const Icon(
+                          Icons.access_time_rounded,
+                          size: 13,
+                          color: _kMuted,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           timeStr,
@@ -1003,7 +1119,11 @@ class _ApptCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Icons.location_on_outlined, size: 13, color: _kMuted),
+                          const Icon(
+                            Icons.location_on_outlined,
+                            size: 13,
+                            color: _kMuted,
+                          ),
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
@@ -1049,14 +1169,18 @@ class _ApptCard extends StatelessWidget {
                 child: _RescheduleBtn(
                   remaining: appt.rescheduleRemaining,
                   disabled: isCancelled || !appt.canReschedule,
-                  onTap: (isCancelled || !appt.canReschedule) ? null : onReschedule,
+                  onTap: (isCancelled || !appt.canReschedule)
+                      ? null
+                      : onReschedule,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: _ActionBtn(
                   label: isOwner ? 'Delete' : 'Cancel',
-                  icon: isOwner ? Icons.delete_outline_rounded : Icons.close_rounded,
+                  icon: isOwner
+                      ? Icons.delete_outline_rounded
+                      : Icons.close_rounded,
                   filled: isOwner,
                   color: isOwner ? _kRed : _kText,
                   disabled: isCancelled,
@@ -1105,7 +1229,11 @@ class _RescheduleBtn extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.calendar_month_outlined, size: 13, color: effectiveColor),
+                  Icon(
+                    Icons.calendar_month_outlined,
+                    size: 13,
+                    color: effectiveColor,
+                  ),
                   const SizedBox(width: 4),
                   Flexible(
                     child: Text(
@@ -1220,11 +1348,14 @@ class _ActionBtn extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            iconOverride ?? Icon(
-              icon,
-              size: 14,
-              color: filled ? (disabled ? _kMuted : Colors.white) : effectiveColor,
-            ),
+            iconOverride ??
+                Icon(
+                  icon,
+                  size: 14,
+                  color: filled
+                      ? (disabled ? _kMuted : Colors.white)
+                      : effectiveColor,
+                ),
             const SizedBox(width: 4),
             Flexible(
               child: Text(
@@ -1233,7 +1364,9 @@ class _ActionBtn extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w800,
-                  color: filled ? (disabled ? _kMuted : Colors.white) : effectiveColor,
+                  color: filled
+                      ? (disabled ? _kMuted : Colors.white)
+                      : effectiveColor,
                 ),
               ),
             ),
@@ -1267,7 +1400,11 @@ class _NoMoreCard extends StatelessWidget {
               color: const Color(0xFFDCEDFF),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Image.asset('assets/images/icons/Calendar.png', width: 20, height: 20),
+            child: Image.asset(
+              'assets/images/icons/Calendar.png',
+              width: 20,
+              height: 20,
+            ),
           ),
           const SizedBox(width: 12),
           const Expanded(
@@ -1329,7 +1466,11 @@ class _CalendarIllustration extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Icon(Icons.sentiment_satisfied_alt_rounded, size: 18, color: _kBlue),
+                const Icon(
+                  Icons.sentiment_satisfied_alt_rounded,
+                  size: 18,
+                  color: _kBlue,
+                ),
               ],
             ),
           ),
@@ -1343,7 +1484,11 @@ class _CalendarIllustration extends StatelessWidget {
                 color: _kBlue,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check_rounded, size: 11, color: Colors.white),
+              child: const Icon(
+                Icons.check_rounded,
+                size: 11,
+                color: Colors.white,
+              ),
             ),
           ),
         ],
@@ -1377,7 +1522,11 @@ class _LoadCard extends StatelessWidget {
           const SizedBox(width: 12),
           const Text(
             'Loading appointments...',
-            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: _kMuted),
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+              color: _kMuted,
+            ),
           ),
         ],
       ),
@@ -1403,7 +1552,10 @@ class _ErrorCard extends StatelessWidget {
         children: [
           const Icon(Icons.cloud_off_rounded, size: 36, color: _kMuted),
           const SizedBox(height: 8),
-          Text(message, style: const TextStyle(fontWeight: FontWeight.w700, color: _kText)),
+          Text(
+            message,
+            style: const TextStyle(fontWeight: FontWeight.w700, color: _kText),
+          ),
           const SizedBox(height: 10),
           GestureDetector(
             onTap: onRetry,
@@ -1418,7 +1570,13 @@ class _ErrorCard extends StatelessWidget {
                 children: [
                   Icon(Icons.refresh_rounded, size: 16, color: Colors.white),
                   SizedBox(width: 6),
-                  Text('Retry', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                  Text(
+                    'Retry',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1466,14 +1624,23 @@ class _FilterSheet extends StatelessWidget {
         children: [
           Center(
             child: Container(
-              width: 40, height: 4,
-              decoration: BoxDecoration(color: _kBorder, borderRadius: BorderRadius.circular(99)),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: _kBorder,
+                borderRadius: BorderRadius.circular(99),
+              ),
             ),
           ),
           const SizedBox(height: 18),
           const Text(
             'Filter by status',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: _kNavy, letterSpacing: -.2),
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+              color: _kNavy,
+              letterSpacing: -.2,
+            ),
           ),
           const SizedBox(height: 16),
           for (final entry in _options.entries)
@@ -1512,12 +1679,16 @@ class _FilterOption extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected ? _kBlue.withValues(alpha: .07) : Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: isSelected ? _kBlue : _kBorder, width: isSelected ? 1.5 : 1),
+          border: Border.all(
+            color: isSelected ? _kBlue : _kBorder,
+            width: isSelected ? 1.5 : 1,
+          ),
         ),
         child: Row(
           children: [
             Container(
-              width: 10, height: 10,
+              width: 10,
+              height: 10,
               decoration: BoxDecoration(
                 color: dotColor ?? _kBlue,
                 shape: BoxShape.circle,
@@ -1580,7 +1751,10 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
     try {
       final list = await _svc.fetchAdmins();
       if (!mounted) return;
-      setState(() { _admins = list; _loadingAdmins = false; });
+      setState(() {
+        _admins = list;
+        _loadingAdmins = false;
+      });
     } catch (_) {
       if (!mounted) return;
       setState(() => _loadingAdmins = false);
@@ -1592,10 +1766,8 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _AdminPickerSheet(
-        admins: _admins,
-        selected: _selectedAdmins,
-      ),
+      builder: (_) =>
+          _AdminPickerSheet(admins: _admins, selected: _selectedAdmins),
     );
     if (result != null) {
       setState(() {
@@ -1614,9 +1786,23 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
 
   String _fmt2(int n) => n.toString().padLeft(2, '0');
   String _fmtDate(DateTime d) {
-    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const mo = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return '${d.day} ${mo[d.month - 1]} ${d.year}';
   }
+
   String _fmtTime(TimeOfDay t) => '${_fmt2(t.hour)}:${_fmt2(t.minute)}';
   int _toMins(TimeOfDay t) => t.hour * 60 + t.minute;
 
@@ -1627,9 +1813,9 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
       builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(primary: _kBlue),
-        ),
+        data: Theme.of(
+          ctx,
+        ).copyWith(colorScheme: const ColorScheme.light(primary: _kBlue)),
         child: child!,
       ),
     );
@@ -1682,7 +1868,10 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
     final title = _titleCtrl.text.trim();
     if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a title'), behavior: SnackBarBehavior.floating),
+        const SnackBar(
+          content: Text('Please enter a title'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
       return;
     }
@@ -1697,7 +1886,8 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
 
     GlobalAlert.showConfirmation(
       title: 'Create Appointment',
-      message: '"$title"\n${_fmtDate(_date)} · ${_fmtTime(_start)} – ${_fmtTime(_end)}\n$empLabel',
+      message:
+          '"$title"\n${_fmtDate(_date)} · ${_fmtTime(_start)} – ${_fmtTime(_end)}\n$empLabel',
       confirmText: 'Create',
       cancelText: 'Back',
       icon: Icons.event_note_rounded,
@@ -1734,8 +1924,12 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
           children: [
             Center(
               child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(color: _kBorder, borderRadius: BorderRadius.circular(99)),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: _kBorder,
+                  borderRadius: BorderRadius.circular(99),
+                ),
               ),
             ),
             const SizedBox(height: 18),
@@ -1743,12 +1937,21 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
               children: [
                 const Text(
                   'New Appointment',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: _kNavy, letterSpacing: -.2),
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: _kNavy,
+                    letterSpacing: -.2,
+                  ),
                 ),
                 const Spacer(),
                 GestureDetector(
                   onTap: () => Navigator.pop(context),
-                  child: const Icon(Icons.close_rounded, color: _kMuted, size: 22),
+                  child: const Icon(
+                    Icons.close_rounded,
+                    color: _kMuted,
+                    size: 22,
+                  ),
                 ),
               ],
             ),
@@ -1757,7 +1960,10 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
             // Title
             _FieldLabel(label: 'Title'),
             const SizedBox(height: 6),
-            _TextField(controller: _titleCtrl, hint: 'e.g. Parent–Teacher Meeting'),
+            _TextField(
+              controller: _titleCtrl,
+              hint: 'e.g. Parent–Teacher Meeting',
+            ),
             const SizedBox(height: 14),
 
             // Date
@@ -1765,7 +1971,11 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
             const SizedBox(height: 6),
             _PickerTile(
               icon: Icons.calendar_today_outlined,
-              iconOverride: Image.asset('assets/images/icons/Calendar.png', width: 16, height: 16),
+              iconOverride: Image.asset(
+                'assets/images/icons/Calendar.png',
+                width: 16,
+                height: 16,
+              ),
               label: _fmtDate(_date),
               onTap: _pickDate,
             ),
@@ -1798,7 +2008,11 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
             // Note / location
             _FieldLabel(label: 'Note (optional)'),
             const SizedBox(height: 6),
-            _TextField(controller: _noteCtrl, hint: 'Add a note...', maxLines: 2),
+            _TextField(
+              controller: _noteCtrl,
+              hint: 'Add a note...',
+              maxLines: 2,
+            ),
             const SizedBox(height: 14),
 
             // Employee / Participants
@@ -1815,7 +2029,11 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
                 padding: EdgeInsets.only(top: 5, left: 2),
                 child: Text(
                   'Please select at least one employee',
-                  style: TextStyle(fontSize: 11.5, color: _kRed, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: _kRed,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             const SizedBox(height: 24),
@@ -1832,12 +2050,20 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
                 alignment: Alignment.center,
                 child: _saving
                     ? const SizedBox(
-                        width: 20, height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Text(
                         'Save Appointment',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white),
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
                       ),
               ),
             ),
@@ -1867,18 +2093,29 @@ class _TextField extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
   final int maxLines;
-  const _TextField({required this.controller, required this.hint, this.maxLines = 1});
+  const _TextField({
+    required this.controller,
+    required this.hint,
+    this.maxLines = 1,
+  });
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
       maxLines: maxLines,
-      style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: _kText),
+      style: const TextStyle(
+        fontSize: 14.5,
+        fontWeight: FontWeight.w600,
+        color: _kText,
+      ),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: _kMuted, fontWeight: FontWeight.w500),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
         filled: true,
         fillColor: _kBg,
         border: OutlineInputBorder(
@@ -1930,45 +2167,63 @@ class _EmployeeTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(Icons.people_alt_rounded, size: 16,
-                color: hasError ? _kRed : (selected.isEmpty ? _kMuted : _kBlue)),
+            Icon(
+              Icons.people_alt_rounded,
+              size: 16,
+              color: hasError ? _kRed : (selected.isEmpty ? _kMuted : _kBlue),
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: loading
-                  ? const Text('Loading employees...',
-                      style: TextStyle(fontSize: 14, color: _kMuted))
+                  ? const Text(
+                      'Loading employees...',
+                      style: TextStyle(fontSize: 14, color: _kMuted),
+                    )
                   : selected.isEmpty
-                      ? const Text('Select employees',
-                          style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: _kMuted))
-                      : Wrap(
-                          spacing: 6,
-                          runSpacing: 4,
-                          children: selected.map((a) => Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: _kBlue.withValues(alpha: .10),
-                              borderRadius: BorderRadius.circular(99),
-                              border: Border.all(
-                                  color: _kBlue.withValues(alpha: .25)),
-                            ),
-                            child: Text(
-                              a.name,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: _kBlue,
+                  ? const Text(
+                      'Select employees',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: _kMuted,
+                      ),
+                    )
+                  : Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: selected
+                          .map(
+                            (a) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _kBlue.withValues(alpha: .10),
+                                borderRadius: BorderRadius.circular(99),
+                                border: Border.all(
+                                  color: _kBlue.withValues(alpha: .25),
+                                ),
+                              ),
+                              child: Text(
+                                a.name,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: _kBlue,
+                                ),
                               ),
                             ),
-                          )).toList(),
-                        ),
+                          )
+                          .toList(),
+                    ),
             ),
             const SizedBox(width: 6),
-            Icon(Icons.keyboard_arrow_down_rounded,
-                size: 18, color: loading ? _kMuted : _kNavy),
+            Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 18,
+              color: loading ? _kMuted : _kNavy,
+            ),
           ],
         ),
       ),
@@ -2025,10 +2280,12 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
           // Handle
           Center(
             child: Container(
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               decoration: BoxDecoration(
-                  color: _kBorder,
-                  borderRadius: BorderRadius.circular(99)),
+                color: _kBorder,
+                borderRadius: BorderRadius.circular(99),
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -2048,7 +2305,10 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
               ),
               if (_selected.isNotEmpty)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: _kBlue.withValues(alpha: .10),
                     borderRadius: BorderRadius.circular(99),
@@ -2082,7 +2342,9 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
                     duration: const Duration(milliseconds: 150),
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 13),
+                      horizontal: 14,
+                      vertical: 13,
+                    ),
                     decoration: BoxDecoration(
                       color: picked
                           ? _kBlue.withValues(alpha: .07)
@@ -2098,7 +2360,8 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
                     child: Row(
                       children: [
                         Container(
-                          width: 34, height: 34,
+                          width: 34,
+                          height: 34,
                           decoration: BoxDecoration(
                             color: picked
                                 ? _kBlue.withValues(alpha: .12)
@@ -2136,7 +2399,9 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
                                 const SizedBox(height: 4),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 7, vertical: 2),
+                                    horizontal: 7,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: picked
                                         ? _kBlue.withValues(alpha: .12)
@@ -2158,7 +2423,8 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
                         ),
                         AnimatedContainer(
                           duration: const Duration(milliseconds: 150),
-                          width: 22, height: 22,
+                          width: 22,
+                          height: 22,
                           decoration: BoxDecoration(
                             color: picked ? _kBlue : Colors.transparent,
                             shape: BoxShape.circle,
@@ -2168,8 +2434,11 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
                             ),
                           ),
                           child: picked
-                              ? const Icon(Icons.check_rounded,
-                                  size: 13, color: Colors.white)
+                              ? const Icon(
+                                  Icons.check_rounded,
+                                  size: 13,
+                                  color: Colors.white,
+                                )
                               : null,
                         ),
                       ],
@@ -2182,12 +2451,16 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
           const SizedBox(height: 14),
           // Done button — disabled when nothing selected
           GestureDetector(
-            onTap: _selected.isEmpty ? null : () => Navigator.pop(context, _selected),
+            onTap: _selected.isEmpty
+                ? null
+                : () => Navigator.pop(context, _selected),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 160),
               height: 50,
               decoration: BoxDecoration(
-                color: _selected.isEmpty ? _kMuted.withValues(alpha: .35) : _kNavy,
+                color: _selected.isEmpty
+                    ? _kMuted.withValues(alpha: .35)
+                    : _kNavy,
                 borderRadius: BorderRadius.circular(14),
               ),
               alignment: Alignment.center,
@@ -2198,9 +2471,7 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
-                  color: _selected.isEmpty
-                      ? _kMuted
-                      : Colors.white,
+                  color: _selected.isEmpty ? _kMuted : Colors.white,
                 ),
               ),
             ),
@@ -2230,10 +2501,10 @@ class _ScrollTimePickerSheetState extends State<_ScrollTimePickerSheet> {
   @override
   void initState() {
     super.initState();
-    _hour   = widget.initial.hour;
+    _hour = widget.initial.hour;
     _minute = widget.initial.minute;
     _hourCtrl = FixedExtentScrollController(initialItem: _hour);
-    _minCtrl  = FixedExtentScrollController(initialItem: _minute);
+    _minCtrl = FixedExtentScrollController(initialItem: _minute);
   }
 
   @override
@@ -2292,9 +2563,11 @@ class _ScrollTimePickerSheetState extends State<_ScrollTimePickerSheet> {
         children: [
           // Handle
           Container(
-            width: 40, height: 4,
+            width: 40,
+            height: 4,
             decoration: BoxDecoration(
-              color: _kBorder, borderRadius: BorderRadius.circular(99),
+              color: _kBorder,
+              borderRadius: BorderRadius.circular(99),
             ),
           ),
           const SizedBox(height: 16),
@@ -2304,8 +2577,10 @@ class _ScrollTimePickerSheetState extends State<_ScrollTimePickerSheet> {
               const Text(
                 'Select Time',
                 style: TextStyle(
-                  fontSize: 17, fontWeight: FontWeight.w900,
-                  color: _kNavy, letterSpacing: -.2,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                  color: _kNavy,
+                  letterSpacing: -.2,
                 ),
               ),
               const Spacer(),
@@ -2315,7 +2590,10 @@ class _ScrollTimePickerSheetState extends State<_ScrollTimePickerSheet> {
                   TimeOfDay(hour: _hour, minute: _minute),
                 ),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: _kNavy,
                     borderRadius: BorderRadius.circular(99),
@@ -2323,7 +2601,8 @@ class _ScrollTimePickerSheetState extends State<_ScrollTimePickerSheet> {
                   child: const Text(
                     'Done',
                     style: TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
                       color: Colors.white,
                     ),
                   ),
@@ -2359,7 +2638,8 @@ class _ScrollTimePickerSheetState extends State<_ScrollTimePickerSheet> {
                     const Text(
                       ':',
                       style: TextStyle(
-                        fontSize: 26, fontWeight: FontWeight.w900,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
                         color: _kNavy,
                       ),
                     ),
@@ -2372,7 +2652,9 @@ class _ScrollTimePickerSheetState extends State<_ScrollTimePickerSheet> {
                 ),
                 // Top fade
                 Positioned(
-                  top: 0, left: 0, right: 0,
+                  top: 0,
+                  left: 0,
+                  right: 0,
                   child: IgnorePointer(
                     child: Container(
                       height: 72,
@@ -2388,7 +2670,9 @@ class _ScrollTimePickerSheetState extends State<_ScrollTimePickerSheet> {
                 ),
                 // Bottom fade
                 Positioned(
-                  bottom: 0, left: 0, right: 0,
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
                   child: IgnorePointer(
                     child: Container(
                       height: 72,
@@ -2473,7 +2757,12 @@ class _PickerTile extends StatelessWidget {
   final Widget? iconOverride;
   final String label;
   final VoidCallback onTap;
-  const _PickerTile({required this.icon, this.iconOverride, required this.label, required this.onTap});
+  const _PickerTile({
+    required this.icon,
+    this.iconOverride,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -2493,7 +2782,11 @@ class _PickerTile extends StatelessWidget {
             Flexible(
               child: Text(
                 label,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _kText),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: _kText,
+                ),
               ),
             ),
           ],
@@ -2527,8 +2820,18 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
   int _dir = 1;
 
   static const _monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
   static const _wdLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   static final _mins5 = List.generate(12, (i) => i * 5);
@@ -2541,24 +2844,29 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
     _start = widget.appt.start;
     _end = widget.appt.end;
     _sHour = FixedExtentScrollController(initialItem: _start.hour);
-    _sMin  = FixedExtentScrollController(initialItem: _minIdx(_start.minute));
+    _sMin = FixedExtentScrollController(initialItem: _minIdx(_start.minute));
     _eHour = FixedExtentScrollController(initialItem: _end.hour);
-    _eMin  = FixedExtentScrollController(initialItem: _minIdx(_end.minute));
+    _eMin = FixedExtentScrollController(initialItem: _minIdx(_end.minute));
   }
 
   int _minIdx(int min) {
     int best = 0, diff = 999;
     for (int i = 0; i < _mins5.length; i++) {
       final d = (_mins5[i] - min).abs();
-      if (d < diff) { diff = d; best = i; }
+      if (d < diff) {
+        diff = d;
+        best = i;
+      }
     }
     return best;
   }
 
   @override
   void dispose() {
-    _sHour.dispose(); _sMin.dispose();
-    _eHour.dispose(); _eMin.dispose();
+    _sHour.dispose();
+    _sMin.dispose();
+    _eHour.dispose();
+    _eMin.dispose();
     super.dispose();
   }
 
@@ -2567,14 +2875,14 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
   static String _two(int n) => n.toString().padLeft(2, '0');
 
   void _prev() => setState(() {
-        _dir = -1;
-        _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month - 1);
-      });
+    _dir = -1;
+    _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month - 1);
+  });
 
   void _next() => setState(() {
-        _dir = 1;
-        _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month + 1);
-      });
+    _dir = 1;
+    _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month + 1);
+  });
 
   void _confirm() => Navigator.pop(context, (_date, _start, _end));
 
@@ -2589,16 +2897,20 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
 
     final cells = <Widget>[];
     for (int i = 0; i < offset; i++) {
-      cells.add(_DayCell(day: prevDays - offset + i + 1, faded: true, onTap: null));
+      cells.add(
+        _DayCell(day: prevDays - offset + i + 1, faded: true, onTap: null),
+      );
     }
     for (int d = 1; d <= daysInMonth; d++) {
       final date = DateTime(y, m, d);
-      cells.add(_RSDay(
-        day: d,
-        isToday: _sameDay(date, today),
-        isSelected: _sameDay(date, _date),
-        onTap: () => setState(() => _date = date),
-      ));
+      cells.add(
+        _RSDay(
+          day: d,
+          isToday: _sameDay(date, today),
+          isSelected: _sameDay(date, _date),
+          onTap: () => setState(() => _date = date),
+        ),
+      );
     }
     final trailing = (7 - cells.length % 7) % 7;
     for (int i = 1; i <= trailing; i++) {
@@ -2611,7 +2923,10 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
           Padding(
             padding: EdgeInsets.only(bottom: r < rows - 1 ? 4 : 0),
             child: Row(
-              children: List.generate(7, (c) => Expanded(child: cells[r * 7 + c])),
+              children: List.generate(
+                7,
+                (c) => Expanded(child: cells[r * 7 + c]),
+              ),
             ),
           ),
       ],
@@ -2635,9 +2950,11 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
           children: [
             Container(
               margin: const EdgeInsets.only(top: 10, bottom: 4),
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               decoration: BoxDecoration(
-                color: _kBorder, borderRadius: BorderRadius.circular(99),
+                color: _kBorder,
+                borderRadius: BorderRadius.circular(99),
               ),
             ),
             Flexible(
@@ -2657,14 +2974,20 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
                               Text(
                                 'Reschedule',
                                 style: TextStyle(
-                                  fontSize: 22, fontWeight: FontWeight.w900,
-                                  color: _kNavy, letterSpacing: -.4,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                  color: _kNavy,
+                                  letterSpacing: -.4,
                                 ),
                               ),
                               SizedBox(height: 2),
                               Text(
                                 'Pick a new date & time',
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _kMuted),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: _kMuted,
+                                ),
                               ),
                             ],
                           ),
@@ -2672,12 +2995,18 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
                         GestureDetector(
                           onTap: () => Navigator.pop(context),
                           child: Container(
-                            width: 34, height: 34,
+                            width: 34,
+                            height: 34,
                             decoration: BoxDecoration(
-                              color: _kBg, shape: BoxShape.circle,
+                              color: _kBg,
+                              shape: BoxShape.circle,
                               border: Border.all(color: _kBorder),
                             ),
-                            child: const Icon(Icons.close_rounded, size: 18, color: _kMuted),
+                            child: const Icon(
+                              Icons.close_rounded,
+                              size: 18,
+                              color: _kMuted,
+                            ),
                           ),
                         ),
                       ],
@@ -2686,158 +3015,250 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
 
                     // Appointment context chip
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                      decoration: BoxDecoration(
-                        color: _kBlue.withValues(alpha: .07),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: _kBlue.withValues(alpha: .16)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.event_note_rounded, size: 14, color: _kBlue),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              widget.appt.title,
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kNavy),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 9,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _kBlue.withValues(alpha: .07),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: _kBlue.withValues(alpha: .16),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${_two(widget.appt.start.hour)}:${_two(widget.appt.start.minute)}'
-                            ' → ${_two(widget.appt.end.hour)}:${_two(widget.appt.end.minute)}',
-                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _kMuted),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.event_note_rounded,
+                                size: 14,
+                                color: _kBlue,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  widget.appt.title,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: _kNavy,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${_two(widget.appt.start.hour)}:${_two(widget.appt.start.minute)}'
+                                ' → ${_two(widget.appt.end.hour)}:${_two(widget.appt.end.minute)}',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: _kMuted,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ).animate().fadeIn(delay: 50.ms, duration: 220.ms)
-                        .slideY(begin: .04, end: 0, duration: 280.ms, curve: Curves.easeOutCubic),
+                        )
+                        .animate()
+                        .fadeIn(delay: 50.ms, duration: 220.ms)
+                        .slideY(
+                          begin: .04,
+                          end: 0,
+                          duration: 280.ms,
+                          curve: Curves.easeOutCubic,
+                        ),
 
                     const SizedBox(height: 22),
 
                     // Date label
-                    const _RSLabel(label: 'New Date', icon: Icons.calendar_today_rounded)
-                        .animate().fadeIn(delay: 90.ms, duration: 200.ms),
+                    const _RSLabel(
+                      label: 'New Date',
+                      icon: Icons.calendar_today_rounded,
+                    ).animate().fadeIn(delay: 90.ms, duration: 200.ms),
                     const SizedBox(height: 10),
 
                     // Calendar card
                     Container(
-                      decoration: BoxDecoration(
-                        color: _kBg,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: _kBorder),
-                      ),
-                      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              _NavBtn(icon: Icons.chevron_left_rounded, onTap: _prev),
-                              Expanded(
-                                child: AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 260),
-                                  transitionBuilder: (child, anim) =>
-                                      FadeTransition(opacity: anim, child: child),
-                                  child: Text(
-                                    '${_monthNames[_visibleMonth.month - 1]} ${_visibleMonth.year}',
-                                    key: ValueKey(_visibleMonth),
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      fontSize: 16, fontWeight: FontWeight.w900,
-                                      color: _kNavy, letterSpacing: -.2,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              _NavBtn(icon: Icons.chevron_right_rounded, onTap: _next),
-                            ],
+                          decoration: BoxDecoration(
+                            color: _kBg,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: _kBorder),
                           ),
-                          const SizedBox(height: 12),
-                          Row(
+                          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                          child: Column(
                             children: [
-                              for (final w in _wdLabels)
-                                Expanded(
-                                  child: Center(
-                                    child: Text(w,
-                                      style: const TextStyle(
-                                        fontSize: 12, fontWeight: FontWeight.w700, color: _kMuted,
+                              Row(
+                                children: [
+                                  _NavBtn(
+                                    icon: Icons.chevron_left_rounded,
+                                    onTap: _prev,
+                                  ),
+                                  Expanded(
+                                    child: AnimatedSwitcher(
+                                      duration: const Duration(
+                                        milliseconds: 260,
+                                      ),
+                                      transitionBuilder: (child, anim) =>
+                                          FadeTransition(
+                                            opacity: anim,
+                                            child: child,
+                                          ),
+                                      child: Text(
+                                        '${_monthNames[_visibleMonth.month - 1]} ${_visibleMonth.year}',
+                                        key: ValueKey(_visibleMonth),
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w900,
+                                          color: _kNavy,
+                                          letterSpacing: -.2,
+                                        ),
                                       ),
                                     ),
                                   ),
+                                  _NavBtn(
+                                    icon: Icons.chevron_right_rounded,
+                                    onTap: _next,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  for (final w in _wdLabels)
+                                    Expanded(
+                                      child: Center(
+                                        child: Text(
+                                          w,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            color: _kMuted,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 300),
+                                transitionBuilder: (child, anim) {
+                                  final isNew =
+                                      child.key == ValueKey(_visibleMonth);
+                                  final begin = Offset(
+                                    isNew ? _dir * 0.28 : -_dir * 0.28,
+                                    0,
+                                  );
+                                  return FadeTransition(
+                                    opacity: anim,
+                                    child: SlideTransition(
+                                      position:
+                                          Tween<Offset>(
+                                            begin: begin,
+                                            end: Offset.zero,
+                                          ).animate(
+                                            CurvedAnimation(
+                                              parent: anim,
+                                              curve: Curves.easeOutCubic,
+                                            ),
+                                          ),
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                                child: SizedBox(
+                                  key: ValueKey(_visibleMonth),
+                                  child: _buildGrid(_visibleMonth),
                                 ),
+                              ),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            transitionBuilder: (child, anim) {
-                              final isNew = child.key == ValueKey(_visibleMonth);
-                              final begin = Offset(isNew ? _dir * 0.28 : -_dir * 0.28, 0);
-                              return FadeTransition(
-                                opacity: anim,
-                                child: SlideTransition(
-                                  position: Tween<Offset>(begin: begin, end: Offset.zero)
-                                      .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
-                                  child: child,
-                                ),
-                              );
-                            },
-                            child: SizedBox(
-                              key: ValueKey(_visibleMonth),
-                              child: _buildGrid(_visibleMonth),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ).animate().fadeIn(delay: 120.ms, duration: 260.ms)
-                        .slideY(begin: .04, end: 0, duration: 320.ms, curve: Curves.easeOutCubic),
+                        )
+                        .animate()
+                        .fadeIn(delay: 120.ms, duration: 260.ms)
+                        .slideY(
+                          begin: .04,
+                          end: 0,
+                          duration: 320.ms,
+                          curve: Curves.easeOutCubic,
+                        ),
 
                     const SizedBox(height: 22),
 
                     // Time label
-                    const _RSLabel(label: 'New Time', icon: Icons.access_time_rounded)
-                        .animate().fadeIn(delay: 160.ms, duration: 200.ms),
+                    const _RSLabel(
+                      label: 'New Time',
+                      icon: Icons.access_time_rounded,
+                    ).animate().fadeIn(delay: 160.ms, duration: 200.ms),
                     const SizedBox(height: 10),
 
                     // Time wheels
                     Row(
-                      children: [
-                        Expanded(
-                          child: _TimeWheelCard(
-                            label: 'START',
-                            hourCtrl: _sHour,
-                            minCtrl: _sMin,
-                            mins: _mins5,
-                            onHourChanged: (h) =>
-                                setState(() => _start = TimeOfDay(hour: h, minute: _start.minute)),
-                            onMinChanged: (i) =>
-                                setState(() => _start = TimeOfDay(hour: _start.hour, minute: _mins5[i])),
-                          ),
+                          children: [
+                            Expanded(
+                              child: _TimeWheelCard(
+                                label: 'START',
+                                hourCtrl: _sHour,
+                                minCtrl: _sMin,
+                                mins: _mins5,
+                                onHourChanged: (h) => setState(
+                                  () => _start = TimeOfDay(
+                                    hour: h,
+                                    minute: _start.minute,
+                                  ),
+                                ),
+                                onMinChanged: (i) => setState(
+                                  () => _start = TimeOfDay(
+                                    hour: _start.hour,
+                                    minute: _mins5[i],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _TimeWheelCard(
+                                label: 'END',
+                                hourCtrl: _eHour,
+                                minCtrl: _eMin,
+                                mins: _mins5,
+                                onHourChanged: (h) => setState(
+                                  () => _end = TimeOfDay(
+                                    hour: h,
+                                    minute: _end.minute,
+                                  ),
+                                ),
+                                onMinChanged: (i) => setState(
+                                  () => _end = TimeOfDay(
+                                    hour: _end.hour,
+                                    minute: _mins5[i],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                        .animate()
+                        .fadeIn(delay: 190.ms, duration: 260.ms)
+                        .slideY(
+                          begin: .04,
+                          end: 0,
+                          duration: 320.ms,
+                          curve: Curves.easeOutCubic,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _TimeWheelCard(
-                            label: 'END',
-                            hourCtrl: _eHour,
-                            minCtrl: _eMin,
-                            mins: _mins5,
-                            onHourChanged: (h) =>
-                                setState(() => _end = TimeOfDay(hour: h, minute: _end.minute)),
-                            onMinChanged: (i) =>
-                                setState(() => _end = TimeOfDay(hour: _end.hour, minute: _mins5[i])),
-                          ),
-                        ),
-                      ],
-                    ).animate().fadeIn(delay: 190.ms, duration: 260.ms)
-                        .slideY(begin: .04, end: 0, duration: 320.ms, curve: Curves.easeOutCubic),
 
                     const SizedBox(height: 26),
 
                     _RSConfirmBtn(onTap: _confirm)
-                        .animate().fadeIn(delay: 230.ms, duration: 240.ms)
-                        .slideY(begin: .04, end: 0, duration: 280.ms, curve: Curves.easeOutCubic),
+                        .animate()
+                        .fadeIn(delay: 230.ms, duration: 240.ms)
+                        .slideY(
+                          begin: .04,
+                          end: 0,
+                          duration: 280.ms,
+                          curve: Curves.easeOutCubic,
+                        ),
                   ],
                 ),
               ),
@@ -2921,7 +3342,8 @@ class _RSLabel extends StatelessWidget {
     return Row(
       children: [
         Container(
-          width: 26, height: 26,
+          width: 26,
+          height: 26,
           decoration: BoxDecoration(
             color: _kNavy.withValues(alpha: .08),
             borderRadius: BorderRadius.circular(7),
@@ -2932,8 +3354,10 @@ class _RSLabel extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            fontSize: 14, fontWeight: FontWeight.w900,
-            color: _kNavy, letterSpacing: -.1,
+            fontSize: 14,
+            fontWeight: FontWeight.w900,
+            color: _kNavy,
+            letterSpacing: -.1,
           ),
         ),
       ],
@@ -2978,17 +3402,19 @@ class _TimeWheelCard extends StatelessWidget {
         onSelectedItemChanged: onChanged,
         childDelegate: ListWheelChildLoopingListDelegate(
           children: items
-              .map((e) => Center(
-                    child: Text(
-                      e,
-                      style: const TextStyle(
-                        fontSize: 21,
-                        fontWeight: FontWeight.w800,
-                        color: _kNavy,
-                        height: 1,
-                      ),
+              .map(
+                (e) => Center(
+                  child: Text(
+                    e,
+                    style: const TextStyle(
+                      fontSize: 21,
+                      fontWeight: FontWeight.w800,
+                      color: _kNavy,
+                      height: 1,
                     ),
-                  ))
+                  ),
+                ),
+              )
               .toList(),
         ),
       ),
@@ -3013,8 +3439,10 @@ class _TimeWheelCard extends StatelessWidget {
           Text(
             label,
             style: const TextStyle(
-              fontSize: 10.5, fontWeight: FontWeight.w800,
-              color: _kMuted, letterSpacing: .8,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              color: _kMuted,
+              letterSpacing: .8,
             ),
           ),
           const SizedBox(height: 8),
@@ -3035,22 +3463,36 @@ class _TimeWheelCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _wheel(ctrl: hourCtrl, items: hours, onChanged: onHourChanged),
+                    _wheel(
+                      ctrl: hourCtrl,
+                      items: hours,
+                      onChanged: onHourChanged,
+                    ),
                     const SizedBox(
-                      width: 10, height: 42,
+                      width: 10,
+                      height: 42,
                       child: Center(
-                        child: Text(':',
+                        child: Text(
+                          ':',
                           style: TextStyle(
-                            fontSize: 22, fontWeight: FontWeight.w900, color: _kNavy,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            color: _kNavy,
                           ),
                         ),
                       ),
                     ),
-                    _wheel(ctrl: minCtrl, items: minLabels, onChanged: onMinChanged),
+                    _wheel(
+                      ctrl: minCtrl,
+                      items: minLabels,
+                      onChanged: onMinChanged,
+                    ),
                   ],
                 ),
                 Positioned(
-                  top: 0, left: 0, right: 0,
+                  top: 0,
+                  left: 0,
+                  right: 0,
                   child: IgnorePointer(
                     child: Container(
                       height: 40,
@@ -3065,7 +3507,9 @@ class _TimeWheelCard extends StatelessWidget {
                   ),
                 ),
                 Positioned(
-                  bottom: 0, left: 0, right: 0,
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
                   child: IgnorePointer(
                     child: Container(
                       height: 40,
@@ -3105,7 +3549,10 @@ class _RSConfirmBtnState extends State<_RSConfirmBtn> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTapDown: (_) => setState(() => _down = true),
-      onTapUp: (_) { setState(() => _down = false); widget.onTap(); },
+      onTapUp: (_) {
+        setState(() => _down = false);
+        widget.onTap();
+      },
       onTapCancel: () => setState(() => _down = false),
       child: AnimatedScale(
         scale: _down ? 0.97 : 1.0,
@@ -3132,7 +3579,11 @@ class _RSConfirmBtnState extends State<_RSConfirmBtn> {
               SizedBox(width: 8),
               Text(
                 'Confirm Reschedule',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white),
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
               ),
             ],
           ),

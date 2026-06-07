@@ -85,33 +85,41 @@ Auth lives in:
 - `lib/features/auth/data/auth_service.dart`
 - `lib/features/auth/presentation/pages/login_page.dart`
 
-`AuthService.login()` calls:
+`AuthService.login()` checks two endpoints with OR semantics — admin and
+parent accounts live in separate backend tables, so either may hold the
+matching login. `GET /admins` is tried first; if no active account matches,
+`GET /parents` is tried next; the first match wins:
 
 ```text
 GET /admins
+GET /parents
 ```
 
-Expected response can be:
+Expected response for either endpoint can be:
 
-- A direct array of admins
+- A direct array of records
 - `{ "data": [...] }`
-- `{ "admins": [...] }`
+- `{ "admins": [...] }` / `{ "parents": [...] }`
 - `{ "results": [...] }`
 
-The login field matches either `username` or `email`.
+The login field matches either `username` or `email` (case-insensitive) on
+whichever endpoint is being checked. Active-status is read from `is_active`
+(admins, snake_case) or `isActive` (parents, camelCase) — missing/null counts
+as active, matching the previous behavior.
 
 Password behavior:
 
-- If the API returns `password`, `pass`, or `admin_password`, it must match the form password.
-- If the API does not return any password field, the current code treats username/email match as enough. This matches the current backend response shape, but should be replaced with a proper login endpoint if one becomes available.
+- If the API returns `password`, `pass`, `admin_password`, or `passwordHash`, it must match the form password.
+- If the API does not return any password field, the current code treats username/email match as enough. This matches the current backend response shape (neither `/admins` nor `/parents` currently returns a password field — `Parent.passwordHash` is `select: false` server-side), but should be replaced with a proper login endpoint (`POST /auth/login` / `POST /auth/parent/login` exist server-side with real bcrypt checks) if/when the app is wired up to use one.
 
-Role behavior:
+Role and routing behavior:
 
 - Role is read from `roles[0].name` first.
 - Fallback role fields are `role` and `role_name`.
-- Role comparison for parent is lowercase exact match to `parents`.
-- Parent users route to `StudentsCardListPage`.
-- Non-parent users route to `ScanQrCodePage`.
+- An account found via `GET /parents` always routes to the parent flow — being in that table is itself the parent signal — regardless of its `roles` content (handles seed data where some parent records have an empty `roles: []`).
+- An account found via `GET /admins` routes to the parent flow only when its role is a lowercase-exact match to `parents` (e.g. an admin-table test account explicitly assigned the "Parents" role).
+- Parent-flow accounts route to `StudentsCardListPage`; everything else routes to `ScanQrCodePage`.
+- This is exposed as `AuthenticatedUser.isParent` (`isParentRecord || roleName.toLowerCase() == 'parents'`).
 
 Remember me:
 
@@ -365,6 +373,7 @@ Feature services currently use these relative endpoints:
 
 ```text
 /admins
+/parents
 /appointments
 ```
 
