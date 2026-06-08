@@ -12,7 +12,12 @@ class SessionService {
     await prefs.setString(_kUsername, adminJson['username']?.toString() ?? '');
     await prefs.setString(_kEmail, adminJson['email']?.toString() ?? '');
     final branch = adminJson['branch'];
-    final branchId = branch is Map ? (branch['id']?.toString() ?? '') : '';
+    final branchId =
+        (adminJson['branch_id'] ??
+                adminJson['branchId'] ??
+                (branch is Map ? branch['id'] : null) ??
+                '')
+            .toString();
     await prefs.setString(_kBranchId, branchId);
   }
 

@@ -248,32 +248,58 @@ class _AppointmentPageState extends State<AppointmentPage> {
   }
 
   void _cancel(AppointmentModel a) {
+    final isOwner = _sessionUserId.isNotEmpty && a.createdBy == _sessionUserId;
     GlobalAlert.showConfirmation(
-      title: 'Decline Appointment',
-      message: 'Decline "${a.title}"?',
-      confirmText: 'Decline',
+      title: isOwner ? 'Delete Appointment' : 'Decline Appointment',
+      message: isOwner ? 'Delete "${a.title}"?' : 'Decline "${a.title}"?',
+      confirmText: isOwner ? 'Delete' : 'Decline',
       cancelText: 'Keep',
-      icon: FontAwesomeIcons.circleXmark,
+      icon: isOwner
+          ? Icons.delete_outline_rounded
+          : FontAwesomeIcons.circleXmark,
       confirmColor: _kRed,
     ).then((confirmed) {
       if (confirmed != true) return;
-      GlobalAlert.showLoading(message: 'Declining...');
-      _svc
-          .declineAppointment(a)
+      GlobalAlert.showLoading(
+        message: isOwner ? 'Deleting...' : 'Declining...',
+      );
+      final request = isOwner
+          ? _svc.deleteAppointment(a)
+          : _svc.declineAppointment(a);
+      request
           .then((_) {
             GlobalAlert.dismiss();
             if (!mounted) return;
-            setState(() => a.status = AppointmentStatus.cancelled);
-            _snack('Appointment declined');
+            if (isOwner) {
+              setState(() {
+                _all.removeWhere((item) => item.id == a.id);
+                _markedDates = {for (final item in _all) _date(item.date)};
+              });
+              _snack('Appointment deleted');
+            } else {
+              setState(() => a.status = AppointmentStatus.cancelled);
+              _snack('Appointment declined');
+            }
           })
           .catchError((_) {
             GlobalAlert.dismiss();
             GlobalAlert.showError(
               title: 'Failed',
-              message: 'Could not decline the appointment. Please try again.',
+              message: isOwner
+                  ? 'Could not delete the appointment. Please try again.'
+                  : 'Could not decline the appointment. Please try again.',
             );
           });
     });
+  }
+
+  void _timeline(AppointmentModel a) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _TimelineSheet(appt: a),
+    );
   }
 
   void _snack(String msg) {
@@ -319,12 +345,9 @@ class _AppointmentPageState extends State<AppointmentPage> {
       await _svc.createAppointment(result);
       GlobalAlert.dismiss();
       if (!mounted) return;
-      setState(() {
-        _all.add(result);
-        _markedDates = {for (final a in _all) _date(a.date)};
-        _selectedDate = _date(result.date);
-        _visibleMonth = DateTime(result.date.year, result.date.month);
-      });
+      _selectedDate = _date(result.date);
+      _visibleMonth = DateTime(result.date.year, result.date.month);
+      await _load();
       GlobalAlert.showSuccess(
         title: 'Appointment Created',
         message: 'The appointment has been saved successfully.',
@@ -421,6 +444,7 @@ class _AppointmentPageState extends State<AppointmentPage> {
                                     onReschedule: () =>
                                         _reschedule(_filtered[i]),
                                     onCancel: () => _cancel(_filtered[i]),
+                                    onTimeline: () => _timeline(_filtered[i]),
                                   )
                                   .animate()
                                   .fadeIn(
@@ -939,6 +963,7 @@ class _ApptCard extends StatelessWidget {
   final VoidCallback onConfirm;
   final VoidCallback onReschedule;
   final VoidCallback onCancel;
+  final VoidCallback onTimeline;
 
   const _ApptCard({
     required this.appt,
@@ -946,6 +971,7 @@ class _ApptCard extends StatelessWidget {
     required this.onConfirm,
     required this.onReschedule,
     required this.onCancel,
+    required this.onTimeline,
   });
 
   static IconData _iconFor(String title) {
@@ -1149,6 +1175,38 @@ class _ApptCard extends StatelessWidget {
           const SizedBox(height: 14),
           const Divider(height: 1, color: _kBorder),
           const SizedBox(height: 12),
+          GestureDetector(
+            onTap: onTimeline,
+            child: Container(
+              height: 42,
+              decoration: BoxDecoration(
+                color: _kBlue.withValues(alpha: .08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _kBlue.withValues(alpha: .18)),
+              ),
+              alignment: Alignment.center,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const FaIcon(
+                    FontAwesomeIcons.chartGantt,
+                    size: 16,
+                    color: _kBlue,
+                  ),
+                  const SizedBox(width: 7),
+                  const Text(
+                    'Timeline',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w900,
+                      color: _kBlue,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
           // ── Action buttons ──
           Row(
             children: [
@@ -1190,6 +1248,625 @@ class _ApptCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TimelineSheet extends StatelessWidget {
+  final AppointmentModel appt;
+
+  const _TimelineSheet({required this.appt});
+
+  @override
+  Widget build(BuildContext context) {
+    final safe = MediaQuery.of(context).padding.bottom;
+    final events = _events();
+    return Container(
+      height: MediaQuery.of(context).size.height * .82,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(18, 12, 18, safe + 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: _kBorder,
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: _kBg,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _kBorder),
+                ),
+                child: const Center(
+                  child: FaIcon(
+                    FontAwesomeIcons.chartGantt,
+                    size: 18,
+                    color: _kBlue,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Activity timeline',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        color: _kNavy,
+                      ),
+                    ),
+                    Text(
+                      appt.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _kMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '${events.length} update${events.length == 1 ? '' : 's'}',
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
+              color: _kMuted,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Expanded(
+            child: events.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No timeline activity yet.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: _kMuted,
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: events.length,
+                    itemBuilder: (_, index) =>
+                        _TimelineEventRow(
+                              event: events[index],
+                              isLast: index == events.length - 1,
+                            )
+                            .animate()
+                            .fadeIn(
+                              delay: Duration(milliseconds: 35 * index),
+                              duration: 220.ms,
+                              curve: Curves.easeOutCubic,
+                            )
+                            .slideY(
+                              begin: .06,
+                              end: 0,
+                              delay: Duration(milliseconds: 35 * index),
+                              duration: 260.ms,
+                              curve: Curves.easeOutCubic,
+                            ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<_TimelineEvent> _events() {
+    final events = <_TimelineEvent>[];
+    final createdAt = appt.createdAt;
+    final rescheduledAt = appt.rescheduledAt ?? appt.updatedAt ?? createdAt;
+    final originalDate = appt.originalDate ?? appt.date;
+    final originalStart = appt.originalStart ?? appt.start;
+    final originalEnd = appt.originalEnd ?? appt.end;
+    final creatorName = appt.createdByName.isNotEmpty
+        ? appt.createdByName
+        : appt.createdBy;
+
+    events.add(
+      _TimelineEvent(
+        title: 'Appointment record created',
+        variant: _TimelineVariant.created,
+        time: createdAt,
+        actor: creatorName.isEmpty ? null : creatorName,
+        badge: 'Created',
+        details: [
+          if (creatorName.isNotEmpty) 'Created by $creatorName',
+          if (appt.title.isNotEmpty) 'Title: ${appt.title}',
+        ],
+      ),
+    );
+
+    events.add(
+      _TimelineEvent(
+        title: 'Schedule recorded',
+        variant: _TimelineVariant.scheduled,
+        time: createdAt,
+        badge: _fmtDate(originalDate),
+        details: [
+          'Date: ${_fmtDate(originalDate)}',
+          'Time: ${_fmtTime(originalStart)} - ${_fmtTime(originalEnd)}',
+          if ((appt.note ?? '').trim().isNotEmpty)
+            'Location: ${(appt.note ?? '').trim()}',
+        ],
+      ),
+    );
+
+    for (final person in appt.participants) {
+      events.add(
+        _TimelineEvent(
+          title: 'Participant invited',
+          variant: _TimelineVariant.invited,
+          actor: person.name,
+          badge: person.roleLabel,
+          time: person.createdAt ?? createdAt,
+          details: [
+            '${person.name} added as participant',
+            'Type: ${person.personType}',
+            'Initial status: PENDING',
+          ],
+        ),
+      );
+
+      if (person.responseHistory.isNotEmpty) {
+        for (final history in person.responseHistory) {
+          final event = _responseEvent(person, history);
+          if (event != null) events.add(event);
+        }
+      } else if (person.respondedAt != null) {
+        final event = _responseEvent(
+          person,
+          ParticipantResponseHistoryModel(
+            status: person.status,
+            eventAt: person.respondedAt,
+            note: person.responseNote,
+            rescheduleCount: person.rescheduleCount,
+          ),
+        );
+        if (event != null) events.add(event);
+      }
+    }
+
+    final hasReschedule =
+        appt.rescheduledAt != null ||
+        appt.previousRescheduledDate != null ||
+        appt.status == AppointmentStatus.postponed;
+    if (hasReschedule) {
+      final previousDate = appt.previousRescheduledDate ?? originalDate;
+      final previousStart = appt.previousRescheduledStart ?? originalStart;
+      final previousEnd = appt.previousRescheduledEnd ?? originalEnd;
+      events.add(
+        _TimelineEvent(
+          title: 'Appointment rescheduled',
+          variant: _TimelineVariant.scheduled,
+          time: rescheduledAt,
+          badge: _fmtDate(appt.date),
+          details: [
+            'New schedule: ${_fmtDate(appt.date)} · ${_fmtTime(appt.start)} - ${_fmtTime(appt.end)}',
+            'Previous: ${_fmtDate(previousDate)} · ${_fmtTime(previousStart)} - ${_fmtTime(previousEnd)}',
+          ],
+        ),
+      );
+
+      for (final person in appt.participants) {
+        events.add(
+          _TimelineEvent(
+            title: 'Participant notified of new schedule',
+            variant: _TimelineVariant.invited,
+            actor: person.name,
+            badge: person.roleLabel,
+            time: rescheduledAt,
+            details: [
+              'New schedule shared with ${person.name}',
+              '${_fmtDate(appt.date)} · ${_fmtTime(appt.start)} - ${_fmtTime(appt.end)}',
+            ],
+          ),
+        );
+      }
+    }
+
+    events.sort((a, b) {
+      final at = a.time?.millisecondsSinceEpoch;
+      final bt = b.time?.millisecondsSinceEpoch;
+      if (at != null && bt != null && at != bt) return bt.compareTo(at);
+      if (at != null && bt == null) return -1;
+      if (at == null && bt != null) return 1;
+      return a.priority.compareTo(b.priority);
+    });
+    return events;
+  }
+
+  _TimelineEvent? _responseEvent(
+    AppointmentParticipantModel person,
+    ParticipantResponseHistoryModel history,
+  ) {
+    final status = history.status.toUpperCase();
+    if (!const [
+      'ACCEPTED',
+      'CONFIRMED',
+      'DECLINED',
+      'CANCELLED',
+      'RESCHEDULED',
+    ].contains(status)) {
+      return null;
+    }
+    final declined = status == 'DECLINED' || status == 'CANCELLED';
+    final rescheduled = status == 'RESCHEDULED';
+    return _TimelineEvent(
+      title: rescheduled
+          ? 'Reschedule requested'
+          : declined
+          ? 'Participant declined'
+          : 'Participant accepted',
+      variant: rescheduled
+          ? _TimelineVariant.reschedule
+          : declined
+          ? _TimelineVariant.declined
+          : _TimelineVariant.accepted,
+      actor: person.name,
+      badge: person.roleLabel,
+      time: history.eventAt ?? person.respondedAt,
+      details: [
+        rescheduled
+            ? 'Requested a different schedule'
+            : 'Response changed to $status',
+        'By ${person.name}',
+        if (rescheduled &&
+            (history.proposedDate != null ||
+                history.proposedStart != null ||
+                history.proposedEnd != null))
+          'Proposed: ${history.proposedDate == null ? '—' : _fmtDate(history.proposedDate!)} · ${history.proposedStart == null ? '—' : _fmtTime(history.proposedStart!)} - ${history.proposedEnd == null ? '—' : _fmtTime(history.proposedEnd!)}',
+        if (rescheduled)
+          'Attempts: ${history.rescheduleCount}/${AppointmentModel.maxReschedule}',
+        if (history.note.isNotEmpty) history.note,
+      ],
+    );
+  }
+
+  static String _fmtTime(TimeOfDay t) => _AppointmentPageState.formatTime(t);
+  static String _fmtDate(DateTime d) => _AppointmentPageState.formatCardDate(d);
+}
+
+enum _TimelineVariant {
+  created,
+  scheduled,
+  invited,
+  accepted,
+  declined,
+  reschedule,
+  updated,
+}
+
+class _TimelineEvent {
+  final String title;
+  final _TimelineVariant variant;
+  final String? actor;
+  final String? badge;
+  final DateTime? time;
+  final List<String> details;
+
+  const _TimelineEvent({
+    required this.title,
+    required this.variant,
+    this.actor,
+    this.badge,
+    this.time,
+    this.details = const [],
+  });
+
+  int get priority => switch (variant) {
+    _TimelineVariant.accepted || _TimelineVariant.declined => 0,
+    _TimelineVariant.invited => 1,
+    _TimelineVariant.updated => 2,
+    _TimelineVariant.created => 3,
+    _TimelineVariant.scheduled => 4,
+    _TimelineVariant.reschedule => 5,
+  };
+}
+
+class _TimelineEventRow extends StatelessWidget {
+  final _TimelineEvent event;
+  final bool isLast;
+
+  const _TimelineEventRow({required this.event, required this.isLast});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _color(event.variant);
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 34,
+            child: Column(
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withValues(alpha: .22),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    _icon(event.variant),
+                    color: Colors.white,
+                    size: 15,
+                  ),
+                ),
+                if (!isLast)
+                  Expanded(
+                    child: Container(
+                      width: 2,
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      color: color.withValues(alpha: .16),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Container(
+                padding: const EdgeInsets.all(13),
+                decoration: BoxDecoration(
+                  color: _surface(event.variant),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: _border(event.variant)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            event.title,
+                            style: const TextStyle(
+                              fontSize: 13.8,
+                              fontWeight: FontWeight.w900,
+                              color: _kText,
+                              letterSpacing: -.1,
+                            ),
+                          ),
+                        ),
+                        if (event.badge != null)
+                          _TimelinePill(label: event.badge!, color: color),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        Icon(_icon(event.variant), size: 13, color: color),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            [
+                              _timeLabel(event.time),
+                              if (event.actor != null) event.actor!,
+                            ].join(' · '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11.6,
+                              fontWeight: FontWeight.w700,
+                              color: _kMuted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (event.details.isNotEmpty) ...[
+                      const SizedBox(height: 9),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: event.details.take(3).map((detail) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 5),
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _detailSurface(event.variant),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: _border(event.variant),
+                                  ),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      width: 18,
+                                      height: 18,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(
+                                          alpha: .72,
+                                        ),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Icon(
+                                        _detailIcon(detail),
+                                        size: 12,
+                                        color: color,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        detail,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          height: 1.32,
+                                          fontWeight: FontWeight.w600,
+                                          color: _kText,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      if (event.details.length > 3)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            '+${event.details.length - 3} more detail${event.details.length - 3 == 1 ? '' : 's'}',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              color: color,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _timeLabel(DateTime? value) {
+    if (value == null) return 'Time not recorded';
+    final local = value.toLocal();
+    final date = _AppointmentPageState.formatCardDate(local);
+    final time = _AppointmentPageState.formatTime(
+      TimeOfDay(hour: local.hour, minute: local.minute),
+    );
+    return '$date · $time';
+  }
+
+  static IconData _icon(_TimelineVariant variant) => switch (variant) {
+    _TimelineVariant.accepted => Icons.check_rounded,
+    _TimelineVariant.declined => Icons.close_rounded,
+    _TimelineVariant.reschedule => Icons.sync_rounded,
+    _TimelineVariant.created => Icons.description_outlined,
+    _TimelineVariant.scheduled => Icons.calendar_today_rounded,
+    _TimelineVariant.invited => Icons.schedule_rounded,
+    _TimelineVariant.updated => Icons.edit_rounded,
+  };
+
+  static Color _color(_TimelineVariant variant) => switch (variant) {
+    _TimelineVariant.accepted => _kGreen,
+    _TimelineVariant.declined => _kRed,
+    _TimelineVariant.reschedule => const Color(0xFFEC4899),
+    _TimelineVariant.created => _kNavy,
+    _TimelineVariant.scheduled => _kBlue,
+    _TimelineVariant.invited => _kOrange,
+    _TimelineVariant.updated => const Color(0xFF6366F1),
+  };
+
+  static Color _surface(_TimelineVariant variant) => switch (variant) {
+    _TimelineVariant.accepted => const Color(0xFFF0FDF4),
+    _TimelineVariant.declined => const Color(0xFFFEF2F2),
+    _TimelineVariant.reschedule => const Color(0xFFFDF2F8),
+    _TimelineVariant.created => const Color(0xFFF8FAFC),
+    _TimelineVariant.scheduled => const Color(0xFFEFF6FF),
+    _TimelineVariant.invited => const Color(0xFFFFFBEB),
+    _TimelineVariant.updated => const Color(0xFFF5F3FF),
+  };
+
+  static Color _detailSurface(_TimelineVariant variant) =>
+      Colors.white.withValues(alpha: .62);
+
+  static Color _border(_TimelineVariant variant) =>
+      _color(variant).withValues(alpha: .18);
+
+  static IconData _detailIcon(String detail) {
+    final text = detail.toLowerCase();
+    if (text.contains('accepted') || text.contains('changed to')) {
+      return Icons.check_rounded;
+    }
+    if (text.contains('declined') || text.contains('cancelled')) {
+      return Icons.close_rounded;
+    }
+    if (text.contains('schedule') ||
+        text.contains('date') ||
+        text.contains('time') ||
+        text.contains('proposed')) {
+      return Icons.access_time_rounded;
+    }
+    if (text.contains('location')) return Icons.location_on_outlined;
+    if (text.contains('created') ||
+        text.contains('participant') ||
+        text.contains(' by ')) {
+      return Icons.person_outline_rounded;
+    }
+    return Icons.circle;
+  }
+}
+
+class _TimelinePill extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _TimelinePill({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .075),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10.2,
+          fontWeight: FontWeight.w800,
+          color: color,
+        ),
       ),
     );
   }
@@ -1736,7 +2413,15 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
 
   List<AdminModel> _admins = [];
   List<AdminModel> _selectedAdmins = [];
+  List<ParentInviteModel> _parents = [];
+  List<ParentInviteModel> _selectedParents = [];
+  List<StudentInviteModel> _students = [];
+  Map<String, AppointmentConflict> _employeeConflicts = {};
+  Map<String, AppointmentConflict> _parentConflicts = {};
   bool _loadingAdmins = true;
+  bool _loadingInvitees = true;
+  String _currentUserId = '';
+  String _currentParentId = '';
 
   @override
   void initState() {
@@ -1744,7 +2429,20 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
     _date = widget.initialDate;
     _start = const TimeOfDay(hour: 9, minute: 0);
     _end = const TimeOfDay(hour: 10, minute: 0);
+    _loadCurrentUser();
     _fetchAdmins();
+    _fetchInvitees();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final session = await SessionService().load();
+    if (!mounted) return;
+    final userId = session?.id.trim() ?? '';
+    setState(() {
+      _currentUserId = userId;
+      _currentParentId = _parents.any((p) => p.id == userId) ? userId : '';
+    });
+    await _refreshConflicts();
   }
 
   Future<void> _fetchAdmins() async {
@@ -1755,9 +2453,81 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
         _admins = list;
         _loadingAdmins = false;
       });
+      await _refreshConflicts();
     } catch (_) {
       if (!mounted) return;
       setState(() => _loadingAdmins = false);
+    }
+  }
+
+  Future<void> _fetchInvitees() async {
+    try {
+      final results = await Future.wait([
+        _svc.fetchParents(),
+        _svc.fetchStudents(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _parents = results[0] as List<ParentInviteModel>;
+        _students = results[1] as List<StudentInviteModel>;
+        _currentParentId = _parents.any((p) => p.id == _currentUserId)
+            ? _currentUserId
+            : '';
+        _loadingInvitees = false;
+      });
+      await _refreshConflicts();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingInvitees = false);
+    }
+  }
+
+  Future<void> _refreshConflicts() async {
+    if (_admins.isEmpty && _parents.isEmpty) return;
+    try {
+      final employeeIds = _admins
+          .map((a) => a.id)
+          .where((id) => id.isNotEmpty)
+          .toList();
+      final parentIds = _parents
+          .map((p) => p.id)
+          .followedBy(
+            _currentParentId.isEmpty ? const <String>[] : [_currentParentId],
+          )
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+      final results = await Future.wait([
+        _svc.checkConflicts(
+          date: _date,
+          start: _start,
+          end: _end,
+          personIds: employeeIds,
+        ),
+        _svc.checkConflicts(
+          date: _date,
+          start: _start,
+          end: _end,
+          personIds: parentIds,
+        ),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _employeeConflicts = results[0];
+        _parentConflicts = results[1];
+        _selectedAdmins = _selectedAdmins
+            .where((a) => !_employeeConflicts.containsKey(a.id))
+            .toList();
+        _selectedParents = _selectedParents
+            .where((p) => !_parentConflicts.containsKey(p.id))
+            .toList();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _employeeConflicts = {};
+        _parentConflicts = {};
+      });
     }
   }
 
@@ -1766,14 +2536,38 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) =>
-          _AdminPickerSheet(admins: _admins, selected: _selectedAdmins),
+      builder: (_) => _AdminPickerSheet(
+        admins: _admins,
+        selected: _selectedAdmins,
+        conflicts: _employeeConflicts,
+      ),
     );
     if (result != null) {
       setState(() {
         _selectedAdmins = result;
         if (result.isNotEmpty) _employeeError = false;
       });
+    }
+  }
+
+  Future<void> _pickParents() async {
+    await _refreshConflicts();
+    if (!mounted) return;
+    final result = await showModalBottomSheet<List<ParentInviteModel>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ParentInviteSheet(
+        parents: _parents,
+        students: _students,
+        selected: _selectedParents,
+        conflicts: _parentConflicts,
+        loading: _loadingInvitees,
+        hiddenParentId: _currentParentId,
+      ),
+    );
+    if (result != null) {
+      setState(() => _selectedParents = result);
     }
   }
 
@@ -1819,7 +2613,10 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
         child: child!,
       ),
     );
-    if (picked != null) setState(() => _date = picked);
+    if (picked != null) {
+      setState(() => _date = picked);
+      await _refreshConflicts();
+    }
   }
 
   Future<TimeOfDay?> _showScrollPicker(TimeOfDay initial) {
@@ -1838,6 +2635,7 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
       _start = picked;
       if (!_isAfter(_end, _start)) _end = _addHour(_start);
     });
+    await _refreshConflicts();
   }
 
   Future<void> pickEndAt() async {
@@ -1854,6 +2652,7 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
       return;
     }
     setState(() => _end = picked);
+    await _refreshConflicts();
   }
 
   bool _isAfter(TimeOfDay end, TimeOfDay start) =>
@@ -1864,7 +2663,7 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
     return TimeOfDay(hour: (total ~/ 60) % 24, minute: total % 60);
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final title = _titleCtrl.text.trim();
     if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1880,32 +2679,83 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
       return;
     }
 
+    await _refreshConflicts();
+    final blockedEmployees = _selectedAdmins
+        .where((admin) => _employeeConflicts.containsKey(admin.id))
+        .map((admin) => admin.name)
+        .toList();
+    final blockedParents = _selectedParents
+        .where((parent) => _parentConflicts.containsKey(parent.id))
+        .map((parent) => parent.name)
+        .toList();
+    final currentUserConflict = _currentParentId.isNotEmpty
+        ? _parentConflicts[_currentParentId]
+        : null;
+    if (blockedEmployees.isNotEmpty ||
+        blockedParents.isNotEmpty ||
+        currentUserConflict != null) {
+      GlobalAlert.showError(
+        title: 'Time Conflict',
+        message:
+            'Some invitees are already booked at this time.\n${[...blockedEmployees, ...blockedParents, if (currentUserConflict != null) 'You (${currentUserConflict.timeLabel})'].join(', ')}',
+      );
+      return;
+    }
+
+    final autoParentIds = {
+      if (_currentParentId.isNotEmpty) _currentParentId,
+      ..._selectedParents.map((p) => p.id),
+    }.where((id) => id.isNotEmpty).toList();
+
     final empLabel = _selectedAdmins.isEmpty
         ? 'No employees selected'
         : '${_selectedAdmins.length} employee${_selectedAdmins.length > 1 ? 's' : ''} selected';
+    final parentLabel = autoParentIds.isEmpty
+        ? 'No parents invited'
+        : '${autoParentIds.length} parent${autoParentIds.length > 1 ? 's' : ''} invited';
 
-    GlobalAlert.showConfirmation(
+    final confirmed = await GlobalAlert.showConfirmation(
       title: 'Create Appointment',
       message:
-          '"$title"\n${_fmtDate(_date)} · ${_fmtTime(_start)} – ${_fmtTime(_end)}\n$empLabel',
+          '"$title"\n${_fmtDate(_date)} · ${_fmtTime(_start)} – ${_fmtTime(_end)}\n$empLabel\n$parentLabel',
       confirmText: 'Create',
       cancelText: 'Back',
       icon: Icons.event_note_rounded,
-    ).then((confirmed) {
-      if (confirmed != true) return;
-      setState(() => _saving = true);
-      final model = AppointmentModel(
-        id: 'local_${DateTime.now().millisecondsSinceEpoch}',
-        title: title,
-        note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
-        date: DateTime(_date.year, _date.month, _date.day),
-        start: _start,
-        end: _end,
-        status: AppointmentStatus.pending,
-        participantIds: _selectedAdmins.map((a) => a.id).toList(),
-      );
-      Navigator.pop(context, model);
-    });
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _saving = true);
+    final model = AppointmentModel(
+      id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+      title: title,
+      note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
+      date: DateTime(_date.year, _date.month, _date.day),
+      start: _start,
+      end: _end,
+      status: AppointmentStatus.pending,
+      participantIds: _selectedAdmins.map((a) => a.id).toList(),
+      participantTypes: {
+        for (final admin in _selectedAdmins)
+          admin.id: _personTypeForAdmin(admin),
+      },
+      parentIds: autoParentIds,
+      branchId: _selectedAdmins
+          .map((admin) => admin.branchId)
+          .firstWhere((id) => id.isNotEmpty, orElse: () => ''),
+    );
+    Navigator.pop(context, model);
+  }
+
+  String _personTypeForAdmin(AdminModel admin) {
+    final normalized = admin.role.toLowerCase().replaceAll(
+      RegExp(r'[\s_-]+'),
+      '',
+    );
+    if (normalized.contains('teacher')) return 'TEACHER';
+    if (normalized.contains('supersuperadmin')) return 'SUPER_SUPER_ADMIN';
+    if (normalized.contains('superadmin') || normalized.contains('super')) {
+      return 'SUPER_ADMIN';
+    }
+    return 'ADMIN';
   }
 
   @override
@@ -2005,13 +2855,23 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
             ),
             const SizedBox(height: 14),
 
-            // Note / location
-            _FieldLabel(label: 'Note (optional)'),
+            // Meeting place
+            _FieldLabel(label: 'Meetings Place (optional)'),
             const SizedBox(height: 6),
             _TextField(
               controller: _noteCtrl,
-              hint: 'Add a note...',
+              hint: 'Add a meeting place...',
               maxLines: 2,
+            ),
+            const SizedBox(height: 14),
+
+            // Invite parents
+            _FieldLabel(label: 'Invite Parents (optional)'),
+            const SizedBox(height: 6),
+            _ParentInviteTile(
+              selected: _selectedParents,
+              loading: _loadingInvitees,
+              onTap: _loadingInvitees ? null : _pickParents,
             ),
             const SizedBox(height: 14),
 
@@ -2231,13 +3091,106 @@ class _EmployeeTile extends StatelessWidget {
   }
 }
 
+class _ParentInviteTile extends StatelessWidget {
+  final List<ParentInviteModel> selected;
+  final bool loading;
+  final VoidCallback? onTap;
+
+  const _ParentInviteTile({
+    required this.selected,
+    required this.loading,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: _kBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _kBorder),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.family_restroom_rounded,
+              size: 17,
+              color: selected.isEmpty ? _kMuted : _kBlue,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: loading
+                  ? const Text(
+                      'Loading parents...',
+                      style: TextStyle(fontSize: 14, color: _kMuted),
+                    )
+                  : selected.isEmpty
+                  ? const Text(
+                      'Invite parents',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: _kMuted,
+                      ),
+                    )
+                  : Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: selected
+                          .map(
+                            (parent) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _kBlue.withValues(alpha: .10),
+                                borderRadius: BorderRadius.circular(99),
+                                border: Border.all(
+                                  color: _kBlue.withValues(alpha: .25),
+                                ),
+                              ),
+                              child: Text(
+                                parent.name,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: _kBlue,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+            ),
+            const SizedBox(width: 6),
+            Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 18,
+              color: loading ? _kMuted : _kNavy,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ── Admin picker sheet ────────────────────────────────────────────────────────
 
 class _AdminPickerSheet extends StatefulWidget {
   final List<AdminModel> admins;
   final List<AdminModel> selected;
+  final Map<String, AppointmentConflict> conflicts;
 
-  const _AdminPickerSheet({required this.admins, required this.selected});
+  const _AdminPickerSheet({
+    required this.admins,
+    required this.selected,
+    this.conflicts = const {},
+  });
 
   @override
   State<_AdminPickerSheet> createState() => _AdminPickerSheetState();
@@ -2255,6 +3208,7 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
   bool _isSelected(AdminModel a) => _selected.any((s) => s.id == a.id);
 
   void _toggle(AdminModel a) {
+    if (!_isSelected(a) && widget.conflicts.containsKey(a.id)) return;
     setState(() {
       if (_isSelected(a)) {
         _selected.removeWhere((s) => s.id == a.id);
@@ -2336,6 +3290,7 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
               itemBuilder: (_, i) {
                 final admin = widget.admins[i];
                 final picked = _isSelected(admin);
+                final conflict = widget.conflicts[admin.id];
                 return GestureDetector(
                   onTap: () => _toggle(admin),
                   child: AnimatedContainer(
@@ -2346,12 +3301,16 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
                       vertical: 13,
                     ),
                     decoration: BoxDecoration(
-                      color: picked
+                      color: conflict != null
+                          ? _kRed.withValues(alpha: .05)
+                          : picked
                           ? _kBlue.withValues(alpha: .07)
                           : Colors.white,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: picked
+                        color: conflict != null
+                            ? _kRed.withValues(alpha: .30)
+                            : picked
                             ? _kBlue.withValues(alpha: .35)
                             : _kBorder,
                         width: picked ? 1.5 : 1,
@@ -2363,7 +3322,9 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
                           width: 34,
                           height: 34,
                           decoration: BoxDecoration(
-                            color: picked
+                            color: conflict != null
+                                ? _kRed.withValues(alpha: .10)
+                                : picked
                                 ? _kBlue.withValues(alpha: .12)
                                 : _kBg,
                             shape: BoxShape.circle,
@@ -2376,7 +3337,11 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w900,
-                                color: picked ? _kBlue : _kMuted,
+                                color: conflict != null
+                                    ? _kRed
+                                    : picked
+                                    ? _kBlue
+                                    : _kMuted,
                               ),
                             ),
                           ),
@@ -2418,29 +3383,47 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
                                   ),
                                 ),
                               ],
+                              if (conflict != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Already booked ${conflict.timeLabel}',
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: _kRed,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            color: picked ? _kBlue : Colors.transparent,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: picked ? _kBlue : _kBorder,
-                              width: 1.5,
+                        if (conflict != null)
+                          const Icon(
+                            Icons.lock_clock_rounded,
+                            color: _kRed,
+                            size: 20,
+                          )
+                        else
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              color: picked ? _kBlue : Colors.transparent,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: picked ? _kBlue : _kBorder,
+                                width: 1.5,
+                              ),
                             ),
+                            child: picked
+                                ? const Icon(
+                                    Icons.check_rounded,
+                                    size: 13,
+                                    color: Colors.white,
+                                  )
+                                : null,
                           ),
-                          child: picked
-                              ? const Icon(
-                                  Icons.check_rounded,
-                                  size: 13,
-                                  color: Colors.white,
-                                )
-                              : null,
-                        ),
                       ],
                     ),
                   ),
@@ -2477,6 +3460,479 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ParentInviteSheet extends StatefulWidget {
+  final List<ParentInviteModel> parents;
+  final List<StudentInviteModel> students;
+  final List<ParentInviteModel> selected;
+  final Map<String, AppointmentConflict> conflicts;
+  final bool loading;
+  final String hiddenParentId;
+
+  const _ParentInviteSheet({
+    required this.parents,
+    required this.students,
+    required this.selected,
+    required this.conflicts,
+    required this.loading,
+    this.hiddenParentId = '',
+  });
+
+  @override
+  State<_ParentInviteSheet> createState() => _ParentInviteSheetState();
+}
+
+class _ParentInviteSheetState extends State<_ParentInviteSheet> {
+  late List<ParentInviteModel> _selected;
+  final _searchCtrl = TextEditingController();
+  bool _byStudent = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = List.from(widget.selected);
+    _searchCtrl.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  bool _isSelected(ParentInviteModel parent) =>
+      _selected.any((item) => item.id == parent.id);
+
+  void _toggleParent(ParentInviteModel parent) {
+    if (!_isSelected(parent) && widget.conflicts.containsKey(parent.id)) return;
+    setState(() {
+      if (_isSelected(parent)) {
+        _selected.removeWhere((item) => item.id == parent.id);
+      } else {
+        _selected.add(parent);
+      }
+    });
+  }
+
+  void _toggleStudentParents(StudentInviteModel student) {
+    final selectable = student.parents
+        .where(
+          (parent) =>
+              parent.id != widget.hiddenParentId &&
+              !widget.conflicts.containsKey(parent.id),
+        )
+        .toList();
+    final allSelected =
+        selectable.isNotEmpty &&
+        selectable.every((parent) => _isSelected(parent));
+    setState(() {
+      if (allSelected) {
+        for (final parent in selectable) {
+          _selected.removeWhere((item) => item.id == parent.id);
+        }
+      } else {
+        for (final parent in selectable) {
+          if (!_isSelected(parent)) _selected.add(parent);
+        }
+      }
+    });
+  }
+
+  List<ParentInviteModel> get _filteredParents {
+    final q = _searchCtrl.text.trim().toLowerCase();
+    final visibleParents = widget.parents
+        .where((parent) => parent.id != widget.hiddenParentId)
+        .toList();
+    if (q.isEmpty) return visibleParents;
+    return visibleParents
+        .where((parent) => parent.name.toLowerCase().contains(q))
+        .toList();
+  }
+
+  List<StudentInviteModel> get _filteredStudents {
+    final q = _searchCtrl.text.trim().toLowerCase();
+    if (q.isEmpty) return const [];
+    return widget.students
+        .where((student) => student.name.toLowerCase().contains(q))
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final safe = MediaQuery.of(context).padding.bottom;
+    return Container(
+      height: MediaQuery.of(context).size.height * .82,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, safe + 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: _kBorder,
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Invite Parents',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: _kNavy,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _kBlue.withValues(alpha: .10),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text(
+                  '${_selected.length} selected',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: _kBlue,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: _kBg,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _kBorder),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _modeButton(
+                    'By Parent',
+                    !_byStudent,
+                    () => setState(() {
+                      _byStudent = false;
+                      _searchCtrl.clear();
+                    }),
+                  ),
+                ),
+                Expanded(
+                  child: _modeButton(
+                    'By Student',
+                    _byStudent,
+                    () => setState(() {
+                      _byStudent = true;
+                      _searchCtrl.clear();
+                    }),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _TextField(
+            controller: _searchCtrl,
+            hint: _byStudent
+                ? 'Search student by name...'
+                : 'Search parent by name...',
+          ),
+          const SizedBox(height: 12),
+          if (widget.loading)
+            const Expanded(
+              child: Center(
+                child: CircularProgressIndicator(strokeWidth: 2, color: _kBlue),
+              ),
+            )
+          else
+            Expanded(
+              child: _byStudent
+                  ? _studentList()
+                  : _parentList(_filteredParents),
+            ),
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: () => Navigator.pop(context, _selected),
+            child: Container(
+              height: 50,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: _kNavy,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                'Done  (${_selected.length})',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _modeButton(String label, bool selected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        height: 36,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? _kBlue : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            color: selected ? Colors.white : _kMuted,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _parentList(List<ParentInviteModel> parents) {
+    if (parents.isEmpty) {
+      return const Center(
+        child: Text('No parents found.', style: TextStyle(color: _kMuted)),
+      );
+    }
+    return ListView.builder(
+      itemCount: parents.length,
+      itemBuilder: (_, index) => _parentRow(parents[index]),
+    );
+  }
+
+  Widget _studentList() {
+    if (_searchCtrl.text.trim().isEmpty) {
+      return const Center(
+        child: Text(
+          'Type a student name to find their parents.',
+          style: TextStyle(color: _kMuted),
+        ),
+      );
+    }
+    final students = _filteredStudents;
+    if (students.isEmpty) {
+      return const Center(
+        child: Text('No students found.', style: TextStyle(color: _kMuted)),
+      );
+    }
+    return ListView.builder(
+      itemCount: students.length,
+      itemBuilder: (_, index) {
+        final student = students[index];
+        final visibleParents = student.parents
+            .where((parent) => parent.id != widget.hiddenParentId)
+            .toList();
+        final selectable = visibleParents
+            .where((parent) => !widget.conflicts.containsKey(parent.id))
+            .toList();
+        final allSelected =
+            selectable.isNotEmpty &&
+            selectable.every((parent) => _isSelected(parent));
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _kBorder),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  _avatar(student.name, selected: false),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          student.name,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: _kText,
+                          ),
+                        ),
+                        if (student.className.isNotEmpty)
+                          Text(
+                            student.className,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: _kMuted,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: selectable.isEmpty
+                        ? null
+                        : () => _toggleStudentParents(student),
+                    child: Text(allSelected ? 'Deselect All' : 'Select All'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (visibleParents.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(left: 44, bottom: 4),
+                  child: Text(
+                    'No parents linked',
+                    style: TextStyle(color: _kMuted, fontSize: 12),
+                  ),
+                )
+              else
+                ...visibleParents.map(_parentRow),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _parentRow(ParentInviteModel parent) {
+    final selected = _isSelected(parent);
+    final conflict = widget.conflicts[parent.id];
+    return GestureDetector(
+      onTap: () => _toggleParent(parent),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: conflict != null
+              ? _kRed.withValues(alpha: .05)
+              : selected
+              ? _kBlue.withValues(alpha: .07)
+              : _kBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: conflict != null
+                ? _kRed.withValues(alpha: .30)
+                : selected
+                ? _kBlue.withValues(alpha: .35)
+                : _kBorder,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            _avatar(
+              parent.name,
+              selected: selected,
+              conflict: conflict != null,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    parent.name,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: conflict != null ? _kRed : _kText,
+                    ),
+                  ),
+                  if (conflict != null)
+                    Text(
+                      'Already booked ${conflict.timeLabel}',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: _kRed,
+                      ),
+                    )
+                  else if (parent.contact.isNotEmpty ||
+                      parent.gradeName.isNotEmpty ||
+                      parent.className.isNotEmpty)
+                    Text(
+                      [
+                        parent.contact,
+                        parent.gradeName,
+                        parent.className,
+                      ].where((item) => item.isNotEmpty).join(' · '),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: _kMuted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (conflict != null)
+              const Icon(Icons.lock_clock_rounded, color: _kRed, size: 20)
+            else
+              Icon(
+                selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+                color: selected ? _kBlue : _kMuted,
+                size: 22,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _avatar(String name, {required bool selected, bool conflict = false}) {
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        color: conflict
+            ? _kRed.withValues(alpha: .10)
+            : selected
+            ? _kBlue.withValues(alpha: .12)
+            : Colors.white,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: conflict ? _kRed.withValues(alpha: .25) : _kBorder,
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        name.isEmpty ? '?' : name[0].toUpperCase(),
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w900,
+          color: conflict
+              ? _kRed
+              : selected
+              ? _kBlue
+              : _kMuted,
+        ),
       ),
     );
   }
