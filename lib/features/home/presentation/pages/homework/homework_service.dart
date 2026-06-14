@@ -111,10 +111,28 @@ class HomeworkService {
           final score = rawScore is num
               ? rawScore.toDouble()
               : double.tryParse(rawScore?.toString() ?? '');
+          final itemScores = <String, double>{};
+          final rawItemScores = result['itemScores'] ?? result['item_scores'];
+          if (rawItemScores is List) {
+            for (final entry in rawItemScores.whereType<Map>()) {
+              final itemId =
+                  (entry['homeworkItemId'] ?? entry['homework_item_id'])
+                      ?.toString()
+                      .trim();
+              final rawItemScore = entry['score'];
+              final itemScore = rawItemScore is num
+                  ? rawItemScore.toDouble()
+                  : double.tryParse(rawItemScore?.toString() ?? '');
+              if (itemId != null && itemId.isNotEmpty && itemScore != null) {
+                itemScores[itemId] = itemScore;
+              }
+            }
+          }
           return hw.copyWithResult(
             score: score,
             graded: result['isGraded'] == true,
             teacherRemark: result['remark']?.toString(),
+            itemScores: itemScores,
           );
         })
         .toList();

@@ -334,12 +334,26 @@ class _TimelineLesson extends StatelessWidget {
               ),
             ),
             const Spacer(),
-            Text(
-              _formatDuration(lesson.durationMinutes),
-              style: const TextStyle(
-                color: _muted,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+              decoration: BoxDecoration(
+                color: _purple.withValues(alpha: .1),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.schedule_rounded, size: 13, color: _purple),
+                  const SizedBox(width: 4),
+                  Text(
+                    _formatDuration(lesson.durationMinutes),
+                    style: const TextStyle(
+                      color: _purple,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -393,17 +407,10 @@ class _TimelineLesson extends StatelessWidget {
   }
 
   static String _formatTime(TimeOfDay time) {
-    final hour = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
-    return '${hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')} ${time.period == DayPeriod.am ? 'AM' : 'PM'}';
+    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
 
-  static String _formatDuration(int minutes) {
-    final hours = minutes ~/ 60;
-    final remainder = minutes % 60;
-    if (hours == 0) return '$remainder min';
-    if (remainder == 0) return '$hours ${hours == 1 ? 'hour' : 'hours'}';
-    return '$hours h $remainder min';
-  }
+  static String _formatDuration(int minutes) => '$minutes min';
 
   static const widgetFallbackSubtitle = 'Class timetable';
 }

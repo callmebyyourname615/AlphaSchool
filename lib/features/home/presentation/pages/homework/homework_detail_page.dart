@@ -149,6 +149,14 @@ class _HomeworkDetailPageState extends State<HomeworkDetailPage> {
                         isGraded: item.isGraded,
                       ),
                       if (item.isGraded &&
+                          item.items.any((s) => s.awardedScore != null)) ...[
+                        const SizedBox(height: 10),
+                        _ScoreBreakdownCard(
+                          items: item.items,
+                          totalScore: item.totalScore,
+                        ).animate().fadeIn(delay: 100.ms, duration: 240.ms),
+                      ],
+                      if (item.isGraded &&
                           (item.teacherRemark ?? '').trim().isNotEmpty) ...[
                         const SizedBox(height: 10),
                         _TeacherFeedbackCard(text: item.teacherRemark!.trim()),
@@ -370,6 +378,158 @@ class _HomeworkDetailPageState extends State<HomeworkDetailPage> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+Color _scoreColor(double? awarded, double? max) {
+  if (awarded == null || max == null || max <= 0) return _kBlue;
+  if (awarded <= 0) return _kRed;
+  if (awarded >= max) return _kGreen;
+  return _kOrange;
+}
+
+String _fmtScoreValue(double v) =>
+    v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
+
+class _ScoreBreakdownCard extends StatelessWidget {
+  const _ScoreBreakdownCard({required this.items, required this.totalScore});
+
+  final List<HomeworkSubItem> items;
+  final double? totalScore;
+
+  @override
+  Widget build(BuildContext context) {
+    final graded = items.where((s) => s.awardedScore != null).toList();
+    final earned = graded.fold<double>(0, (s, i) => s + (i.awardedScore ?? 0));
+    final maxTotal = totalScore ??
+        items.fold<double>(0, (s, i) => s + (i.score ?? 0));
+    final ratio = maxTotal <= 0 ? 0.0 : (earned / maxTotal).clamp(0.0, 1.0);
+    final barColor = ratio >= 0.8
+        ? _kGreen
+        : ratio >= 0.5
+            ? _kOrange
+            : _kRed;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      decoration: BoxDecoration(
+        color: _kCardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _kBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: barColor.withValues(alpha: .14),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.bar_chart_rounded, size: 16, color: barColor),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Score breakdown',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w900,
+                  color: _kNavy,
+                  letterSpacing: -.1,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${_fmtScoreValue(earned)} / ${_fmtScoreValue(maxTotal)}',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w900,
+                  color: barColor,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: ratio,
+              minHeight: 8,
+              backgroundColor: const Color(0xFFF1F4F8),
+              valueColor: AlwaysStoppedAnimation(barColor),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (int i = 0; i < items.length; i++)
+                _QuestionScorePill(index: i + 1, sub: items[i]),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuestionScorePill extends StatelessWidget {
+  const _QuestionScorePill({required this.index, required this.sub});
+
+  final int index;
+  final HomeworkSubItem sub;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _scoreColor(sub.awardedScore, sub.score);
+    final hasAwarded = sub.awardedScore != null;
+    final label = hasAwarded
+        ? '${_fmtScoreValue(sub.awardedScore!)}/${_fmtScoreValue(sub.score ?? 0)}'
+        : '—/${_fmtScoreValue(sub.score ?? 0)}';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .10),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: .25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Q$index',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w900,
+              color: color,
+              letterSpacing: .2,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            width: 1,
+            height: 11,
+            color: color.withValues(alpha: .25),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              color: color,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -767,7 +927,7 @@ class _HeroCard extends StatelessWidget {
   }
 }
 
-// ── Info card (Sent · Due · Total) ───────────────────────────────────────────
+// ── Info card (Received · Due Date · Total) ──────────────────────────────────
 
 class _InfoCard extends StatelessWidget {
   final HomeworkItem item;
@@ -789,16 +949,16 @@ class _InfoCard extends StatelessWidget {
       child: Column(
         children: [
           _InfoRow(
-            icon: Icons.send_rounded,
+            icon: Icons.move_to_inbox_rounded,
             iconColor: _kBlue,
-            label: 'Sent',
+            label: 'Received',
             value: item.sentAt == null ? '—' : _fmtDate(item.sentAt!),
           ),
           const Divider(height: 1, color: _kBorder),
           _InfoRow(
             icon: Icons.event_rounded,
             iconColor: dueColor == _kRed ? _kRed : _kOrange,
-            label: 'Due',
+            label: 'Due Date',
             value: _fmtDate(item.deadline),
             valueColor: dueColor,
           ),
@@ -1038,24 +1198,39 @@ class _SubItemCard extends StatelessWidget {
                     ),
                     if (sub.score != null) ...[
                       const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _kBlue.withValues(alpha: .12),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          '${_fmtScore(sub.score!)} pts',
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w900,
-                            color: _kBlue,
-                            fontFeatures: [FontFeature.tabularFigures()],
-                          ),
-                        ),
+                      Builder(
+                        builder: (_) {
+                          final pillColor = _scoreColor(
+                            sub.awardedScore,
+                            sub.score,
+                          );
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: pillColor.withValues(alpha: .12),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: pillColor.withValues(alpha: .22),
+                              ),
+                            ),
+                            child: Text(
+                              sub.awardedScore == null
+                                  ? '${_fmtScore(sub.score!)} pts'
+                                  : '${_fmtScore(sub.awardedScore!)} / ${_fmtScore(sub.score!)} pts',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w900,
+                                color: pillColor,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ],

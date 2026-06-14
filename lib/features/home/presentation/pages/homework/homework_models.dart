@@ -8,6 +8,7 @@ class HomeworkSubItem {
   final String? instruction;
   final String? imageUrl; // relative — resolve via HomeworkService
   final double? score;
+  final double? awardedScore;
   final int sortOrder;
 
   HomeworkSubItem({
@@ -16,8 +17,21 @@ class HomeworkSubItem {
     this.instruction,
     this.imageUrl,
     this.score,
+    this.awardedScore,
     this.sortOrder = 0,
   });
+
+  HomeworkSubItem copyWithAwardedScore(double? value) {
+    return HomeworkSubItem(
+      id: id,
+      title: title,
+      instruction: instruction,
+      imageUrl: imageUrl,
+      score: score,
+      awardedScore: value,
+      sortOrder: sortOrder,
+    );
+  }
 
   factory HomeworkSubItem.fromJson(Map<String, dynamic> json) {
     final inst = (json['itemInstruction']?.toString() ?? '').trim();
@@ -112,6 +126,7 @@ class HomeworkItem {
     required double? score,
     required bool graded,
     String? teacherRemark,
+    Map<String, double> itemScores = const {},
   }) {
     return HomeworkItem(
       id: id,
@@ -127,7 +142,9 @@ class HomeworkItem {
       teacherRemark: teacherRemark,
       sentAt: sentAt,
       deadline: deadline,
-      items: items,
+      items: items
+          .map((item) => item.copyWithAwardedScore(itemScores[item.id]))
+          .toList(),
     );
   }
 

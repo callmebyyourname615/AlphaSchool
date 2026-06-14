@@ -1073,13 +1073,13 @@ class _HomeworkCard extends StatelessWidget {
                     : _fmtScore(item.totalScore!),
               ),
               _MetaChip(
-                icon: Icons.send_rounded,
-                label: 'Sent',
+                icon: Icons.move_to_inbox_rounded,
+                label: 'Received',
                 value: item.sentAt == null ? '—' : _fmtTime(item.sentAt!),
               ),
               _MetaChip(
                 icon: Icons.event_rounded,
-                label: 'Due',
+                label: 'Due Date',
                 value: _fmtDate(item.deadline),
                 valueColor: visual == HomeworkVisual.overdue ? _kRed : _kText,
               ),

@@ -46,12 +46,15 @@ class _AttendancePageState extends State<AttendancePage> {
 
   Future<void> _selectMonth() async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
+    final picked = await showModalBottomSheet<DateTime>(
       context: context,
-      initialDate: _month ?? now,
-      firstDate: DateTime(now.year - 3),
-      lastDate: DateTime(now.year + 1),
-      helpText: 'Select month',
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _MonthPickerSheet(
+        initialMonth: _month ?? now,
+        firstYear: now.year - 3,
+        lastYear: now.year + 1,
+      ),
     );
     if (picked == null || !mounted) return;
     setState(() {
@@ -114,6 +117,152 @@ class _AttendancePageState extends State<AttendancePage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _MonthPickerSheet extends StatefulWidget {
+  const _MonthPickerSheet({
+    required this.initialMonth,
+    required this.firstYear,
+    required this.lastYear,
+  });
+
+  final DateTime initialMonth;
+  final int firstYear;
+  final int lastYear;
+
+  @override
+  State<_MonthPickerSheet> createState() => _MonthPickerSheetState();
+}
+
+class _MonthPickerSheetState extends State<_MonthPickerSheet> {
+  late int _year;
+
+  @override
+  void initState() {
+    super.initState();
+    _year = widget.initialMonth.year;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + bottomPadding),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: _border,
+              borderRadius: BorderRadius.circular(99),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Select month',
+                  style: TextStyle(
+                    color: _text,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close_rounded, color: _muted),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: BoxDecoration(
+              color: _background,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _border),
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  onPressed: _year > widget.firstYear
+                      ? () => setState(() => _year--)
+                      : null,
+                  icon: const Icon(Icons.chevron_left_rounded),
+                ),
+                Expanded(
+                  child: Text(
+                    '$_year',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: _text,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: _year < widget.lastYear
+                      ? () => setState(() => _year++)
+                      : null,
+                  icon: const Icon(Icons.chevron_right_rounded),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              childAspectRatio: 1.75,
+            ),
+            itemCount: 12,
+            itemBuilder: (context, index) {
+              final month = index + 1;
+              final selected =
+                  _year == widget.initialMonth.year &&
+                  month == widget.initialMonth.month;
+
+              return InkWell(
+                onTap: () => Navigator.pop(context, DateTime(_year, month)),
+                borderRadius: BorderRadius.circular(12),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: selected ? _blue : _background,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: selected ? _blue : _border),
+                  ),
+                  child: Text(
+                    DateFormat('MMM').format(DateTime(_year, month)),
+                    style: TextStyle(
+                      color: selected ? Colors.white : _text,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -350,7 +499,7 @@ class _Summary extends StatelessWidget {
           children: [
             Expanded(
               child: _Stat(
-                label: 'Come in',
+                label: 'Attended',
                 value: present,
                 color: _green,
                 icon: Icons.check_rounded,
@@ -361,7 +510,7 @@ class _Summary extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: _Stat(
-                label: 'Not come',
+                label: 'Absent',
                 value: absent,
                 color: _red,
                 icon: Icons.close_rounded,
@@ -399,43 +548,74 @@ class _Stat extends StatelessWidget {
     selected: selected,
     child: InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(18),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.all(13),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: selected ? .14 : .05),
-          borderRadius: BorderRadius.circular(16),
+          color: selected
+              ? color.withValues(alpha: .06)
+              : const Color(0xFFFFFFFF),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: color.withValues(alpha: selected ? .65 : .2),
+            color: selected
+                ? color.withValues(alpha: .6)
+                : const Color(0xFFE3E9F2),
             width: selected ? 1.5 : 1,
           ),
         ),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 21,
-              backgroundColor: color.withValues(alpha: selected ? .22 : .12),
-              child: Icon(icon, color: color, size: 22),
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: .1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 20),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: _text,
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w800,
+                  letterSpacing: -.1,
                 ),
               ),
             ),
-            Text(
-              '$value',
-              style: const TextStyle(
-                color: _text,
-                fontSize: 25,
-                fontWeight: FontWeight.w900,
-              ),
+            const SizedBox(width: 8),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '$value',
+                  style: const TextStyle(
+                    color: _text,
+                    fontSize: 25,
+                    fontWeight: FontWeight.w900,
+                    height: 1,
+                    letterSpacing: -.6,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                const Text(
+                  'Days',
+                  style: TextStyle(
+                    color: _muted,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    height: 1,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -537,7 +717,7 @@ class _RecordRow extends StatelessWidget {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    record.isPresent ? 'Come in' : 'Not come',
+                    record.isPresent ? 'Attended' : 'Absent',
                     style: TextStyle(
                       color: color,
                       fontSize: 11.5,

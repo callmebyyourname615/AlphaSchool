@@ -85,10 +85,7 @@ class _ContactPageState extends State<ContactPage> {
           return const _LoadingState();
         }
         if (snap.hasError) {
-          return _ErrorState(
-            message: snap.error.toString(),
-            onRetry: _reload,
-          );
+          return _ErrorState(message: snap.error.toString(), onRetry: _reload);
         }
         final branch = snap.data;
         if (branch == null) {
@@ -118,13 +115,13 @@ class _Content extends StatelessWidget {
 
     final items = <_ContactItem>[
       _ContactItem(
-        'Phone',
+        'Phone #1',
         branch.phone,
         FontAwesomeIcons.phone,
         iconColor: const Color(0xFF22C55E),
       ),
       _ContactItem(
-        'Contact',
+        'Phone #2',
         branch.contact,
         FontAwesomeIcons.idCard,
         iconColor: const Color(0xFF3B82F6),
@@ -134,6 +131,12 @@ class _Content extends StatelessWidget {
         branch.code,
         FontAwesomeIcons.hashtag,
         iconColor: const Color(0xFF6366F1),
+      ),
+      _ContactItem(
+        'Governance Branch ID',
+        branch.branchNo,
+        FontAwesomeIcons.building,
+        iconColor: const Color(0xFF0EA5E9),
       ),
       _ContactItem(
         'Location',
@@ -158,11 +161,14 @@ class _Content extends StatelessWidget {
             ),
         const SizedBox(height: 14),
         _ContactCard(
-          items: items,
-          cardColor: cardColor,
-          border: border,
-          shadow: shadow,
-        ).animate().fadeIn(delay: 60.ms, duration: 220.ms).slideY(
+              items: items,
+              cardColor: cardColor,
+              border: border,
+              shadow: shadow,
+            )
+            .animate()
+            .fadeIn(delay: 60.ms, duration: 220.ms)
+            .slideY(
               begin: .04,
               end: 0,
               duration: 240.ms,
@@ -197,11 +203,7 @@ class _HeaderCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: Colors.white.withValues(alpha: .10)),
         boxShadow: [
-          BoxShadow(
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-            color: shadow,
-          ),
+          BoxShadow(blurRadius: 18, offset: const Offset(0, 10), color: shadow),
         ],
       ),
       child: Column(
@@ -255,11 +257,7 @@ class _LogoAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final fallback = Center(
-      child: FaIcon(
-        FontAwesomeIcons.school,
-        size: 44,
-        color: cs.primary,
-      ),
+      child: FaIcon(FontAwesomeIcons.school, size: 44, color: cs.primary),
     );
 
     return Container(
@@ -339,11 +337,7 @@ class _ContactCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: border),
         boxShadow: [
-          BoxShadow(
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-            color: shadow,
-          ),
+          BoxShadow(blurRadius: 18, offset: const Offset(0, 10), color: shadow),
         ],
       ),
       clipBehavior: Clip.antiAlias,
@@ -503,7 +497,11 @@ class _ErrorState extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
       child: Column(
         children: [
-          Icon(Icons.cloud_off_rounded, size: 44, color: cs.onSurface.withValues(alpha: .55)),
+          Icon(
+            Icons.cloud_off_rounded,
+            size: 44,
+            color: cs.onSurface.withValues(alpha: .55),
+          ),
           const SizedBox(height: 10),
           Text(
             "Couldn't load school info",
@@ -533,10 +531,7 @@ class _ErrorState extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             ),
             child: const Text('Try again'),
           ),
