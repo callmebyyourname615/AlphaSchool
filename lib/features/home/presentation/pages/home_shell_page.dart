@@ -156,7 +156,7 @@ class _HomeShellPageState extends State<HomeShellPage>
 
     final pages = <Widget>[
       ExplorePage(selectedStudent: widget.selectedStudent),
-      const ClassroomPage(),
+      ClassroomPage(selectedStudent: widget.selectedStudent),
       const StudyPlanPage(),
       const FeePage(),
       const SettingsPage(),

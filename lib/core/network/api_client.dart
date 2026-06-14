@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -90,6 +91,42 @@ class ApiClient {
       queryParameters: queryParameters,
       body: body,
     );
+  }
+
+  Future<dynamic> multipartPost(
+    String path, {
+    required Map<String, String> fields,
+    Uint8List? fileBytes,
+    String? fileName,
+    String fileField = 'file',
+    Map<String, String>? headers,
+  }) async {
+    final request = http.MultipartRequest('POST', _buildUri(path, null));
+    request.headers.addAll({'Accept': 'application/json', ...?headers});
+    request.fields.addAll(fields);
+    if (fileBytes != null) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          fileField,
+          fileBytes,
+          filename: fileName ?? 'homework-upload.jpg',
+        ),
+      );
+    }
+
+    try {
+      final streamedResponse = await _httpClient
+          .send(request)
+          .timeout(_timeout);
+      final response = await http.Response.fromStream(streamedResponse);
+      return _decodeResponse(response);
+    } on TimeoutException catch (error) {
+      throw ApiException('Request timed out', cause: error);
+    } on http.ClientException catch (error) {
+      throw ApiException('Could not connect to the API', cause: error);
+    } on FormatException catch (error) {
+      throw ApiException('Invalid response from API', cause: error);
+    }
   }
 
   void close() => _httpClient.close();

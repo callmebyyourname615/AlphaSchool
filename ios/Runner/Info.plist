@@ -8,7 +8,11 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>We need camera access to scan QR code.</string>
+	<string>We need camera access to scan QR codes and photograph homework.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need photo library access so you can upload homework.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>We need permission to save homework images to your photo library.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use Face ID to log in automatically.</string>
 	<key>CFBundleDevelopmentRegion</key>

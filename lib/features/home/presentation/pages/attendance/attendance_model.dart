@@ -40,3 +40,41 @@ class TodayAttendance {
     return TimeOfDay(hour: hour, minute: minute);
   }
 }
+
+class AttendanceRecord {
+  const AttendanceRecord({
+    required this.date,
+    required this.type,
+    this.reason,
+    this.note,
+    this.checkIn,
+  });
+
+  final DateTime date;
+  final String type;
+  final String? reason;
+  final String? note;
+  final TimeOfDay? checkIn;
+
+  bool get isPresent => type == 'PRESENT' || type == 'LATE';
+  bool get isLate => type == 'LATE';
+
+  factory AttendanceRecord.fromJson(Map<String, dynamic> json) {
+    return AttendanceRecord(
+      date:
+          DateTime.tryParse(json['attendance_date']?.toString() ?? '') ??
+          DateTime.now(),
+      type: json['type']?.toString().toUpperCase() ?? 'ABSENT',
+      reason:
+          _clean(json['reason']) ??
+          (json['type']?.toString().toUpperCase() == 'LATE' ? 'Late' : null),
+      note: _clean(json['remark']),
+      checkIn: TodayAttendance._parseTime(json['check_in']),
+    );
+  }
+
+  static String? _clean(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty ? null : text;
+  }
+}

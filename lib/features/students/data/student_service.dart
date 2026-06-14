@@ -60,10 +60,13 @@ class StudentService {
     ].where((part) => part.isNotEmpty).join(' ');
 
     return StudentCardItem(
+      id: _readString(record, const ['id']),
       studentId: studentId,
       name: name.isEmpty ? studentId : name,
       photoUrl: _photoUrl(_readString(record, const ['profile_image_path'])),
       className: classNamesById[classId],
+      branchId: _readStudentBranchId(record),
+      classId: classId.isEmpty ? null : classId,
     );
   }
 
@@ -84,6 +87,25 @@ class StudentService {
     }
 
     return result;
+  }
+
+  String _readStudentBranchId(Map<String, dynamic> record) {
+    final direct = _readString(record, const ['branchId', 'branch_id']);
+    if (direct.isNotEmpty) return direct;
+
+    final enrollments = record['enrollments'];
+    if (enrollments is! List) return '';
+
+    Map<String, dynamic>? fallback;
+    for (final enrollment in enrollments.whereType<Map<String, dynamic>>()) {
+      fallback ??= enrollment;
+      if (_isActive(enrollment)) {
+        return _readString(enrollment, const ['branchId', 'branch_id']);
+      }
+    }
+    return fallback == null
+        ? ''
+        : _readString(fallback, const ['branchId', 'branch_id']);
   }
 
   String _readStudentClassId(Map<String, dynamic> record) {

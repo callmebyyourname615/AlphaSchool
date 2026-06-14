@@ -38,6 +38,48 @@ class AttendanceService {
     return null;
   }
 
+  Future<List<AttendanceRecord>> fetchHistory(
+    StudentCardItem student, {
+    DateTime? month,
+  }) async {
+    final internalId = student.id?.trim() ?? '';
+    final code = student.studentId.trim();
+    if (internalId.isEmpty && code.isEmpty) return [];
+
+    final now = DateTime.now();
+    final start = month == null
+        ? DateTime(now.year - 1, now.month, 1)
+        : DateTime(month.year, month.month, 1);
+    final end = month == null
+        ? DateTime(now.year, now.month + 1, 0)
+        : DateTime(month.year, month.month + 1, 0);
+
+    final response = await _apiClient.get(
+      '/attendances',
+      queryParameters: {
+        'start_date': _date(start),
+        'end_date': _date(end),
+        if ((student.classId ?? '').isNotEmpty) 'class_id': student.classId,
+      },
+    );
+
+    final records =
+        _extractRecords(response)
+            .where((record) {
+              if (record['student_id']?.toString() == internalId) return true;
+              final nested = record['student'];
+              return nested is Map<String, dynamic> &&
+                  nested['student_id']?.toString().trim() == code;
+            })
+            .map(AttendanceRecord.fromJson)
+            .toList()
+          ..sort((a, b) => b.date.compareTo(a.date));
+    return records;
+  }
+
+  static String _date(DateTime value) =>
+      '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+
   /// Same defensive shape-handling as other feature services: the backend
   /// may answer with a bare array, `{data: [...]}`, `{results: [...]}`, or
   /// `{attendances: [...]}`.

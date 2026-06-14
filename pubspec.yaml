@@ -48,11 +48,14 @@ dependencies:
   convex_bottom_bar: ^3.2.0
   remixicon: ^1.4.1
   mobile_scanner: ^7.2.0
+  image_picker: ^1.2.1
   http: ^1.6.0
   flutter_dotenv: ^6.0.1
   local_auth: ^3.0.1
   shared_preferences: ^2.5.5
   flutter_secure_storage: ^9.0.0
+  image_gallery_saver_plus: ^5.0.0
+  file_selector: ^1.1.0
 
 dev_dependencies:
   flutter_test:

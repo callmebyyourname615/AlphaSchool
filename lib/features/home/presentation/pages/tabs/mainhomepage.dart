@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:alpha_school/core/widgets/scanqrcode/scan_qr_code_page.dart';
 import 'package:alpha_school/features/demo/DemoTest.dart';
 import 'package:alpha_school/features/home/presentation/pages/appointment/appointment_page.dart';
+import 'package:alpha_school/features/home/presentation/pages/appointment/appointment_service.dart';
 import 'package:alpha_school/features/home/presentation/pages/attendance/attendance_page.dart';
 import 'package:alpha_school/features/home/presentation/pages/attendance/attendance_service.dart';
 import 'package:alpha_school/features/home/presentation/pages/calendar/calendar_page.dart';
@@ -10,8 +11,11 @@ import 'package:alpha_school/features/home/presentation/pages/calendar/calendar_
 import 'package:alpha_school/features/home/presentation/pages/contact/contact_page.dart';
 import 'package:alpha_school/features/home/presentation/pages/gallery/gallery_page.dart';
 import 'package:alpha_school/features/home/presentation/pages/homework/homework_page.dart';
+import 'package:alpha_school/features/home/presentation/pages/homework/homework_service.dart';
 import 'package:alpha_school/features/home/presentation/pages/news/news_page.dart';
 import 'package:alpha_school/features/home/presentation/pages/notifications/notifications_page.dart';
+import 'package:alpha_school/features/home/presentation/pages/participant/participant_page.dart';
+import 'package:alpha_school/features/home/presentation/pages/participant/participant_service.dart';
 import 'package:alpha_school/features/home/presentation/pages/profile/profile.dart';
 import 'package:alpha_school/features/home/presentation/pages/saving/saving_page.dart';
 import 'package:alpha_school/features/home/presentation/pages/task/task_page.dart';
@@ -21,6 +25,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
 import 'package:alpha_school/features/students/presentation/pages/choose_students.dart';
 import 'package:remixicon/remixicon.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../shared/models/student_card_item.dart';
@@ -40,6 +45,7 @@ class ExplorePage extends StatefulWidget {
 class _ExplorePageState extends State<ExplorePage> {
   final GlobalKey _bellKey = GlobalKey();
   final _attendanceService = AttendanceService();
+  final _participantService = ParticipantService();
 
   late List<_NotificationItem> _notifications;
 
@@ -47,10 +53,16 @@ class _ExplorePageState extends State<ExplorePage> {
   bool _isLate = false;
   TimeOfDay? _checkinTime;
 
+  double _participantPercent = 0.0;
+  int _unreadHomework = 0;
+  int _unreadAppointments = 0;
+
   @override
   void initState() {
     super.initState();
     _loadTodayAttendance();
+    _loadLatestParticipantScore();
+    _loadMenuUnreadCounts();
 
     final now = DateTime.now();
     _notifications = [
@@ -85,6 +97,74 @@ class _ExplorePageState extends State<ExplorePage> {
     ];
   }
 
+  String get _studentReadKey =>
+      widget.selectedStudent?.id ?? widget.selectedStudent?.studentId ?? 'none';
+
+  Future<void> _loadMenuUnreadCounts() async {
+    final student = widget.selectedStudent;
+    if (student == null) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final results = await Future.wait([
+        HomeworkService().fetchForStudent(
+          studentId: student.id,
+          branchId: student.branchId,
+          classId: student.classId,
+        ),
+        AppointmentService().fetchAppointments(),
+      ]);
+      final homeworkIds = (results[0] as List).map((item) => item.id as String);
+      final appointmentIds = (results[1] as List).map(
+        (item) => item.id as String,
+      );
+      final readHomework =
+          prefs.getStringList('menu_read_homework_$_studentReadKey') ??
+          const [];
+      final readAppointments =
+          prefs.getStringList('menu_read_appointments_$_studentReadKey') ??
+          const [];
+
+      if (!mounted) return;
+      setState(() {
+        _unreadHomework = homeworkIds
+            .where((id) => !readHomework.contains(id))
+            .length;
+        _unreadAppointments = appointmentIds
+            .where((id) => !readAppointments.contains(id))
+            .length;
+      });
+    } catch (_) {
+      // Menu badges are non-blocking.
+    }
+  }
+
+  Future<void> _markMenuRead(String menu) async {
+    final student = widget.selectedStudent;
+    if (student == null) return;
+    final prefs = await SharedPreferences.getInstance();
+
+    if (menu == 'homework') {
+      final items = await HomeworkService().fetchForStudent(
+        studentId: student.id,
+        branchId: student.branchId,
+        classId: student.classId,
+      );
+      await prefs.setStringList(
+        'menu_read_homework_$_studentReadKey',
+        items.map((item) => item.id).toList(),
+      );
+      if (mounted) setState(() => _unreadHomework = 0);
+    } else if (menu == 'appointments') {
+      final items = await AppointmentService().fetchAppointments();
+      await prefs.setStringList(
+        'menu_read_appointments_$_studentReadKey',
+        items.map((item) => item.id).toList(),
+      );
+      if (mounted) setState(() => _unreadAppointments = 0);
+    }
+  }
+
   /// Loads the selected student's check-in status/time for today from
   /// `GET /attendances`. Failures (including "no selected student" / "no
   /// record yet for today") are swallowed and simply leave the card showing
@@ -104,6 +184,23 @@ class _ExplorePageState extends State<ExplorePage> {
       });
     } catch (_) {
       // Keep the default "Not Checked-In" state on failure.
+    }
+  }
+
+  /// Loads the selected student's latest day participation total (0–1) for the
+  /// home tile. Failures leave the percent at 0.
+  Future<void> _loadLatestParticipantScore() async {
+    final student = widget.selectedStudent;
+    if (student == null) return;
+
+    try {
+      final summary = await _participantService.fetchSummary(student);
+      if (!mounted) return;
+      setState(() {
+        _participantPercent = (summary.latestPercent / 100).clamp(0.0, 1.0);
+      });
+    } catch (_) {
+      // Keep 0 on failure.
     }
   }
 
@@ -509,17 +606,22 @@ class _ExplorePageState extends State<ExplorePage> {
                                     isLate: isLate,
                                     checkinTime: checkinTime,
                                     isDark: isDark,
-                                    participantPercent: 0.70,
+                                    participantPercent: _participantPercent,
                                     onTapAttendance: () {
                                       Navigator.of(context).push(
                                         MaterialPageRoute(
-                                          builder: (_) =>
-                                              const AttendancePage(),
+                                          builder: (_) => AttendancePage(
+                                            selectedStudent:
+                                                widget.selectedStudent,
+                                          ),
                                         ),
                                       );
                                     },
-                                    onTapParticipant: () =>
-                                        go(const ParticipantPage()),
+                                    onTapParticipant: () => go(
+                                      ParticipantPage(
+                                        selectedStudent: widget.selectedStudent,
+                                      ),
+                                    ),
                                     onTapCalendar: () {
                                       Navigator.of(context).push(
                                         MaterialPageRoute(
@@ -573,6 +675,10 @@ class _ExplorePageState extends State<ExplorePage> {
                           isLargeTablet: isLargeTablet,
                           blur: sheetBlur,
                           scale: s,
+                          selectedStudent: widget.selectedStudent,
+                          unreadHomework: _unreadHomework,
+                          unreadAppointments: _unreadAppointments,
+                          onMenuRead: _markMenuRead,
                         ).animate().fadeIn(delay: 120.ms, duration: 240.ms),
                       ),
                     ],
@@ -1972,9 +2078,21 @@ class _PercentBar extends StatelessWidget {
     return v.clamp(0.0, 1.0);
   }
 
+  static Color _rangeColor(double t) {
+    const red = Color(0xFFEF4444);
+    const yellow = Color(0xFFF59E0B);
+    const green = Color(0xFF22C55E);
+    if (t <= 0.5) {
+      return Color.lerp(red, yellow, (t / 0.5).clamp(0.0, 1.0))!;
+    }
+    return Color.lerp(yellow, green, ((t - 0.5) / 0.5).clamp(0.0, 1.0))!;
+  }
+
   @override
   Widget build(BuildContext context) {
     final v01 = _to01(value);
+    final base = _rangeColor(v01);
+    final highlight = Color.lerp(base, Colors.white, .25)!;
 
     return LayoutBuilder(
       builder: (context, c) {
@@ -2009,10 +2127,7 @@ class _PercentBar extends StatelessWidget {
                           gradient: LinearGradient(
                             begin: Alignment.centerLeft,
                             end: Alignment.centerRight,
-                            colors: [
-                              Colors.white.withOpacity(.98),
-                              Colors.white.withOpacity(.86),
-                            ],
+                            colors: [highlight, base],
                           ),
                         ),
                       ),
@@ -2115,6 +2230,10 @@ class _WalletSheet extends StatelessWidget {
   final bool isLargeTablet;
   final double blur;
   final double scale;
+  final StudentCardItem? selectedStudent;
+  final int unreadHomework;
+  final int unreadAppointments;
+  final Future<void> Function(String menu) onMenuRead;
 
   const _WalletSheet({
     required this.isDark,
@@ -2124,6 +2243,10 @@ class _WalletSheet extends StatelessWidget {
     required this.isLargeTablet,
     required this.blur,
     required this.scale,
+    required this.unreadHomework,
+    required this.unreadAppointments,
+    required this.onMenuRead,
+    this.selectedStudent,
   });
 
   @override
@@ -2156,7 +2279,9 @@ class _WalletSheet extends StatelessWidget {
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const ContactPage()),
+            MaterialPageRoute(
+              builder: (_) => ContactPage(selectedStudent: selectedStudent),
+            ),
           );
         },
       ),
@@ -2193,7 +2318,10 @@ class _WalletSheet extends StatelessWidget {
       _QuickMenuItem(
         icon: FontAwesomeIcons.userClock,
         label: "ນັດໝາຍ",
-        onTap: () {
+        unreadCount: unreadAppointments,
+        onTap: () async {
+          await onMenuRead('appointments');
+          if (!context.mounted) return;
           Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const AppointmentPage()),
@@ -2203,10 +2331,15 @@ class _WalletSheet extends StatelessWidget {
       _QuickMenuItem(
         icon: FontAwesomeIcons.book,
         label: "ວຽກບ້ານ",
-        onTap: () {
+        unreadCount: unreadHomework,
+        onTap: () async {
+          await onMenuRead('homework');
+          if (!context.mounted) return;
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const HomeworkPage()),
+            MaterialPageRoute(
+              builder: (_) => HomeworkPage(selectedStudent: selectedStudent),
+            ),
           );
         },
       ),
@@ -2344,12 +2477,14 @@ class _QuickMenuItem {
   final String label;
   final VoidCallback onTap;
   final bool enabled;
+  final int unreadCount;
 
   _QuickMenuItem({
     required this.icon,
     required this.label,
     required this.onTap,
     this.enabled = true,
+    this.unreadCount = 0,
   });
 }
 
@@ -2386,24 +2521,53 @@ class _QuickMenuTile extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          Container(
-            width: circle,
-            height: circle,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: circleBg,
-              border: Border.all(color: ring, width: 1.2),
-              boxShadow: [
-                BoxShadow(
-                  blurRadius: 18,
-                  offset: const Offset(0, 10),
-                  color: Colors.black.withOpacity(enabled ? .18 : .08),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: circle,
+                height: circle,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: circleBg,
+                  border: Border.all(color: ring, width: 1.2),
+                  boxShadow: [
+                    BoxShadow(
+                      blurRadius: 18,
+                      offset: const Offset(0, 10),
+                      color: Colors.black.withOpacity(enabled ? .18 : .08),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Center(
-              child: FaIcon(item.icon, color: iconC, size: iconSize),
-            ),
+                child: Center(
+                  child: FaIcon(item.icon, color: iconC, size: iconSize),
+                ),
+              ),
+              if (item.unreadCount > 0)
+                Positioned(
+                  right: -5,
+                  top: -5,
+                  child: Container(
+                    constraints: const BoxConstraints(minWidth: 22),
+                    height: 22,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    child: Text(
+                      item.unreadCount > 99 ? '99+' : '${item.unreadCount}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
           SizedBox(height: isSmallPhone ? 8.0 : 10.0),
           Text(
@@ -2491,18 +2655,6 @@ class AttendanceCalendarPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text("Attendance & Calendar")),
       body: const Center(child: Text("AttendanceCalendarPage()")),
-    );
-  }
-}
-
-class ParticipantPage extends StatelessWidget {
-  const ParticipantPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Participant")),
-      body: const Center(child: Text("ParticipantPage()")),
     );
   }
 }
