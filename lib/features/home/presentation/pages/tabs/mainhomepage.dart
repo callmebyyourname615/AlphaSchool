@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'dart:ui';
+import 'home_skeleton.dart';
+import 'menu_reads_service.dart';
 
 import 'package:alpha_school/core/widgets/scanqrcode/scan_qr_code_page.dart';
 import 'package:alpha_school/features/demo/DemoTest.dart';
@@ -25,7 +28,6 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
 import 'package:alpha_school/features/students/presentation/pages/choose_students.dart';
 import 'package:remixicon/remixicon.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../shared/models/student_card_item.dart';
@@ -46,6 +48,7 @@ class _ExplorePageState extends State<ExplorePage> {
   final GlobalKey _bellKey = GlobalKey();
   final _attendanceService = AttendanceService();
   final _participantService = ParticipantService();
+  final _menuReadsService = MenuReadsService();
 
   late List<_NotificationItem> _notifications;
 
@@ -56,6 +59,9 @@ class _ExplorePageState extends State<ExplorePage> {
   double _participantPercent = 0.0;
   int _unreadHomework = 0;
   int _unreadAppointments = 0;
+  List<String> _homeworkIds = const [];
+  List<String> _appointmentIds = const [];
+  bool _isInitialLoading = true;
 
   @override
   void initState() {
@@ -100,12 +106,38 @@ class _ExplorePageState extends State<ExplorePage> {
   String get _studentReadKey =>
       widget.selectedStudent?.id ?? widget.selectedStudent?.studentId ?? 'none';
 
+  @override
+  void didUpdateWidget(covariant ExplorePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldKey =
+        oldWidget.selectedStudent?.id ??
+        oldWidget.selectedStudent?.studentId ??
+        'none';
+    if (oldKey != _studentReadKey) {
+      setState(() => _isInitialLoading = true);
+      _loadMenuUnreadCounts();
+    }
+  }
+
   Future<void> _loadMenuUnreadCounts() async {
     final student = widget.selectedStudent;
-    if (student == null) return;
+    final sid = student?.id;
+    if (student == null || sid == null || sid.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _unreadHomework = 0;
+          _unreadAppointments = 0;
+          _homeworkIds = const [];
+          _appointmentIds = const [];
+          _isInitialLoading = false;
+        });
+      }
+      return;
+    }
+
+    final keyAtFetch = _studentReadKey;
 
     try {
-      final prefs = await SharedPreferences.getInstance();
       final results = await Future.wait([
         HomeworkService().fetchForStudent(
           studentId: student.id,
@@ -113,20 +145,31 @@ class _ExplorePageState extends State<ExplorePage> {
           classId: student.classId,
         ),
         AppointmentService().fetchAppointments(),
+        _menuReadsService.fetchReadIds(
+          studentId: sid,
+          resource: 'homework',
+        ),
+        _menuReadsService.fetchReadIds(
+          studentId: sid,
+          resource: 'appointment',
+        ),
       ]);
-      final homeworkIds = (results[0] as List).map((item) => item.id as String);
-      final appointmentIds = (results[1] as List).map(
-        (item) => item.id as String,
-      );
-      final readHomework =
-          prefs.getStringList('menu_read_homework_$_studentReadKey') ??
-          const [];
-      final readAppointments =
-          prefs.getStringList('menu_read_appointments_$_studentReadKey') ??
-          const [];
 
-      if (!mounted) return;
+      // Bail out if the student switched while we were fetching.
+      if (!mounted || keyAtFetch != _studentReadKey) return;
+
+      final homeworkIds = (results[0] as List)
+          .map((item) => item.id as String)
+          .toList();
+      final appointmentIds = (results[1] as List)
+          .map((item) => item.id as String)
+          .toList();
+      final readHomework = (results[2] as List<String>).toSet();
+      final readAppointments = (results[3] as List<String>).toSet();
+
       setState(() {
+        _homeworkIds = homeworkIds;
+        _appointmentIds = appointmentIds;
         _unreadHomework = homeworkIds
             .where((id) => !readHomework.contains(id))
             .length;
@@ -136,32 +179,34 @@ class _ExplorePageState extends State<ExplorePage> {
       });
     } catch (_) {
       // Menu badges are non-blocking.
+    } finally {
+      if (mounted && keyAtFetch == _studentReadKey) {
+        setState(() => _isInitialLoading = false);
+      }
     }
   }
 
+  /// Marks the currently-known item ids as read on the server and
+  /// optimistically clears the badge.
   Future<void> _markMenuRead(String menu) async {
     final student = widget.selectedStudent;
-    if (student == null) return;
-    final prefs = await SharedPreferences.getInstance();
+    final sid = student?.id;
+    if (student == null || sid == null || sid.isEmpty) return;
 
     if (menu == 'homework') {
-      final items = await HomeworkService().fetchForStudent(
-        studentId: student.id,
-        branchId: student.branchId,
-        classId: student.classId,
-      );
-      await prefs.setStringList(
-        'menu_read_homework_$_studentReadKey',
-        items.map((item) => item.id).toList(),
-      );
       if (mounted) setState(() => _unreadHomework = 0);
-    } else if (menu == 'appointments') {
-      final items = await AppointmentService().fetchAppointments();
-      await prefs.setStringList(
-        'menu_read_appointments_$_studentReadKey',
-        items.map((item) => item.id).toList(),
+      await _menuReadsService.markRead(
+        studentId: sid,
+        resource: 'homework',
+        resourceIds: List<String>.from(_homeworkIds),
       );
+    } else if (menu == 'appointments') {
       if (mounted) setState(() => _unreadAppointments = 0);
+      await _menuReadsService.markRead(
+        studentId: sid,
+        resource: 'appointment',
+        resourceIds: List<String>.from(_appointmentIds),
+      );
     }
   }
 
@@ -277,6 +322,10 @@ class _ExplorePageState extends State<ExplorePage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isInitialLoading) {
+      return const HomeSkeleton();
+    }
+
     final t = Theme.of(context);
     final isDark = t.brightness == Brightness.dark;
 
@@ -679,6 +728,7 @@ class _ExplorePageState extends State<ExplorePage> {
                           unreadHomework: _unreadHomework,
                           unreadAppointments: _unreadAppointments,
                           onMenuRead: _markMenuRead,
+                          onMenuRefresh: _loadMenuUnreadCounts,
                         ).animate().fadeIn(delay: 120.ms, duration: 240.ms),
                       ),
                     ],
@@ -2234,6 +2284,7 @@ class _WalletSheet extends StatelessWidget {
   final int unreadHomework;
   final int unreadAppointments;
   final Future<void> Function(String menu) onMenuRead;
+  final Future<void> Function() onMenuRefresh;
 
   const _WalletSheet({
     required this.isDark,
@@ -2246,6 +2297,7 @@ class _WalletSheet extends StatelessWidget {
     required this.unreadHomework,
     required this.unreadAppointments,
     required this.onMenuRead,
+    required this.onMenuRefresh,
     this.selectedStudent,
   });
 
@@ -2320,12 +2372,13 @@ class _WalletSheet extends StatelessWidget {
         label: "ນັດໝາຍ",
         unreadCount: unreadAppointments,
         onTap: () async {
-          await onMenuRead('appointments');
-          if (!context.mounted) return;
-          Navigator.push(
+          // Fire-and-forget so the menu opens instantly even on slow networks.
+          unawaited(onMenuRead('appointments'));
+          await Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const AppointmentPage()),
           );
+          if (context.mounted) await onMenuRefresh();
         },
       ),
       _QuickMenuItem(
@@ -2333,14 +2386,14 @@ class _WalletSheet extends StatelessWidget {
         label: "ວຽກບ້ານ",
         unreadCount: unreadHomework,
         onTap: () async {
-          await onMenuRead('homework');
-          if (!context.mounted) return;
-          Navigator.push(
+          unawaited(onMenuRead('homework'));
+          await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => HomeworkPage(selectedStudent: selectedStudent),
             ),
           );
+          if (context.mounted) await onMenuRefresh();
         },
       ),
       _QuickMenuItem(
