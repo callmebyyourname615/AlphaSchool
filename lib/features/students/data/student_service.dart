@@ -51,8 +51,20 @@ class StudentService {
     Map<String, String> classNamesById,
   ) {
     final studentId = _readString(record, const ['student_id']);
-    final firstName = _readString(record, const ['first_name']);
-    final lastName = _readString(record, const ['last_name']);
+    final firstName = _readString(record, const [
+      'first_name_lao',
+      'firstNameLao',
+      'first_name',
+      'first_name_eng',
+      'firstNameEng',
+    ]);
+    final lastName = _readString(record, const [
+      'last_name_lao',
+      'lastNameLao',
+      'last_name',
+      'last_name_eng',
+      'lastNameEng',
+    ]);
     final classId = _readStudentClassId(record);
     final name = [
       firstName,
