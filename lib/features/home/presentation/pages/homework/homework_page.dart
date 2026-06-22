@@ -1122,7 +1122,7 @@ class _HomeworkCard extends StatelessWidget {
                         const SizedBox(width: 8),
                         Text(
                           visual == HomeworkVisual.done
-                              ? 'View detail'
+                              ? 'View homework details'
                               : 'Submit homework',
                           style: TextStyle(
                             fontSize: 14,

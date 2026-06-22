@@ -313,14 +313,21 @@ class _StudentsCardListPageState extends State<StudentsCardListPage>
                                                       muted: muted,
                                                       cs: cs,
                                                       item: item,
-                                                      onTap: () {
-                                                        widget.onSelect?.call(
-                                                          item,
-                                                        );
-                                                        _goHome(
-                                                          item,
-                                                        ); // ✅ ส่งเป็น shared type แล้ว
-                                                      },
+                                                      onTap: item.isApproved
+                                                          ? () {
+                                                              widget.onSelect?.call(item);
+                                                              _goHome(item);
+                                                            }
+                                                          : () {
+                                                              ScaffoldMessenger.of(context)
+                                                                  .showSnackBar(
+                                                                const SnackBar(
+                                                                  content: Text(
+                                                                    'This student is pending admin approval. You can open the profile once it is approved.',
+                                                                  ),
+                                                                ),
+                                                              );
+                                                            },
                                                     ),
                                                   );
                                                 },
@@ -485,7 +492,9 @@ class _StudentCard extends StatelessWidget {
         : AppColors.slate.withOpacity(.12);
     final accent = isDark ? AppColors.blue100 : AppColors.blue500;
 
-    return Material(
+    return Opacity(
+      opacity: item.isApproved ? 1.0 : 0.78,
+      child: Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
@@ -600,6 +609,33 @@ class _StudentCard extends StatelessWidget {
                         ),
                       ],
                     ),
+                    if (!item.isApproved) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF7E6),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: const Color(0xFFF59E0B).withOpacity(.45)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            FaIcon(FontAwesomeIcons.hourglassHalf, size: 9, color: Color(0xFFB45309)),
+                            SizedBox(width: 5),
+                            Text(
+                              'Pending Approval',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFFB45309),
+                                letterSpacing: .4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -609,22 +645,30 @@ class _StudentCard extends StatelessWidget {
                 height: 40,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  color: isDark
-                      ? Colors.white.withOpacity(.08)
-                      : cs.primary.withOpacity(.08),
+                  color: item.isApproved
+                      ? (isDark
+                          ? Colors.white.withOpacity(.08)
+                          : cs.primary.withOpacity(.08))
+                      : const Color(0xFFFFF7E6),
                   border: Border.all(
-                    color: isDark
-                        ? Colors.white.withOpacity(.10)
-                        : cs.primary.withOpacity(.14),
+                    color: item.isApproved
+                        ? (isDark
+                            ? Colors.white.withOpacity(.10)
+                            : cs.primary.withOpacity(.14))
+                        : const Color(0xFFF59E0B).withOpacity(.40),
                   ),
                 ),
                 child: Center(
                   child: FaIcon(
-                    FontAwesomeIcons.chevronRight,
+                    item.isApproved
+                        ? FontAwesomeIcons.chevronRight
+                        : FontAwesomeIcons.hourglassHalf,
                     size: 14,
-                    color: isDark
-                        ? Colors.white.withOpacity(.82)
-                        : AppColors.blue500,
+                    color: item.isApproved
+                        ? (isDark
+                            ? Colors.white.withOpacity(.82)
+                            : AppColors.blue500)
+                        : const Color(0xFFB45309),
                   ),
                 ),
               ),
@@ -632,6 +676,7 @@ class _StudentCard extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

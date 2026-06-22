@@ -607,7 +607,7 @@ class _Stat extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 const Text(
-                  'Days',
+                  'Day(s)',
                   style: TextStyle(
                     color: _muted,
                     fontSize: 10.5,

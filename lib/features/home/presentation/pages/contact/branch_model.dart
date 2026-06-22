@@ -6,6 +6,9 @@ class BranchInfo {
   final String phone;
   final String contact;
   final String address;
+  final String mapUrl;
+  final String facebookUrl;
+  final String websiteUrl;
   final String? profilePicPath;
 
   const BranchInfo({
@@ -16,6 +19,9 @@ class BranchInfo {
     required this.phone,
     required this.contact,
     required this.address,
+    required this.mapUrl,
+    required this.facebookUrl,
+    required this.websiteUrl,
     this.profilePicPath,
   });
 
@@ -28,6 +34,13 @@ class BranchInfo {
       phone: (json['phone'] ?? '').toString(),
       contact: (json['contact'] ?? '').toString(),
       address: _flattenAddress(json['address']),
+      mapUrl: (json['branch_map'] ?? json['map'] ?? '').toString().trim(),
+      facebookUrl: (json['branch_fb'] ?? json['facebook'] ?? '')
+          .toString()
+          .trim(),
+      websiteUrl: (json['branch_website'] ?? json['website'] ?? '')
+          .toString()
+          .trim(),
       profilePicPath:
           (json['profile_pic'] is String &&
               (json['profile_pic'] as String).isNotEmpty)

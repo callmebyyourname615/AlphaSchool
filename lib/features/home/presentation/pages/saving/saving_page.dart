@@ -5,10 +5,16 @@ import 'package:intl/intl.dart';
 
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../../core/services/global_alert_service.dart';
 import '../../../../../core/widgets/app_page_template.dart';
+import '../../../../../shared/models/student_card_item.dart';
+import 'saving_model.dart';
+import 'saving_service.dart';
 
 class SavingPage extends StatefulWidget {
-  const SavingPage({super.key});
+  const SavingPage({super.key, required this.selectedStudent});
+
+  final StudentCardItem? selectedStudent;
 
   @override
   State<SavingPage> createState() => _SavingPageState();
@@ -25,8 +31,13 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
   DateTime? _fromDate;
   DateTime? _toDate;
 
-  late final List<_SavingTxn> _personalData;
-  late final List<_SavingTxn> _classData;
+  final _service = SavingService();
+  List<_SavingTxn> _personalData = const [];
+  List<_SavingTxn> _classData = const [];
+  double _personalBalance = 0;
+  double _classBalance = 0;
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -37,8 +48,7 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
     _toDate = DateTime(now.year, now.month, now.day);
     _fromDate = _toDate!.subtract(const Duration(days: 30));
 
-    _personalData = _demoData(seed: 1, days: 220);
-    _classData = _demoData(seed: 9, days: 260);
+    _load();
   }
 
   @override
@@ -98,11 +108,185 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
   // =========================
   // Withdraw action (Personal only)
   // =========================
-  void _onWithdrawPressed() {
-    // TODO: Navigate to withdraw page / open dialog
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text("Withdraw tapped")));
+  Future<void> _load() async {
+    final id = widget.selectedStudent?.id?.trim() ?? '';
+    if (id.isEmpty) {
+      setState(() {
+        _loading = false;
+        _error = 'Student ID is unavailable. Please select the student again.';
+      });
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final data = await _service.fetch(
+        studentId: id,
+        classId: widget.selectedStudent?.classId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _personalData = data.personal.map(_toTxn).toList();
+        _classData = data.classTransactions.map(_toTxn).toList();
+        _personalBalance = data.personalBalance;
+        _classBalance = data.classBalance;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = error.toString();
+      });
+    }
+  }
+
+  _SavingTxn _toTxn(SavingTransaction item) => _SavingTxn(
+    date: item.createdAt,
+    inAmount: item.transactionType == 'DEPOSIT' ? item.amount : 0,
+    outAmount: item.transactionType == 'WITHDRAW' ? item.amount : 0,
+    closingBalance: item.closingBalance,
+  );
+
+  Future<void> _onWithdrawPressed() async {
+    List<WithdrawalReason> reasons;
+    GlobalAlert.showLoading(message: 'Loading withdrawal reasons...');
+    try {
+      reasons = await _service.fetchWithdrawalReasons();
+      GlobalAlert.dismiss();
+    } catch (error) {
+      GlobalAlert.dismiss();
+      GlobalAlert.showError(
+        title: 'Unable to withdraw',
+        message: error.toString(),
+      );
+      return;
+    }
+    if (!mounted) return;
+    if (reasons.isEmpty) {
+      GlobalAlert.showWarning(
+        title: 'Unable to withdraw',
+        message: 'No active withdrawal reason is configured by the school.',
+      );
+      return;
+    }
+
+    final amountController = TextEditingController();
+    final noteController = TextEditingController();
+    var selectedReason = reasons.first;
+    final request = await showDialog<({double amount, String reasonId})>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Withdraw money'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: amountController,
+                autofocus: true,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Amount',
+                  helperText:
+                      'Available: ${NumberFormat('#,##0.##').format(_personalBalance)}',
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<WithdrawalReason>(
+                initialValue: selectedReason,
+                decoration: const InputDecoration(labelText: 'Reason'),
+                isExpanded: true,
+                items: reasons
+                    .map(
+                      (reason) => DropdownMenuItem(
+                        value: reason,
+                        child: Text(
+                          reason.label,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setDialogState(() => selectedReason = value);
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: noteController,
+                decoration: const InputDecoration(labelText: 'Note (optional)'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final value = double.tryParse(
+                  amountController.text.replaceAll(',', '').trim(),
+                );
+                if (value != null && value > 0 && value <= _personalBalance) {
+                  Navigator.pop(dialogContext, (
+                    amount: value,
+                    reasonId: selectedReason.id,
+                  ));
+                }
+              },
+              child: const Text('Continue'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (request == null || !mounted) {
+      amountController.dispose();
+      noteController.dispose();
+      return;
+    }
+    final confirmed = await GlobalAlert.showConfirmation(
+      title: 'Confirm withdrawal',
+      message:
+          'Request withdrawal of ${NumberFormat('#,##0').format(request.amount)}?',
+    );
+    if (confirmed != true) {
+      amountController.dispose();
+      noteController.dispose();
+      return;
+    }
+    GlobalAlert.showLoading(message: 'Submitting withdrawal request...');
+    try {
+      await _service.requestWithdrawal(
+        studentId: widget.selectedStudent!.id!,
+        amount: request.amount,
+        withdrawReasonId: request.reasonId,
+        note: noteController.text,
+      );
+      GlobalAlert.dismiss();
+      GlobalAlert.showSuccess(
+        title: 'Request submitted',
+        message: 'Your withdrawal is waiting for school approval.',
+      );
+      await _load();
+    } catch (error) {
+      GlobalAlert.dismiss();
+      GlobalAlert.showError(
+        title: 'Withdrawal failed',
+        message: error.toString(),
+      );
+    } finally {
+      amountController.dispose();
+      noteController.dispose();
+    }
   }
 
   // =========================
@@ -111,7 +295,7 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
   List<_SavingTxn> _dataForTab(int index) =>
       index == 0 ? _personalData : _classData;
 
-  _SavingView _buildView(List<_SavingTxn> raw) {
+  _SavingView _buildView(List<_SavingTxn> raw, double currentBalance) {
     final from = _fromDate;
     final to = _toDate;
 
@@ -126,16 +310,14 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
       return okFrom && okTo;
     }).toList()..sort((a, b) => a.date.compareTo(b.date));
 
-    double balance = 0;
     final rows = <_SavingRow>[];
     for (final e in filtered) {
-      balance += (e.inAmount - e.outAmount);
-      rows.add(_SavingRow(txn: e, balance: balance));
+      rows.add(_SavingRow(txn: e, balance: e.closingBalance));
     }
 
     final totalIn = filtered.fold<double>(0, (s, e) => s + e.inAmount);
     final totalOut = filtered.fold<double>(0, (s, e) => s + e.outAmount);
-    final totalBalance = totalIn - totalOut;
+    final totalBalance = currentBalance;
 
     final latestIn = filtered
         .where((e) => e.inAmount > 0)
@@ -258,33 +440,62 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
                           const SizedBox(height: 12),
 
                           Expanded(
-                            child: TabBarView(
-                              controller: _tab,
-                              children: [
-                                _SavingTabBody(
-                                  isDark: isDark,
-                                  border: border,
-                                  shadow: shadow,
-                                  textPrimary: textPrimary,
-                                  textMuted: textMuted,
-                                  panelGrad: premiumPanelGrad,
-                                  dataBuilder: () => _buildView(_dataForTab(0)),
-                                  onWithdraw: _onWithdrawPressed,
-                                  typeLabel: "ສ່ວນບຸກຄົນ",
-                                ),
-                                _SavingTabBody(
-                                  isDark: isDark,
-                                  border: border,
-                                  shadow: shadow,
-                                  textPrimary: textPrimary,
-                                  textMuted: textMuted,
-                                  panelGrad: premiumPanelGrad,
-                                  dataBuilder: () => _buildView(_dataForTab(1)),
-                                  onWithdraw: null,
-                                  typeLabel: "ຫ້ອງຮຽນ",
-                                ),
-                              ],
-                            ),
+                            child: _loading
+                                ? const Center(
+                                    child: CircularProgressIndicator(),
+                                  )
+                                : _error != null
+                                ? Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          _error!,
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(color: textMuted),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        FilledButton.icon(
+                                          onPressed: _load,
+                                          icon: const Icon(Icons.refresh),
+                                          label: const Text('Retry'),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : TabBarView(
+                                    controller: _tab,
+                                    children: [
+                                      _SavingTabBody(
+                                        isDark: isDark,
+                                        border: border,
+                                        shadow: shadow,
+                                        textPrimary: textPrimary,
+                                        textMuted: textMuted,
+                                        panelGrad: premiumPanelGrad,
+                                        dataBuilder: () => _buildView(
+                                          _dataForTab(0),
+                                          _personalBalance,
+                                        ),
+                                        onWithdraw: _onWithdrawPressed,
+                                        typeLabel: "ສ່ວນບຸກຄົນ",
+                                      ),
+                                      _SavingTabBody(
+                                        isDark: isDark,
+                                        border: border,
+                                        shadow: shadow,
+                                        textPrimary: textPrimary,
+                                        textMuted: textMuted,
+                                        panelGrad: premiumPanelGrad,
+                                        dataBuilder: () => _buildView(
+                                          _dataForTab(1),
+                                          _classBalance,
+                                        ),
+                                        onWithdraw: null,
+                                        typeLabel: "ຫ້ອງຮຽນ",
+                                      ),
+                                    ],
+                                  ),
                           ),
                         ],
                       ),
@@ -297,49 +508,6 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
         );
       },
     );
-  }
-
-  // =========================
-  // Demo generator
-  // =========================
-  List<_SavingTxn> _demoData({required int seed, required int days}) {
-    final now = DateTime.now();
-    final out = <_SavingTxn>[];
-
-    int x = seed * 9973;
-    int nextInt(int max) {
-      x = (x * 1103515245 + 12345) & 0x7fffffff;
-      return x % max;
-    }
-
-    for (int i = days; i >= 0; i--) {
-      final d = DateTime(
-        now.year,
-        now.month,
-        now.day,
-      ).subtract(Duration(days: i));
-
-      final r = nextInt(100);
-      double inAmt = 0;
-      double outAmt = 0;
-
-      if (r < 55) {
-        inAmt = (nextInt(10) + 1) * 10000;
-      } else if (r < 80) {
-        outAmt = (nextInt(10) + 1) * 5000;
-      } else {
-        if (nextInt(2) == 0) {
-          inAmt = (nextInt(5) + 1) * 5000;
-        } else {
-          outAmt = (nextInt(5) + 1) * 5000;
-        }
-      }
-
-      out.add(_SavingTxn(date: d, inAmount: inAmt, outAmount: outAmt));
-    }
-
-    out.sort((a, b) => a.date.compareTo(b.date));
-    return out;
   }
 }
 
@@ -1042,11 +1210,13 @@ class _SavingTxn {
   final DateTime date;
   final double inAmount;
   final double outAmount;
+  final double closingBalance;
 
   const _SavingTxn({
     required this.date,
     required this.inAmount,
     required this.outAmount,
+    required this.closingBalance,
   });
 }
 

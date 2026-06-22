@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'parent_info_form_page.dart';
+
 class RegisterPage extends StatelessWidget {
   const RegisterPage({super.key});
 
@@ -93,7 +95,13 @@ class RegisterPage extends StatelessWidget {
                     width: double.infinity,
                     height: 54,
                     child: ElevatedButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ParentInfoFormPage(),
+                          ),
+                        );
+                      },
                       style: ElevatedButton.styleFrom(
                         elevation: 2,
                         backgroundColor: _blue,

@@ -25,13 +25,17 @@ class StudentService {
 
     final items = <StudentCardItem>[];
     for (final record in studentRecords) {
-      if (!_isActive(record)) continue;
       if (record['is_deleted'] == true) continue;
       if (!_linkedToParent(record, parentId)) continue;
 
       items.add(_toCardItem(record, classNamesById));
     }
 
+    // Approved first, pending after — easier to scan.
+    items.sort((a, b) {
+      if (a.isApproved == b.isApproved) return 0;
+      return a.isApproved ? -1 : 1;
+    });
     return items;
   }
 
@@ -79,6 +83,7 @@ class StudentService {
       className: classNamesById[classId],
       branchId: _readStudentBranchId(record),
       classId: classId.isEmpty ? null : classId,
+      isApproved: _isActive(record),
     );
   }
 

@@ -3,8 +3,7 @@ import '../../../../../core/network/api_config.dart';
 import 'branch_model.dart';
 
 class BranchService {
-  BranchService({ApiClient? apiClient})
-    : _apiClient = apiClient ?? ApiClient();
+  BranchService({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
 
   final ApiClient _apiClient;
 

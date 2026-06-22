@@ -62,14 +62,19 @@ class AuthService {
     final response = await _apiClient.get(path);
 
     for (final record in _extractRecords(response, resourceKey)) {
-      if (!_isActive(record)) continue;
-
       final username = _readString(record, const ['username']);
       final email = _readString(record, const ['email']);
       final matchesLogin =
           username.toLowerCase() == login.toLowerCase() ||
           email.toLowerCase() == login.toLowerCase();
       if (!matchesLogin) continue;
+
+      if (!_isActive(record)) {
+        throw const ApiException(
+          'Your account is pending admin approval. Please wait until an administrator activates your account.',
+          statusCode: 403,
+        );
+      }
 
       if (!_passwordMatches(record, password)) continue;
 

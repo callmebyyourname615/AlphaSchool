@@ -2343,7 +2343,9 @@ class _WalletSheet extends StatelessWidget {
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const SavingPage()),
+            MaterialPageRoute(
+              builder: (_) => SavingPage(selectedStudent: selectedStudent),
+            ),
           );
         },
       ),

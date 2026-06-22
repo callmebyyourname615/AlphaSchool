@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/widgets/app_page_template.dart';
@@ -117,14 +118,14 @@ class _Content extends StatelessWidget {
       _ContactItem(
         'Phone #1',
         branch.phone,
-        FontAwesomeIcons.phone,
+        FontAwesomeIcons.whatsapp,
         iconColor: const Color(0xFF22C55E),
       ),
       _ContactItem(
         'Phone #2',
         branch.contact,
-        FontAwesomeIcons.idCard,
-        iconColor: const Color(0xFF3B82F6),
+        FontAwesomeIcons.whatsapp,
+        iconColor: const Color(0xFF22C55E),
       ),
       _ContactItem(
         'Branch Code',
@@ -144,6 +145,30 @@ class _Content extends StatelessWidget {
         FontAwesomeIcons.locationDot,
         iconColor: const Color(0xFFF59E0B),
         maxLines: 3,
+      ),
+      _ContactItem(
+        'Google Maps',
+        branch.mapUrl,
+        FontAwesomeIcons.mapLocationDot,
+        iconColor: const Color(0xFFEA4335),
+        isLink: true,
+        maxLines: 2,
+      ),
+      _ContactItem(
+        'Facebook',
+        branch.facebookUrl,
+        FontAwesomeIcons.facebook,
+        iconColor: const Color(0xFF1877F2),
+        isLink: true,
+        maxLines: 2,
+      ),
+      _ContactItem(
+        'Website',
+        branch.websiteUrl,
+        FontAwesomeIcons.globe,
+        iconColor: const Color(0xFF14B8A6),
+        isLink: true,
+        maxLines: 2,
       ),
     ];
 
@@ -221,7 +246,7 @@ class _HeaderCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Phone • Contact • Branch • Location',
+            'Phone • Location • Maps • Social',
             textAlign: TextAlign.center,
             style: t.textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: .78),
@@ -301,12 +326,14 @@ class _ContactItem {
   final IconData icon;
   final int maxLines;
   final Color iconColor;
+  final bool isLink;
 
   const _ContactItem(
     this.label,
     this.value,
     this.icon, {
     this.maxLines = 1,
+    this.isLink = false,
     required this.iconColor,
   });
 }
@@ -346,7 +373,9 @@ class _ContactCard extends StatelessWidget {
           for (int i = 0; i < items.length; i++) ...[
             _ContactRow(
               item: items[i],
-              onCopy: () => _copy(context, items[i].value),
+              onTap: () => items[i].isLink
+                  ? _openLink(context, items[i].value)
+                  : _copy(context, items[i].value),
             ),
             if (i != items.length - 1)
               Divider(height: 1, thickness: 1, color: dividerColor),
@@ -371,13 +400,29 @@ class _ContactCard extends StatelessWidget {
       ),
     );
   }
+
+  static Future<void> _openLink(BuildContext context, String value) async {
+    final raw = value.trim();
+    if (raw.isEmpty) return;
+    final normalized = raw.startsWith('http://') || raw.startsWith('https://')
+        ? raw
+        : 'https://$raw';
+    final uri = Uri.tryParse(normalized);
+    final opened =
+        uri != null &&
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (opened || !context.mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Could not open this link')));
+  }
 }
 
 class _ContactRow extends StatelessWidget {
   final _ContactItem item;
-  final VoidCallback onCopy;
+  final VoidCallback onTap;
 
-  const _ContactRow({required this.item, required this.onCopy});
+  const _ContactRow({required this.item, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -395,7 +440,7 @@ class _ContactRow extends StatelessWidget {
         : Colors.black.withValues(alpha: .06);
 
     return InkWell(
-      onTap: hasValue ? onCopy : null,
+      onTap: hasValue ? onTap : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         child: Row(
@@ -444,7 +489,9 @@ class _ContactRow extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             FaIcon(
-              FontAwesomeIcons.copy,
+              item.isLink
+                  ? FontAwesomeIcons.arrowUpRightFromSquare
+                  : FontAwesomeIcons.copy,
               size: 18,
               color: hasValue
                   ? (isDark

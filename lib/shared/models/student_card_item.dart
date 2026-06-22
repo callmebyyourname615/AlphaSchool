@@ -14,6 +14,10 @@ class StudentCardItem {
   /// classId carried by the student's active enrollment.
   final String? classId;
 
+  /// false → student is awaiting admin approval; the parent can see it as a
+  /// placeholder card but cannot open its details.
+  final bool isApproved;
+
   const StudentCardItem({
     required this.studentId,
     required this.name,
@@ -22,5 +26,6 @@ class StudentCardItem {
     this.className,
     this.branchId,
     this.classId,
+    this.isApproved = true,
   });
 }
