@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/global_alert_service.dart';
 import '../../data/parent_registration_service.dart';
-import 'student_info_form_page.dart';
+import 'login_page.dart';
 
 class ParentInfoFormPage extends StatefulWidget {
   const ParentInfoFormPage({super.key});
@@ -31,23 +32,58 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
 
   static const Map<int, List<String>> _required = {
     1: [
-      'Firstname_Lao', 'Firstname_Eng',
-      'Midlename_Lao', 'Midlename_Eng',
-      'Lastname_Lao', 'Lastname_Eng',
-      'Nickname', 'DateofBirth', 'Gender',
+      'Firstname_Lao',
+      'Firstname_Eng',
+      'Midlename_Lao',
+      'Midlename_Eng',
+      'Lastname_Lao',
+      'Lastname_Eng',
+      'Nickname',
+      'DateofBirth',
+      'Gender',
     ],
-    2: ['Educatio_Level', 'Job', 'Workplace', 'Email', 'Phone_No1', 'Phone_No2'],
+    2: [
+      'Educatio_Level',
+      'Job',
+      'Workplace',
+      'Email',
+      'Phone_No1',
+      'Phone_No2',
+    ],
     3: [
-      'IDCard_no', 'Passport_no', 'FamillyBook_no',
-      'Nationality', 'Ethnicty', 'Religion',
+      'IDCard_no',
+      'Passport_no',
+      'FamillyBook_no',
+      'Nationality',
+      'Ethnicty',
+      'Religion',
     ],
     4: ['Home_no', 'Home_unit', 'Village', 'District', 'Province'],
   };
 
-  static const _education = ['Primary School', 'Secondary School', 'High School', "Bachelor's Degree", "Master's Degree", 'Doctorate'];
+  static const _education = [
+    'Primary School',
+    'Secondary School',
+    'High School',
+    "Bachelor's Degree",
+    "Master's Degree",
+    'Doctorate',
+  ];
   static const _genders = ['male', 'female', 'other'];
-  static const _districts = ['Chanthabouly', 'Sikhottabong', 'Xaysetha', 'Sisattanak', 'Hadxaifong'];
-  static const _provinces = ['Vientiane Capital', 'Luang Prabang', 'Savannakhet', 'Champasak', 'Xieng Khouang'];
+  static const _districts = [
+    'Chanthabouly',
+    'Sikhottabong',
+    'Xaysetha',
+    'Sisattanak',
+    'Hadxaifong',
+  ];
+  static const _provinces = [
+    'Vientiane Capital',
+    'Luang Prabang',
+    'Savannakhet',
+    'Champasak',
+    'Xieng Khouang',
+  ];
 
   int _step = 1;
   final Map<String, String> _data = {};
@@ -61,6 +97,9 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   String? _pendingPassword;
   String? _pendingFullName;
   bool _passwordVisible = false;
+  bool _rejected = false;
+  bool _approved = false;
+  String? _rejectReason;
   final PageController _pageController = PageController();
   final ParentRegistrationService _service = ParentRegistrationService();
 
@@ -88,44 +127,54 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     }
   }
 
-  Future<void> _onAddStudent() async {
-    final id = _referenceId;
-    if (id == null) return;
-    await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => StudentInfoFormPage.addOnly(parentId: id),
-      ),
-    );
-  }
-
   Future<void> _refreshStatus({bool silent = false}) async {
     if (_referenceId == null) return;
     if (!silent) setState(() => _checkingStatus = true);
-    final status = await _service.checkStatus(_referenceId!);
+    final result = await _service.checkStatus(_referenceId!);
     if (!mounted) return;
-    if (status == 'approved') {
-      await _service.clearPending();
-      if (!mounted) return;
+    if (result.status == 'approved') {
+      final wasApproved = _approved;
       setState(() {
-        _submitted = false;
-        _referenceId = null;
-        _pendingEmail = null;
-        _pendingPassword = null;
-        _pendingFullName = null;
-        _passwordVisible = false;
-        _data.clear();
-        _errors.clear();
-        _step = 1;
+        _approved = true;
+        _rejected = false;
+        _rejectReason = null;
         _checkingStatus = false;
       });
-      _pageController.jumpToPage(0);
-      GlobalAlert.showSuccess(
-        title: 'Application approved',
-        message: 'Your application has been approved. You can now create your account.',
-      );
+      if (!wasApproved && !silent) {
+        GlobalAlert.showSuccess(
+          title: 'Application approved',
+          message:
+              'Your application has been approved. You can now sign in with your email and password.',
+        );
+      }
+    } else if (result.status == 'rejected') {
+      setState(() {
+        _rejected = true;
+        _rejectReason = result.rejectReason;
+        _checkingStatus = false;
+      });
     } else {
       if (!silent) setState(() => _checkingStatus = false);
     }
+  }
+
+  Future<void> _resubmitApplication() async {
+    await _service.clearPending();
+    if (!mounted) return;
+    setState(() {
+      _submitted = false;
+      _referenceId = null;
+      _pendingEmail = null;
+      _pendingPassword = null;
+      _pendingFullName = null;
+      _passwordVisible = false;
+      _rejected = false;
+      _rejectReason = null;
+      _data.clear();
+      _errors.clear();
+      _step = 1;
+    });
+    _pageController.jumpToPage(0);
   }
 
   @override
@@ -156,7 +205,8 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     }
     if (_step == 2) {
       final email = _data['Email'] ?? '';
-      if (email.isNotEmpty && !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
+      if (email.isNotEmpty &&
+          !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
         next['Email'] = 'Enter a valid email';
       }
     }
@@ -184,32 +234,56 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
 
   Future<void> _onSubmit() async {
     if (!_validate() || _submitting) return;
-    final result = await Navigator.of(context).push<Object>(
-      MaterialPageRoute(
-        builder: (_) => StudentInfoFormPage(
-          parentData: Map<String, String>.from(_data),
-          parentService: _service,
-        ),
-      ),
-    );
-    if (!mounted) return;
-    if (result is PendingApplication) {
-      // Apply pending state directly — avoids any timing/storage race.
+    setState(() => _submitting = true);
+    GlobalAlert.showLoading(message: 'Submitting your application...');
+    try {
+      final result = await _service.register(_data);
+      final parent = result.data;
+      final parentData = parent['data'] is Map
+          ? Map<String, dynamic>.from(parent['data'] as Map)
+          : parent;
+      final id = (parentData['id'] ?? parentData['_id'])?.toString();
+      if (id == null || id.isEmpty) {
+        throw const ApiException('Could not resolve your application ID.');
+      }
+      final fullName = [
+        _data['Firstname_Eng'],
+        _data['Midlename_Eng'],
+        _data['Lastname_Eng'],
+      ].where((value) => value != null && value.isNotEmpty).join(' ');
+      await _service.savePending(
+        id: id,
+        email: _data['Email'] ?? '',
+        fullName: fullName.isEmpty ? null : fullName,
+        password: result.password,
+      );
+      GlobalAlert.dismiss();
+      if (!mounted) return;
       setState(() {
         _submitted = true;
-        _referenceId = result.id;
-        _pendingEmail = result.email;
+        _referenceId = id;
+        _pendingEmail = _data['Email'];
         _pendingPassword = result.password;
-        _pendingFullName = result.fullName;
+        _pendingFullName = fullName.isEmpty ? null : fullName;
         _passwordVisible = false;
+        _submitting = false;
       });
+      GlobalAlert.showSuccess(
+        title: 'Application submitted',
+        message:
+            'Your parent information has been submitted. Please wait for admin approval before signing in.',
+      );
       _refreshStatus(silent: true);
-    } else if (result == true) {
-      setState(() => _bootstrapping = true);
-      await _bootstrap();
+    } catch (error) {
+      GlobalAlert.dismiss();
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      GlobalAlert.showError(
+        title: 'Submission failed',
+        message: error is ApiException ? error.message : error.toString(),
+      );
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -220,7 +294,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       );
     }
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: _blueSofter,
       body: SafeArea(
         child: Column(
           children: [
@@ -229,7 +303,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
             Expanded(
               child: _submitted
                   ? SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                      padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
                       child: _buildSuccess(),
                     )
                   : PageView.builder(
@@ -241,7 +315,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                       },
                       itemBuilder: (_, i) => SingleChildScrollView(
                         key: PageStorageKey('step_${i + 1}'),
-                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
                         child: _buildStepBodyFor(i + 1),
                       ),
                     ),
@@ -255,40 +329,37 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 20, 14),
+      padding: const EdgeInsets.fromLTRB(12, 12, 20, 18),
       child: Row(
         children: [
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: _navy),
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              size: 18,
+              color: _navy,
+            ),
             tooltip: 'Back',
           ),
-          const SizedBox(width: 4),
-          Container(
-            height: 48,
-            width: 48,
-            decoration: BoxDecoration(
-              color: _blue,
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: [
-                BoxShadow(color: _blue.withValues(alpha: .22), blurRadius: 12, offset: const Offset(0, 4)),
-              ],
-            ),
-            child: const Icon(Icons.people_alt_rounded, color: Colors.white, size: 24),
-          ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Parent Information',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _navy, height: 1.1),
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: _navy,
+                    height: 1.08,
+                    letterSpacing: -.5,
+                  ),
                 ),
-                SizedBox(height: 2),
+                SizedBox(height: 5),
                 Text(
-                  'Please fill in all required parent information',
-                  style: TextStyle(fontSize: 12, color: _muted),
+                  'Tell us about yourself. Fields marked * are required.',
+                  style: TextStyle(fontSize: 13, color: _muted, height: 1.35),
                 ),
               ],
             ),
@@ -300,7 +371,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
 
   Widget _buildStepper() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: _slate100)),
@@ -343,7 +414,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
               ],
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -353,19 +424,30 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                   Text(
                     'STEP $_step OF 4',
                     style: const TextStyle(
-                      fontSize: 11, color: _blue, fontWeight: FontWeight.w700, letterSpacing: 1,
+                      fontSize: 12,
+                      color: _blue,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .8,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '${_steps[_step - 1].title} Information',
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _navy),
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: _navy,
+                    ),
                   ),
                 ],
               ),
               Text(
                 '${((_step / 4) * 100).round()}%',
-                style: const TextStyle(fontSize: 11, color: _slate400, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: _slate400,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
@@ -387,7 +469,13 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         color: filled ? _blue : _slate100,
         shape: BoxShape.circle,
         boxShadow: active
-            ? [BoxShadow(color: _blue.withValues(alpha: .25), blurRadius: 14, offset: const Offset(0, 4))]
+            ? [
+                BoxShadow(
+                  color: _blue.withValues(alpha: .25),
+                  blurRadius: 14,
+                  offset: const Offset(0, 4),
+                ),
+              ]
             : null,
         border: active ? Border.all(color: _blueSoft, width: 3) : null,
       ),
@@ -411,44 +499,171 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     switch (step) {
       case 1:
         return _sectionCard(1, 'Personal Information', [
-          _input('First Name (Lao)', 'Firstname_Lao', required: true, placeholder: 'Enter (Lao)'),
-          _input('First Name (English)', 'Firstname_Eng', required: true, placeholder: 'Enter (English)'),
-          _input('Middle Name (Lao)', 'Midlename_Lao', required: true, placeholder: 'Enter (Lao)'),
-          _input('Middle Name (English)', 'Midlename_Eng', required: true, placeholder: 'Enter (English)'),
-          _input('Last Name (Lao)', 'Lastname_Lao', required: true, placeholder: 'Enter (Lao)'),
-          _input('Last Name (English)', 'Lastname_Eng', required: true, placeholder: 'Enter (English)'),
-          _input('Nickname', 'Nickname', required: true, placeholder: 'Enter nickname'),
+          _input(
+            'First Name (Lao)',
+            'Firstname_Lao',
+            required: true,
+            placeholder: 'Enter (Lao)',
+          ),
+          _input(
+            'First Name (English)',
+            'Firstname_Eng',
+            required: true,
+            placeholder: 'Enter (English)',
+          ),
+          _input(
+            'Middle Name (Lao)',
+            'Midlename_Lao',
+            required: true,
+            placeholder: 'Enter (Lao)',
+          ),
+          _input(
+            'Middle Name (English)',
+            'Midlename_Eng',
+            required: true,
+            placeholder: 'Enter (English)',
+          ),
+          _input(
+            'Last Name (Lao)',
+            'Lastname_Lao',
+            required: true,
+            placeholder: 'Enter (Lao)',
+          ),
+          _input(
+            'Last Name (English)',
+            'Lastname_Eng',
+            required: true,
+            placeholder: 'Enter (English)',
+          ),
+          _input(
+            'Nickname',
+            'Nickname',
+            required: true,
+            placeholder: 'Enter nickname',
+          ),
           _dateInput('Date of Birth', 'DateofBirth', required: true),
-          _select('Gender', 'Gender', _genders, required: true, placeholder: 'Select gender'),
+          _select(
+            'Gender',
+            'Gender',
+            _genders,
+            required: true,
+            placeholder: 'Select gender',
+          ),
         ]);
       case 2:
         return _sectionCard(2, 'Education & Contact', [
-          _select('Education Level', 'Educatio_Level', _education, required: true, placeholder: 'Select education level'),
+          _select(
+            'Education Level',
+            'Educatio_Level',
+            _education,
+            required: true,
+            placeholder: 'Select education level',
+          ),
           _input('Job', 'Job', required: true, placeholder: 'Enter job'),
-          _input('Workplace', 'Workplace', required: true, placeholder: 'Enter workplace'),
-          _input('Email', 'Email', required: true, placeholder: 'Enter email', keyboard: TextInputType.emailAddress),
-          _input('Phone No. 1', 'Phone_No1', required: true, placeholder: 'Enter phone number', keyboard: TextInputType.phone),
-          _input('Phone No. 2', 'Phone_No2', required: true, placeholder: 'Enter phone number', keyboard: TextInputType.phone),
+          _input(
+            'Workplace',
+            'Workplace',
+            required: true,
+            placeholder: 'Enter workplace',
+          ),
+          _input(
+            'Email',
+            'Email',
+            required: true,
+            placeholder: 'Enter email',
+            keyboard: TextInputType.emailAddress,
+          ),
+          _input(
+            'Phone No. 1',
+            'Phone_No1',
+            required: true,
+            placeholder: 'Enter phone number',
+            keyboard: TextInputType.phone,
+          ),
+          _input(
+            'Phone No. 2',
+            'Phone_No2',
+            required: true,
+            placeholder: 'Enter phone number',
+            keyboard: TextInputType.phone,
+          ),
         ]);
       case 3:
         return _sectionCard(3, 'Identification', [
-          _input('ID Card No.', 'IDCard_no', required: true, placeholder: 'Enter ID card number'),
-          _input('Passport No.', 'Passport_no', required: true, placeholder: 'Enter passport number'),
-          _input('Family Book No.', 'FamillyBook_no', required: true, placeholder: 'Enter family book number'),
-          _input('Nationality', 'Nationality', required: true, placeholder: 'Enter nationality'),
-          _input('Ethnicity', 'Ethnicty', required: true, placeholder: 'Enter ethnicity'),
-          _input('Religion', 'Religion', required: true, placeholder: 'Enter religion'),
+          _input(
+            'ID Card No.',
+            'IDCard_no',
+            required: true,
+            placeholder: 'Enter ID card number',
+          ),
+          _input(
+            'Passport No.',
+            'Passport_no',
+            required: true,
+            placeholder: 'Enter passport number',
+          ),
+          _input(
+            'Family Book No.',
+            'FamillyBook_no',
+            required: true,
+            placeholder: 'Enter family book number',
+          ),
+          _input(
+            'Nationality',
+            'Nationality',
+            required: true,
+            placeholder: 'Enter nationality',
+          ),
+          _input(
+            'Ethnicity',
+            'Ethnicty',
+            required: true,
+            placeholder: 'Enter ethnicity',
+          ),
+          _input(
+            'Religion',
+            'Religion',
+            required: true,
+            placeholder: 'Enter religion',
+          ),
         ]);
       case 4:
       default:
         return Column(
           children: [
             _sectionCard(4, 'Address Information', [
-              _input('Home No.', 'Home_no', required: true, placeholder: 'Enter home number'),
-              _input('Home Unit', 'Home_unit', required: true, placeholder: 'Enter unit / room'),
-              _input('Village', 'Village', required: true, placeholder: 'Enter village'),
-              _select('District', 'District', _districts, required: true, placeholder: 'Select district'),
-              _select('Province', 'Province', _provinces, required: true, placeholder: 'Select province'),
+              _input(
+                'Home No.',
+                'Home_no',
+                required: true,
+                placeholder: 'Enter home number',
+              ),
+              _input(
+                'Home Unit',
+                'Home_unit',
+                required: true,
+                placeholder: 'Enter unit / room',
+              ),
+              _input(
+                'Village',
+                'Village',
+                required: true,
+                placeholder: 'Enter village',
+              ),
+              _select(
+                'District',
+                'District',
+                _districts,
+                required: true,
+                placeholder: 'Select district',
+              ),
+              _select(
+                'Province',
+                'Province',
+                _provinces,
+                required: true,
+                placeholder: 'Select province',
+              ),
             ]),
             const SizedBox(height: 16),
             _buildNote(),
@@ -461,39 +676,51 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: _blueSofter,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _slate100),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _slate200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.only(bottom: 18),
             child: Row(
               children: [
                 Container(
                   height: 28,
                   width: 28,
-                  decoration: const BoxDecoration(color: _blue, shape: BoxShape.circle),
+                  decoration: const BoxDecoration(
+                    color: _blue,
+                    shape: BoxShape.circle,
+                  ),
                   alignment: Alignment.center,
-                  child: Text('$num',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),
+                  child: Text(
+                    '$num',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  label.toUpperCase(),
+                  label,
                   style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w800, color: _blue, letterSpacing: 1,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                    color: _navy,
+                    height: 1.1,
                   ),
                 ),
               ],
             ),
           ),
           const Divider(height: 1, color: _slate100),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           for (int i = 0; i < children.length; i++) ...[
-            if (i > 0) const SizedBox(height: 14),
+            if (i > 0) const SizedBox(height: 18),
             children[i],
           ],
         ],
@@ -503,14 +730,22 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
 
   Widget _label(String text, bool required) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: 8),
       child: RichText(
         text: TextSpan(
           text: text,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _navy),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: _navy,
+            height: 1.2,
+          ),
           children: [
             if (required)
-              const TextSpan(text: ' *', style: TextStyle(color: _rose500)),
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: _rose500),
+              ),
           ],
         ),
       ),
@@ -520,19 +755,26 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   InputDecoration _decoration(String? placeholder, String? error) {
     return InputDecoration(
       hintText: placeholder,
-      hintStyle: const TextStyle(color: _slate400, fontSize: 14),
+      hintStyle: const TextStyle(
+        color: _slate400,
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+      ),
       filled: true,
       fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide(color: error != null ? _rose500 : _slate200),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: error != null ? _rose500 : _blue, width: 1.5),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(
+          color: error != null ? _rose500 : _blue,
+          width: 2,
+        ),
       ),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
       isDense: true,
     );
   }
@@ -554,13 +796,24 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
           initialValue: _data[name],
           onChanged: (v) => _set(name, v),
           keyboardType: keyboard,
-          style: const TextStyle(fontSize: 14, color: _navy),
+          style: const TextStyle(
+            fontSize: 16,
+            color: _navy,
+            fontWeight: FontWeight.w500,
+          ),
           decoration: _decoration(placeholder, err),
         ),
         if (err != null)
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Text(err, style: const TextStyle(fontSize: 11, color: _rose500)),
+            child: Text(
+              err,
+              style: const TextStyle(
+                fontSize: 13,
+                color: _rose500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
       ],
     );
@@ -580,13 +833,24 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       children: [
         _label(label, required),
         DropdownButtonFormField<String>(
-          initialValue: (value != null && options.contains(value)) ? value : null,
+          initialValue: (value != null && options.contains(value))
+              ? value
+              : null,
           isExpanded: true,
           icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _muted),
-          hint: Text(placeholder ?? 'Select...', style: const TextStyle(color: _slate400, fontSize: 14)),
-          style: const TextStyle(fontSize: 14, color: _navy),
+          hint: Text(
+            placeholder ?? 'Select...',
+            style: const TextStyle(color: _slate400, fontSize: 14),
+          ),
+          style: const TextStyle(
+            fontSize: 16,
+            color: _navy,
+            fontWeight: FontWeight.w500,
+          ),
           decoration: _decoration(null, err),
-          items: options.map((o) => DropdownMenuItem(value: o, child: Text(o))).toList(),
+          items: options
+              .map((o) => DropdownMenuItem(value: o, child: Text(o)))
+              .toList(),
           onChanged: (v) {
             if (v != null) _set(name, v);
           },
@@ -594,7 +858,14 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         if (err != null)
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Text(err, style: const TextStyle(fontSize: 11, color: _rose500)),
+            child: Text(
+              err,
+              style: const TextStyle(
+                fontSize: 13,
+                color: _rose500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
       ],
     );
@@ -612,7 +883,9 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
             final now = DateTime.now();
             DateTime initial = now;
             if (value != null && value.isNotEmpty) {
-              try { initial = DateTime.parse(value); } catch (_) {}
+              try {
+                initial = DateTime.parse(value);
+              } catch (_) {}
             }
             final picked = await showDatePicker(
               context: context,
@@ -621,30 +894,51 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
               lastDate: now,
               builder: (context, child) => Theme(
                 data: Theme.of(context).copyWith(
-                  colorScheme: const ColorScheme.light(primary: _blue, onPrimary: Colors.white),
+                  colorScheme: const ColorScheme.light(
+                    primary: _blue,
+                    onPrimary: Colors.white,
+                  ),
                 ),
                 child: child!,
               ),
             );
             if (picked != null) {
-              _set(name, '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}');
+              _set(
+                name,
+                '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}',
+              );
             }
           },
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           child: InputDecorator(
             decoration: _decoration(null, err).copyWith(
-              suffixIcon: const Icon(Icons.calendar_today_rounded, size: 16, color: _muted),
+              suffixIcon: const Icon(
+                Icons.calendar_today_rounded,
+                size: 16,
+                color: _muted,
+              ),
             ),
             child: Text(
               value ?? 'YYYY-MM-DD',
-              style: TextStyle(fontSize: 14, color: value == null ? _slate400 : _navy),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: value == null ? _slate400 : _navy,
+              ),
             ),
           ),
         ),
         if (err != null)
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Text(err, style: const TextStyle(fontSize: 11, color: _rose500)),
+            child: Text(
+              err,
+              style: const TextStyle(
+                fontSize: 13,
+                color: _rose500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
       ],
     );
@@ -662,7 +956,8 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            height: 36, width: 36,
+            height: 36,
+            width: 36,
             decoration: BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
@@ -675,8 +970,15 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('NOTE',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: _blue, letterSpacing: 1)),
+                Text(
+                  'NOTE',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: _blue,
+                    letterSpacing: 1,
+                  ),
+                ),
                 SizedBox(height: 4),
                 Text(
                   'All information provided will be kept confidential and used for educational purposes only.',
@@ -712,8 +1014,13 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: _navy,
                       side: const BorderSide(color: _slate200, width: 1.5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
@@ -725,24 +1032,35 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
               child: SizedBox(
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: _submitting ? null : (_step < 4 ? _onNext : _onSubmit),
+                  onPressed: _submitting
+                      ? null
+                      : (_step < 4 ? _onNext : _onSubmit),
                   style: ElevatedButton.styleFrom(
                     elevation: 2,
                     backgroundColor: _blue,
                     shadowColor: _blue.withValues(alpha: .3),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   child: _step < 4
                       ? const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: [Text('Next'), SizedBox(width: 6), Icon(Icons.chevron_right_rounded, size: 18)],
+                          children: [
+                            Text('Next'),
+                            SizedBox(width: 6),
+                            Icon(Icons.chevron_right_rounded, size: 18),
+                          ],
                         )
                       : const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text('Continue · Add Student'),
+                            Text('Submit parent information'),
                             SizedBox(width: 6),
                             Icon(Icons.chevron_right_rounded, size: 18),
                           ],
@@ -757,9 +1075,13 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   }
 
   Widget _buildSuccess() {
-    final fromForm = [_data['Firstname_Eng'], _data['Midlename_Eng'], _data['Lastname_Eng']]
-        .where((e) => e != null && e.isNotEmpty)
-        .join(' ');
+    if (_rejected) return _buildRejected();
+    if (_approved) return _buildApproved();
+    final fromForm = [
+      _data['Firstname_Eng'],
+      _data['Midlename_Eng'],
+      _data['Lastname_Eng'],
+    ].where((e) => e != null && e.isNotEmpty).join(' ');
     final fullName = fromForm.isNotEmpty ? fromForm : (_pendingFullName ?? '');
     const amber = Color(0xFFF59E0B);
     const amberSoft = Color(0xFFFFF7E6);
@@ -774,27 +1096,16 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
           ),
           child: Column(
             children: [
-              TweenAnimationBuilder<double>(
-                duration: const Duration(milliseconds: 600),
-                curve: Curves.easeOutCubic,
-                tween: Tween(begin: 0.6, end: 1.0),
-                builder: (_, v, child) => Transform.scale(scale: v, child: child),
-                child: Container(
-                  height: 76, width: 76,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: amberSoft,
-                    border: Border.all(color: amber, width: 2),
-                    boxShadow: [
-                      BoxShadow(color: amber.withValues(alpha: .2), blurRadius: 22, offset: const Offset(0, 8)),
-                    ],
-                  ),
-                  child: const Icon(Icons.hourglass_top_rounded, color: amber, size: 36),
-                ),
+              const _PendingPulseIcon(
+                color: amber,
+                background: amberSoft,
               ),
               const SizedBox(height: 18),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: amberSoft,
                   borderRadius: BorderRadius.circular(999),
@@ -805,28 +1116,51 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                   children: [
                     Icon(Icons.circle, color: amber, size: 8),
                     SizedBox(width: 6),
-                    Text('PENDING APPROVAL',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFFB45309), letterSpacing: 1)),
+                    Text(
+                      'PENDING APPROVAL',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFB45309),
+                        letterSpacing: 1,
+                      ),
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 14),
-              const Text('Application Submitted',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _navy)),
+              const Text(
+                'Application Submitted',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: _navy,
+                ),
+              ),
               const SizedBox(height: 8),
               Text.rich(
                 TextSpan(
                   text: 'Thank you',
-                  style: const TextStyle(fontSize: 14, color: _muted, height: 1.5),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: _muted,
+                    height: 1.5,
+                  ),
                   children: [
                     if (fullName.isNotEmpty) ...[
                       const TextSpan(text: ', '),
                       TextSpan(
                         text: fullName,
-                        style: const TextStyle(fontWeight: FontWeight.w700, color: _navy),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: _navy,
+                        ),
                       ),
                     ],
-                    const TextSpan(text: '. Your application has been received and is now waiting for admin approval.'),
+                    const TextSpan(
+                      text:
+                          '. Your application has been received and is now waiting for admin approval.',
+                    ),
                   ],
                 ),
                 textAlign: TextAlign.center,
@@ -842,36 +1176,31 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         SizedBox(
           width: double.infinity,
           height: 50,
-          child: OutlinedButton.icon(
-            onPressed: _referenceId == null ? null : _onAddStudent,
-            icon: const Icon(Icons.person_add_alt_rounded, size: 18),
-            label: const Text('Add another student'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: _blue,
-              side: const BorderSide(color: _blue, width: 1.5),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: double.infinity,
-          height: 50,
           child: ElevatedButton.icon(
             onPressed: _checkingStatus ? null : () => _refreshStatus(),
             icon: _checkingStatus
                 ? const SizedBox(
-                    height: 18, width: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Icon(Icons.refresh_rounded, size: 18),
-            label: Text(_checkingStatus ? 'Checking status...' : 'Check approval status'),
+            label: Text(
+              _checkingStatus ? 'Checking status...' : 'Check approval status',
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: _blue,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ),
@@ -884,8 +1213,13 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
             style: OutlinedButton.styleFrom(
               foregroundColor: _navy,
               side: const BorderSide(color: _slate200, width: 1.5),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             child: const Text('Back to Sign In'),
           ),
@@ -895,7 +1229,8 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
           onPressed: () async {
             final ok = await GlobalAlert.showConfirmation(
               title: 'Cancel application?',
-              message: 'Your local pending status will be cleared. The backend record remains until admin removes it.',
+              message:
+                  'Your local pending status will be cleared. The backend record remains until admin removes it.',
             );
             if (ok != true) return;
             await _service.clearPending();
@@ -914,8 +1249,333 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
             _pageController.jumpToPage(0);
           },
           style: TextButton.styleFrom(foregroundColor: _muted),
-          child: const Text('Cancel application',
-              style: TextStyle(fontWeight: FontWeight.w600)),
+          child: const Text(
+            'Cancel application',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildApproved() {
+    const green = Color(0xFF059669);
+    const greenSoft = Color(0xFFECFDF5);
+    const greenBorder = Color(0xFFA7F3D0);
+    final fromForm = [
+      _data['Firstname_Eng'],
+      _data['Midlename_Eng'],
+      _data['Lastname_Eng'],
+    ].where((e) => e != null && e.isNotEmpty).join(' ');
+    final fullName = fromForm.isNotEmpty ? fromForm : (_pendingFullName ?? '');
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: greenSoft,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: greenBorder),
+          ),
+          child: Column(
+            children: [
+              Container(
+                height: 76,
+                width: 76,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  border: Border.all(color: green, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: green.withValues(alpha: .22),
+                      blurRadius: 22,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.check_circle_rounded,
+                  color: green,
+                  size: 40,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: greenBorder),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.circle, color: green, size: 8),
+                    SizedBox(width: 6),
+                    Text(
+                      'ACCOUNT APPROVED',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: green,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'You\'re approved!',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: _navy,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text.rich(
+                TextSpan(
+                  text: 'Welcome',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: _muted,
+                    height: 1.5,
+                  ),
+                  children: [
+                    if (fullName.isNotEmpty) ...[
+                      const TextSpan(text: ', '),
+                      TextSpan(
+                        text: fullName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: _navy,
+                        ),
+                      ),
+                    ],
+                    const TextSpan(
+                      text:
+                          '. Your account is now active. You can sign in any time using the email and password you submitted.',
+                    ),
+                  ],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 18),
+              _credentialsCard(),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: ElevatedButton.icon(
+            onPressed: () async {
+              await _service.clearPending();
+              if (!mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginPage()),
+                (route) => false,
+              );
+            },
+            icon: const Icon(Icons.login_rounded, size: 18),
+            label: const Text('Go to sign in'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: green,
+              foregroundColor: Colors.white,
+              elevation: 2,
+              shadowColor: green.withValues(alpha: .35),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRejected() {
+    const rose = Color(0xFFE11D48);
+    const roseSoft = Color(0xFFFFF1F2);
+    const roseBorder = Color(0xFFFECDD3);
+    final reason =
+        (_rejectReason?.trim().isNotEmpty == true)
+            ? _rejectReason!.trim()
+            : 'No reason was provided by the admin.';
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: roseSoft,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: roseBorder),
+          ),
+          child: Column(
+            children: [
+              Container(
+                height: 76,
+                width: 76,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  border: Border.all(color: rose, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: rose.withValues(alpha: .22),
+                      blurRadius: 22,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.cancel_rounded,
+                  color: rose,
+                  size: 38,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: roseBorder),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.circle, color: rose, size: 8),
+                    SizedBox(width: 6),
+                    Text(
+                      'APPLICATION REJECTED',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: rose,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Application not approved',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: _navy,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'The admin reviewed your submission and could not approve it for the reason below.',
+                style: TextStyle(fontSize: 13, color: _muted, height: 1.5),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 18),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: roseBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline_rounded,
+                          color: rose,
+                          size: 16,
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          'Reason from admin',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: rose,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      reason,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: _navy,
+                        height: 1.55,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton.icon(
+            onPressed: _resubmitApplication,
+            icon: const Icon(Icons.restart_alt_rounded, size: 18),
+            label: const Text('Edit and resubmit'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _blue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: OutlinedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _navy,
+              side: const BorderSide(color: _slate200, width: 1.5),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            child: const Text('Back to Sign In'),
+          ),
         ),
       ],
     );
@@ -934,8 +1594,15 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('YOUR LOGIN',
-              style: TextStyle(fontSize: 11, color: _blue, fontWeight: FontWeight.w800, letterSpacing: 1)),
+          const Text(
+            'YOUR LOGIN',
+            style: TextStyle(
+              fontSize: 11,
+              color: _blue,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1,
+            ),
+          ),
           const SizedBox(height: 10),
           if (_pendingEmail != null) ...[
             _credRow(
@@ -970,8 +1637,11 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 setState(() => _passwordVisible = !_passwordVisible);
               },
               icon: Icon(
-                _passwordVisible ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                size: 20, color: _blue,
+                _passwordVisible
+                    ? Icons.visibility_off_rounded
+                    : Icons.visibility_rounded,
+                size: 20,
+                color: _blue,
               ),
               tooltip: _passwordVisible ? 'Hide' : 'Show',
               visualDensity: VisualDensity.compact,
@@ -1016,8 +1686,12 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     return Row(
       children: [
         Container(
-          height: 32, width: 32,
-          decoration: BoxDecoration(color: _blueSoft, borderRadius: BorderRadius.circular(10)),
+          height: 32,
+          width: 32,
+          decoration: BoxDecoration(
+            color: _blueSoft,
+            borderRadius: BorderRadius.circular(10),
+          ),
           child: Icon(icon, color: _blue, size: 16),
         ),
         const SizedBox(width: 10),
@@ -1025,7 +1699,14 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontSize: 11, color: _muted, fontWeight: FontWeight.w600)),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: _muted,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const SizedBox(height: 2),
               Text(
                 value,
@@ -1049,9 +1730,27 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   Widget _statusTimeline() {
     const amber = Color(0xFFF59E0B);
     final steps = [
-      ('Submitted', 'Application received', Icons.check_circle_rounded, _blue, true),
-      ('Pending Review', 'Waiting for admin approval', Icons.hourglass_top_rounded, amber, true),
-      ('Approved', "You'll be notified once approved", Icons.verified_rounded, _slate400, false),
+      (
+        'Submitted',
+        'Application received',
+        Icons.check_circle_rounded,
+        _blue,
+        true,
+      ),
+      (
+        'Pending Review',
+        'Waiting for admin approval',
+        Icons.hourglass_top_rounded,
+        amber,
+        true,
+      ),
+      (
+        'Approved',
+        "You'll be notified once approved",
+        Icons.verified_rounded,
+        _slate400,
+        false,
+      ),
     ];
     return Container(
       padding: const EdgeInsets.all(18),
@@ -1070,15 +1769,25 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 Column(
                   children: [
                     Container(
-                      height: 28, width: 28,
+                      height: 28,
+                      width: 28,
                       decoration: BoxDecoration(
-                        color: steps[i].$5 ? steps[i].$4.withValues(alpha: .12) : _slate100,
+                        color: steps[i].$5
+                            ? steps[i].$4.withValues(alpha: .12)
+                            : _slate100,
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(steps[i].$3, color: steps[i].$4, size: 16),
+                      child: steps[i].$3 == Icons.hourglass_top_rounded
+                          ? _SpinningHourglass(color: steps[i].$4, size: 16)
+                          : Icon(steps[i].$3, color: steps[i].$4, size: 16),
                     ),
                     if (i < steps.length - 1)
-                      Container(width: 2, height: 22, margin: const EdgeInsets.symmetric(vertical: 4), color: _slate100),
+                      Container(
+                        width: 2,
+                        height: 22,
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        color: _slate100,
+                      ),
                   ],
                 ),
                 const SizedBox(width: 12),
@@ -1088,15 +1797,19 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(steps[i].$1,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: steps[i].$5 ? _navy : _slate400,
-                            )),
+                        Text(
+                          steps[i].$1,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: steps[i].$5 ? _navy : _slate400,
+                          ),
+                        ),
                         const SizedBox(height: 2),
-                        Text(steps[i].$2,
-                            style: const TextStyle(fontSize: 12, color: _muted)),
+                        Text(
+                          steps[i].$2,
+                          style: const TextStyle(fontSize: 12, color: _muted),
+                        ),
                       ],
                     ),
                   ),
@@ -1115,4 +1828,164 @@ class _StepMeta {
   final String title;
   final IconData icon;
   const _StepMeta(this.id, this.title, this.icon);
+}
+
+/// Animated hero pending icon: breathing badge with expanding ripple
+/// and an hourglass that tips end-over-end like sand falling.
+class _PendingPulseIcon extends StatefulWidget {
+  const _PendingPulseIcon({
+    required this.color,
+    required this.background,
+    this.size = 76,
+    this.iconSize = 36,
+  });
+
+  final Color color;
+  final Color background;
+  final double size;
+  final double iconSize;
+
+  @override
+  State<_PendingPulseIcon> createState() => _PendingPulseIconState();
+}
+
+class _PendingPulseIconState extends State<_PendingPulseIcon>
+    with TickerProviderStateMixin {
+  late final AnimationController _tip = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2400),
+  )..repeat();
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1800),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _tip.dispose();
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: widget.size,
+      height: widget.size,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          // Expanding ripple ring
+          AnimatedBuilder(
+            animation: _pulse,
+            builder: (_, __) {
+              final t = Curves.easeOut.transform(_pulse.value);
+              final extra = 26.0 * t;
+              return Opacity(
+                opacity: (1 - t) * 0.6,
+                child: Container(
+                  width: widget.size + extra,
+                  height: widget.size + extra,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: widget.color, width: 2),
+                  ),
+                ),
+              );
+            },
+          ),
+          // Breathing badge
+          AnimatedBuilder(
+            animation: _pulse,
+            builder: (_, child) {
+              final t = Curves.easeInOut.transform(_pulse.value);
+              final scale = 0.96 + 0.05 * t;
+              return Transform.scale(scale: scale, child: child);
+            },
+            child: Container(
+              width: widget.size,
+              height: widget.size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: widget.background,
+                border: Border.all(color: widget.color, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: widget.color.withValues(alpha: .22),
+                    blurRadius: 22,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Tipping hourglass (180° flip per half-cycle with rest)
+          AnimatedBuilder(
+            animation: _tip,
+            builder: (_, __) {
+              final t = _tip.value;
+              // Two flips per cycle, with a small pause between flips
+              final half = (t * 2) % 1.0;
+              final eased = Curves.easeInOutCubic.transform(
+                (half * 1.35).clamp(0.0, 1.0),
+              );
+              final angle = (t < 0.5 ? 0 : 3.14159) + eased * 3.14159;
+              return Transform.rotate(
+                angle: angle,
+                child: Icon(
+                  Icons.hourglass_top_rounded,
+                  size: widget.iconSize,
+                  color: widget.color,
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact rotating hourglass used inside the status timeline.
+class _SpinningHourglass extends StatefulWidget {
+  const _SpinningHourglass({required this.color, this.size = 16});
+
+  final Color color;
+  final double size;
+
+  @override
+  State<_SpinningHourglass> createState() => _SpinningHourglassState();
+}
+
+class _SpinningHourglassState extends State<_SpinningHourglass>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2200),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (_, __) {
+        final eased = Curves.easeInOutCubic.transform(_c.value);
+        return Transform.rotate(
+          angle: eased * 2 * 3.14159,
+          child: Icon(
+            Icons.hourglass_top_rounded,
+            color: widget.color,
+            size: widget.size,
+          ),
+        );
+      },
+    );
+  }
 }

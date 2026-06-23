@@ -40,6 +40,14 @@ class PendingApplication {
       );
 }
 
+/// Result of polling the server for an application's current status.
+class ApplicationStatus {
+  /// One of 'pending', 'approved', 'rejected', 'not_found'.
+  final String status;
+  final String? rejectReason;
+  const ApplicationStatus(this.status, {this.rejectReason});
+}
+
 class RegistrationResult {
   final Map<String, dynamic> data;
   final String password;
@@ -183,24 +191,43 @@ class ParentRegistrationService {
     await prefs.remove(_kStorageKey);
   }
 
-  /// Returns: 'pending' | 'approved' | 'not_found'
   /// Approved when backend `isActive == true` (admin clicked Approve).
-  Future<String> checkStatus(String id) async {
+  /// Rejected when `approval_status == 'rejected'`; carries the admin's reason.
+  Future<ApplicationStatus> checkStatus(String id) async {
     try {
       final res = await _api.get('/parents');
       final list = res is List
           ? res
           : (res is Map && res['data'] is List ? res['data'] as List : null);
-      if (list == null) return 'not_found';
+      if (list == null) return const ApplicationStatus('not_found');
       for (final item in list) {
         if (item is Map && item['id']?.toString() == id) {
           final active = item['isActive'] == true || item['is_active'] == true;
-          return active ? 'approved' : 'pending';
+          final approval = (item['approval_status'] ?? item['approvalStatus'])
+              ?.toString()
+              .toLowerCase();
+          if (active || approval == 'approved') {
+            return const ApplicationStatus('approved');
+          }
+          if (approval == 'rejected') {
+            final reason = (item['reject_reason'] ??
+                    item['rejectReason'] ??
+                    item['rejection_reason'] ??
+                    item['rejectionReason'])
+                ?.toString();
+            return ApplicationStatus(
+              'rejected',
+              rejectReason: (reason == null || reason.trim().isEmpty)
+                  ? null
+                  : reason.trim(),
+            );
+          }
+          return const ApplicationStatus('pending');
         }
       }
-      return 'not_found';
+      return const ApplicationStatus('not_found');
     } catch (_) {
-      return 'pending';
+      return const ApplicationStatus('pending');
     }
   }
 

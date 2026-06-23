@@ -6,7 +6,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/models/student_card_item.dart'; // ✅ ใช้ตัวนี้ตัวเดียว
 
+import '../../../../core/services/session_service.dart';
 import '../../../auth/presentation/pages/login_page.dart';
+import '../../../auth/presentation/pages/student_info_form_page.dart';
 import '../../../home/presentation/pages/home_shell_page.dart';
 
 class StudentsCardListPage extends StatefulWidget {
@@ -92,6 +94,25 @@ class _StudentsCardListPageState extends State<StudentsCardListPage>
     Navigator.of(
       context,
     ).pushReplacement(_smoothRoute(HomeShellPage(selectedStudent: student)));
+  }
+
+  Future<void> _goAddStudent() async {
+    final session = await SessionService().load();
+    if (!mounted) return;
+    final parentId = session?.id.trim() ?? '';
+    if (parentId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Your session is missing. Please sign in again to add a student.',
+          ),
+        ),
+      );
+      return;
+    }
+    await Navigator.of(context).push(
+      _smoothRoute(StudentInfoFormPage.addOnly(parentId: parentId)),
+    );
   }
 
   Future<void> _confirmLogout() async {
@@ -265,7 +286,14 @@ class _StudentsCardListPageState extends State<StudentsCardListPage>
                                                   ),
                                                 ],
                                               ),
-                                              child: ListView.separated(
+                                              child: _items.isEmpty
+                                                  ? _EmptyStudents(
+                                                      isDark: isDark,
+                                                      titleColor: titleColor,
+                                                      muted: muted,
+                                                      onAdd: _goAddStudent,
+                                                    )
+                                                  : ListView.separated(
                                                 padding: const EdgeInsets.all(
                                                   _s16,
                                                 ),
@@ -746,6 +774,135 @@ class _Glow extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: RadialGradient(colors: [color, Colors.transparent]),
+      ),
+    );
+  }
+}
+
+class _EmptyStudents extends StatelessWidget {
+  const _EmptyStudents({
+    required this.isDark,
+    required this.titleColor,
+    required this.muted,
+    required this.onAdd,
+  });
+
+  final bool isDark;
+  final Color titleColor;
+  final Color muted;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = isDark ? AppColors.blue100 : AppColors.blue500;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            height: 96,
+            width: 96,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  accent.withOpacity(isDark ? .35 : .14),
+                  accent.withOpacity(isDark ? .15 : .06),
+                ],
+              ),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withOpacity(.12)
+                    : AppColors.slate.withOpacity(.14),
+              ),
+            ),
+            child: Center(
+              child: FaIcon(
+                FontAwesomeIcons.userGraduate,
+                size: 36,
+                color: accent.withOpacity(isDark ? .92 : .75),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'No students yet',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: titleColor,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -.2,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Let's add your child to get started.",
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: muted,
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            decoration: BoxDecoration(
+              color: accent.withOpacity(isDark ? .12 : .06),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: accent.withOpacity(isDark ? .35 : .18),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.lightbulb_outline_rounded,
+                  size: 18,
+                  color: accent,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Tip: tap “Add student” below and fill in your child’s information to link them to your account. Once submitted, an admin will review and approve.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: titleColor.withOpacity(.85),
+                      fontWeight: FontWeight.w600,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 22),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton.icon(
+              onPressed: onAdd,
+              icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
+              label: const Text('Add student'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: accent,
+                foregroundColor: Colors.white,
+                elevation: 2,
+                shadowColor: accent.withOpacity(.35),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: .2,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

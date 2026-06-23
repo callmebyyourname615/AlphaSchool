@@ -12,17 +12,15 @@ class StudentInfoFormPage extends StatefulWidget {
     super.key,
     required this.parentData,
     required this.parentService,
-  })  : parentId = null,
-        addOnly = false;
+  }) : parentId = null,
+       addOnly = false;
 
   /// Add-student-only mode (from the Pending screen). Skips parent POST,
   /// only calls POST /students with [parentId].
-  const StudentInfoFormPage.addOnly({
-    super.key,
-    required this.parentId,
-  })  : parentData = const {},
-        parentService = null,
-        addOnly = true;
+  const StudentInfoFormPage.addOnly({super.key, required this.parentId})
+    : parentData = const {},
+      parentService = null,
+      addOnly = true;
 
   final Map<String, String> parentData;
   final ParentRegistrationService? parentService;
@@ -48,21 +46,35 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     _StepMeta(1, 'Student', Icons.person_outline),
     _StepMeta(2, 'Address', Icons.place_outlined),
     _StepMeta(3, 'Education', Icons.school_outlined),
-    _StepMeta(4, 'Bos', Icons.group_outlined),
+    _StepMeta(4, 'Sibling', Icons.group_outlined),
     _StepMeta(5, 'Live With', Icons.home_outlined),
     _StepMeta(6, 'Emergency', Icons.warning_amber_rounded),
   ];
 
   static const _genders = ['male', 'female', 'other'];
   static const _yearLevels = [
-    'K1', 'K2', 'K3',
-    'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6',
+    'K1',
+    'K2',
+    'K3',
+    'Grade 1',
+    'Grade 2',
+    'Grade 3',
+    'Grade 4',
+    'Grade 5',
+    'Grade 6',
   ];
   static const _educationLevels = [
-    'Primary', 'Secondary', 'High School', 'Bachelor', 'Master', 'PhD', 'Other',
+    'Primary',
+    'Secondary',
+    'High School',
+    'Bachelor',
+    'Master',
+    'PhD',
+    'Other',
   ];
 
-  final StudentRegistrationService _studentService = StudentRegistrationService();
+  final StudentRegistrationService _studentService =
+      StudentRegistrationService();
   final StudentSubmission _s = StudentSubmission();
   final PageController _pageController = PageController();
   final Map<String, String> _errors = {};
@@ -112,23 +124,28 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         if (_s.province.trim().isEmpty) _err('Province', 'Required');
         break;
       case 3:
-        if (_s.kindergarten.academicYear.trim().isEmpty) _err('Academic_Year1', 'Required');
-        if (_s.kindergarten.yearLevel.trim().isEmpty) _err('Year_Level1', 'Required');
+        if (_s.kindergarten.academicYear.trim().isEmpty)
+          _err('Academic_Year1', 'Required');
+        if (_s.kindergarten.yearLevel.trim().isEmpty)
+          _err('Year_Level1', 'Required');
         if (_s.kindergarten.school.trim().isEmpty) _err('School1', 'Required');
-        if (_s.primary.academicYear.trim().isEmpty) _err('Academic_Year2', 'Required');
-        if (_s.primary.yearLevel.trim().isEmpty) _err('Year_Level2', 'Required');
+        if (_s.primary.academicYear.trim().isEmpty)
+          _err('Academic_Year2', 'Required');
+        if (_s.primary.yearLevel.trim().isEmpty)
+          _err('Year_Level2', 'Required');
         if (_s.primary.school.trim().isEmpty) _err('School2', 'Required');
         break;
       case 4:
         if (_s.siblings.isEmpty) {
-          _err('Bos_Required', 'Add at least one Bos before continuing');
+          _err('Bos_Required', 'Add at least one sibling before continuing');
         } else {
           for (var i = 0; i < _s.siblings.length; i++) {
             final sib = _s.siblings[i];
             if (sib.fullname.trim().isEmpty) _err('S${i}_Fullname', 'Required');
             if (sib.nickname.trim().isEmpty) _err('S${i}_Nickname', 'Required');
             if (sib.dob.trim().isEmpty) _err('S${i}_DateofBirth', 'Required');
-            if (sib.currentSchool.trim().isEmpty) _err('S${i}_School', 'Required');
+            if (sib.currentSchool.trim().isEmpty)
+              _err('S${i}_School', 'Required');
             if (sib.phone1.trim().isEmpty) _err('S${i}_Phone1', 'Required');
             if (sib.phone2.trim().isEmpty) _err('S${i}_Phone2', 'Required');
             if (sib.village.trim().isEmpty) _err('S${i}_Village', 'Required');
@@ -137,32 +154,47 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         break;
       case 5:
         if (_s.livingWith.isEmpty) {
-          _err('LiveWith_Required', 'Add at least one person before continuing');
+          _err(
+            'LiveWith_Required',
+            'Add at least one person before continuing',
+          );
         }
         for (var i = 0; i < _s.livingWith.length; i++) {
           final l = _s.livingWith[i];
-          if (l.firstNameLao.trim().isEmpty) _err('L${i}_Firstname_Lao', 'Required');
-          if (l.firstNameEng.trim().isEmpty) _err('L${i}_Firstname_Eng', 'Required');
-          if (l.middleNameLao.trim().isEmpty) _err('L${i}_Midlename_Lao', 'Required');
-          if (l.middleNameEng.trim().isEmpty) _err('L${i}_Midlename_Eng', 'Required');
-          if (l.lastNameLao.trim().isEmpty) _err('L${i}_Lastname_Lao', 'Required');
-          if (l.lastNameEng.trim().isEmpty) _err('L${i}_Lastname_Eng', 'Required');
+          if (l.firstNameLao.trim().isEmpty)
+            _err('L${i}_Firstname_Lao', 'Required');
+          if (l.firstNameEng.trim().isEmpty)
+            _err('L${i}_Firstname_Eng', 'Required');
+          if (l.middleNameLao.trim().isEmpty)
+            _err('L${i}_Midlename_Lao', 'Required');
+          if (l.middleNameEng.trim().isEmpty)
+            _err('L${i}_Midlename_Eng', 'Required');
+          if (l.lastNameLao.trim().isEmpty)
+            _err('L${i}_Lastname_Lao', 'Required');
+          if (l.lastNameEng.trim().isEmpty)
+            _err('L${i}_Lastname_Eng', 'Required');
           if (l.nickname.trim().isEmpty) _err('L${i}_Nickname', 'Required');
-          if (l.educationLevel.trim().isEmpty) _err('L${i}_Educatio_Level', 'Required');
+          if (l.educationLevel.trim().isEmpty)
+            _err('L${i}_Educatio_Level', 'Required');
           if (l.occupation.trim().isEmpty) _err('L${i}_Job', 'Required');
           if (l.workplace.trim().isEmpty) _err('L${i}_Workplace', 'Required');
           if (l.email.trim().isEmpty) {
             _err('L${i}_Email', 'Required');
-          } else if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(l.email.trim())) {
+          } else if (!RegExp(
+            r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+          ).hasMatch(l.email.trim())) {
             _err('L${i}_Email', 'Enter a valid email');
           }
           if (l.phone1.trim().isEmpty) _err('L${i}_Phone1', 'Required');
           if (l.phone2.trim().isEmpty) _err('L${i}_Phone2', 'Required');
           if (l.dob.trim().isEmpty) _err('L${i}_DateofBirth', 'Required');
           if (l.idCardNo.trim().isEmpty) _err('L${i}_IDCard_no', 'Required');
-          if (l.passportNo.trim().isEmpty) _err('L${i}_Passport_no', 'Required');
-          if (l.familyBookNo.trim().isEmpty) _err('L${i}_FamillyBook_no', 'Required');
-          if (l.nationality.trim().isEmpty) _err('L${i}_Nationality', 'Required');
+          if (l.passportNo.trim().isEmpty)
+            _err('L${i}_Passport_no', 'Required');
+          if (l.familyBookNo.trim().isEmpty)
+            _err('L${i}_FamillyBook_no', 'Required');
+          if (l.nationality.trim().isEmpty)
+            _err('L${i}_Nationality', 'Required');
           if (l.ethnicity.trim().isEmpty) _err('L${i}_Ethnicty', 'Required');
           if (l.religion.trim().isEmpty) _err('L${i}_Religion', 'Required');
           if (l.homeNo.trim().isEmpty) _err('L${i}_Home_no', 'Required');
@@ -173,15 +205,26 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         }
         break;
       case 6:
-        final e = _s.emergency;
-        if (e.fullname.trim().isEmpty) _err('E_Fullname', 'Required');
-        if (e.occupation.trim().isEmpty) _err('E_Job', 'Required');
-        if (e.workplace.trim().isEmpty) _err('E_Working_place', 'Required');
-        if (e.phone1.trim().isEmpty) _err('E_Phone1', 'Required');
-        if (e.phone2.trim().isEmpty) _err('E_Phone2', 'Required');
-        if (e.hospital.trim().isEmpty) _err('E_Hospital', 'Required');
-        if (e.docName.trim().isEmpty) _err('E_Doc_name', 'Required');
-        if (e.docContact.trim().isEmpty) _err('E_Doc_contract', 'Required');
+        if (_s.emergencyContacts.isEmpty) {
+          _err(
+            'Emergency_Required',
+            'Add at least one emergency contact before continuing',
+          );
+        } else {
+          for (var i = 0; i < _s.emergencyContacts.length; i++) {
+            final e = _s.emergencyContacts[i];
+            if (e.fullname.trim().isEmpty) _err('E${i}_Fullname', 'Required');
+            if (e.occupation.trim().isEmpty) _err('E${i}_Job', 'Required');
+            if (e.workplace.trim().isEmpty)
+              _err('E${i}_Working_place', 'Required');
+            if (e.phone1.trim().isEmpty) _err('E${i}_Phone1', 'Required');
+            if (e.phone2.trim().isEmpty) _err('E${i}_Phone2', 'Required');
+            if (e.hospital.trim().isEmpty) _err('E${i}_Hospital', 'Required');
+            if (e.docName.trim().isEmpty) _err('E${i}_Doc_name', 'Required');
+            if (e.docContact.trim().isEmpty)
+              _err('E${i}_Doc_contract', 'Required');
+          }
+        }
         break;
     }
     setState(() {});
@@ -212,20 +255,26 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     if (!_validate() || _submitting) return;
     setState(() => _submitting = true);
     GlobalAlert.showLoading(
-        message: widget.addOnly ? 'Adding student...' : 'Submitting application...');
+      message: widget.addOnly
+          ? 'Adding student...'
+          : 'Submitting application...',
+    );
     try {
       String parentId;
       if (widget.addOnly) {
         parentId = widget.parentId!;
       } else {
-        final parentResult = await widget.parentService!.register(widget.parentData);
+        final parentResult = await widget.parentService!.register(
+          widget.parentData,
+        );
         final parentMap = parentResult.data;
-        final id = (parentMap['id'] ??
-                parentMap['_id'] ??
-                (parentMap['data'] is Map
-                    ? (parentMap['data']['id'] ?? parentMap['data']['_id'])
-                    : null))
-            ?.toString();
+        final id =
+            (parentMap['id'] ??
+                    parentMap['_id'] ??
+                    (parentMap['data'] is Map
+                        ? (parentMap['data']['id'] ?? parentMap['data']['_id'])
+                        : null))
+                ?.toString();
         if (id == null || id.isEmpty) {
           throw ApiException('Could not resolve parent ID from response.');
         }
@@ -273,7 +322,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: _blueSofter,
       body: SafeArea(
         child: Column(
           children: [
@@ -289,7 +338,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                 },
                 itemBuilder: (_, i) => SingleChildScrollView(
                   key: PageStorageKey('s_step_${i + 1}'),
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
                   child: _buildStep(i + 1),
                 ),
               ),
@@ -307,36 +356,37 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 20, 14),
+      padding: const EdgeInsets.fromLTRB(12, 12, 20, 18),
       child: Row(
         children: [
           IconButton(
             onPressed: _submitting ? null : () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: _navy),
-          ),
-          const SizedBox(width: 4),
-          Container(
-            height: 48,
-            width: 48,
-            decoration: BoxDecoration(
-              color: _blue,
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: [
-                BoxShadow(color: _blue.withValues(alpha: .22), blurRadius: 12, offset: const Offset(0, 4)),
-              ],
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              size: 18,
+              color: _navy,
             ),
-            child: const Icon(Icons.school_rounded, color: Colors.white, size: 24),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Student Information',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _navy, height: 1.1)),
-                SizedBox(height: 2),
-                Text("Tell us about your child",
-                    style: TextStyle(fontSize: 12, color: _muted)),
+                Text(
+                  'Student Information',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: _navy,
+                    height: 1.08,
+                    letterSpacing: -.5,
+                  ),
+                ),
+                SizedBox(height: 5),
+                Text(
+                  'Tell us about your child. Fields marked * are required.',
+                  style: TextStyle(fontSize: 13, color: _muted, height: 1.35),
+                ),
               ],
             ),
           ),
@@ -347,7 +397,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
 
   Widget _buildStepper() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: _slate100)),
@@ -363,16 +413,25 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                     child: Container(
                       height: 3,
                       margin: const EdgeInsets.symmetric(horizontal: 4),
-                      decoration: BoxDecoration(color: _slate100, borderRadius: BorderRadius.circular(2)),
+                      decoration: BoxDecoration(
+                        color: _slate100,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                       child: TweenAnimationBuilder<double>(
                         duration: const Duration(milliseconds: 420),
                         curve: Curves.easeOutCubic,
-                        tween: Tween<double>(begin: 0, end: _step > _steps[i].id ? 1.0 : 0.0),
+                        tween: Tween<double>(
+                          begin: 0,
+                          end: _step > _steps[i].id ? 1.0 : 0.0,
+                        ),
                         builder: (_, v, __) => FractionallySizedBox(
                           alignment: Alignment.centerLeft,
                           widthFactor: v,
                           child: Container(
-                            decoration: BoxDecoration(color: _blue, borderRadius: BorderRadius.circular(2)),
+                            decoration: BoxDecoration(
+                              color: _blue,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
                           ),
                         ),
                       ),
@@ -381,22 +440,41 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
               ],
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('STEP $_step OF 6',
-                      style: const TextStyle(fontSize: 11, color: _blue, fontWeight: FontWeight.w700, letterSpacing: 1)),
+                  Text(
+                    'STEP $_step OF 6',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: _blue,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .8,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text(_steps[_step - 1].title,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _navy)),
+                  Text(
+                    _steps[_step - 1].title,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: _navy,
+                    ),
+                  ),
                 ],
               ),
-              Text('${((_step / 6) * 100).round()}%',
-                  style: const TextStyle(fontSize: 11, color: _slate400, fontWeight: FontWeight.w600)),
+              Text(
+                '${((_step / 6) * 100).round()}%',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: _slate400,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ],
           ),
         ],
@@ -411,20 +489,26 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 320),
       curve: Curves.easeOutCubic,
-      height: active ? 40 : 36,
-      width: active ? 40 : 36,
+      height: active ? 44 : 40,
+      width: active ? 44 : 40,
       decoration: BoxDecoration(
         color: filled ? _blue : _slate100,
         shape: BoxShape.circle,
         boxShadow: active
-            ? [BoxShadow(color: _blue.withValues(alpha: .25), blurRadius: 14, offset: const Offset(0, 4))]
+            ? [
+                BoxShadow(
+                  color: _blue.withValues(alpha: .25),
+                  blurRadius: 14,
+                  offset: const Offset(0, 4),
+                ),
+              ]
             : null,
         border: active ? Border.all(color: _blueSoft, width: 3) : null,
       ),
       child: Icon(
         completed ? Icons.check_rounded : s.icon,
         color: filled ? Colors.white : _slate400,
-        size: 16,
+        size: 18,
       ),
     );
   }
@@ -454,8 +538,13 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: _navy,
                     side: const BorderSide(color: _slate200, width: 1.5),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
@@ -466,14 +555,21 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
               child: SizedBox(
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: _submitting ? null : (_step < 6 ? _onNext : _onSubmit),
+                  onPressed: _submitting
+                      ? null
+                      : (_step < 6 ? _onNext : _onSubmit),
                   style: ElevatedButton.styleFrom(
                     elevation: 2,
                     backgroundColor: _blue,
                     shadowColor: _blue.withValues(alpha: .3),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   child: _step < 6
                       ? const Row(
@@ -517,56 +613,182 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
   }
 
   Widget _stepStudent() {
-    return _section(1, 'Student Information', children: [
-      _input('First Name (Lao)', 'Firstname_Lao', _s.firstNameLao,
-          (v) => _s.firstNameLao = v, required: true, placeholder: 'Enter (Lao)'),
-      _input('First Name (English)', 'Firstname_Eng', _s.firstNameEng,
-          (v) => _s.firstNameEng = v, required: true, placeholder: 'Enter (English)'),
-      _input('Middle Name (Lao)', 'Midlename_Lao', _s.middleNameLao,
-          (v) => _s.middleNameLao = v, required: true, placeholder: 'Enter (Lao)'),
-      _input('Middle Name (English)', 'Midlename_Eng', _s.middleNameEng,
-          (v) => _s.middleNameEng = v, required: true, placeholder: 'Enter (English)'),
-      _input('Last Name (Lao)', 'Lastname_Lao', _s.lastNameLao,
-          (v) => _s.lastNameLao = v, required: true, placeholder: 'Enter (Lao)'),
-      _input('Last Name (English)', 'Lastname_Eng', _s.lastNameEng,
-          (v) => _s.lastNameEng = v, required: true, placeholder: 'Enter (English)'),
-      _input('Nickname', 'Nickname', _s.nickname, (v) => _s.nickname = v,
-          required: true, placeholder: 'Enter nickname'),
-      _dateInput('Date of Birth', 'DateofBirth', _s.dob,
-          (v) => _s.dob = v, required: true),
-      _select('Gender', 'Gender', _s.gender, _genders,
-          (v) => _s.gender = v, required: true, placeholder: 'Select gender'),
-      _input('Nationality', 'Nationality', _s.nationality,
-          (v) => _s.nationality = v, required: true, placeholder: 'Enter nationality'),
-      _input('Ethnicity', 'Ethnicity', _s.ethnicity,
-          (v) => _s.ethnicity = v, required: true, placeholder: 'Enter ethnicity'),
-      _input('Religion', 'Religion', _s.religion, (v) => _s.religion = v,
-          required: true, placeholder: 'Enter religion'),
-      _input('Passport No.', 'Passport_no', _s.passportNo,
-          (v) => _s.passportNo = v, required: true, placeholder: 'Enter passport number'),
-    ]);
+    return _section(
+      1,
+      'Student Information',
+      children: [
+        _input(
+          'First Name (Lao)',
+          'Firstname_Lao',
+          _s.firstNameLao,
+          (v) => _s.firstNameLao = v,
+          required: true,
+          placeholder: 'Enter (Lao)',
+        ),
+        _input(
+          'First Name (English)',
+          'Firstname_Eng',
+          _s.firstNameEng,
+          (v) => _s.firstNameEng = v,
+          required: true,
+          placeholder: 'Enter (English)',
+        ),
+        _input(
+          'Middle Name (Lao)',
+          'Midlename_Lao',
+          _s.middleNameLao,
+          (v) => _s.middleNameLao = v,
+          required: true,
+          placeholder: 'Enter (Lao)',
+        ),
+        _input(
+          'Middle Name (English)',
+          'Midlename_Eng',
+          _s.middleNameEng,
+          (v) => _s.middleNameEng = v,
+          required: true,
+          placeholder: 'Enter (English)',
+        ),
+        _input(
+          'Last Name (Lao)',
+          'Lastname_Lao',
+          _s.lastNameLao,
+          (v) => _s.lastNameLao = v,
+          required: true,
+          placeholder: 'Enter (Lao)',
+        ),
+        _input(
+          'Last Name (English)',
+          'Lastname_Eng',
+          _s.lastNameEng,
+          (v) => _s.lastNameEng = v,
+          required: true,
+          placeholder: 'Enter (English)',
+        ),
+        _input(
+          'Nickname',
+          'Nickname',
+          _s.nickname,
+          (v) => _s.nickname = v,
+          required: true,
+          placeholder: 'Enter nickname',
+        ),
+        _dateInput(
+          'Date of Birth',
+          'DateofBirth',
+          _s.dob,
+          (v) => _s.dob = v,
+          required: true,
+        ),
+        _select(
+          'Gender',
+          'Gender',
+          _s.gender,
+          _genders,
+          (v) => _s.gender = v,
+          required: true,
+          placeholder: 'Select gender',
+        ),
+        _input(
+          'Nationality',
+          'Nationality',
+          _s.nationality,
+          (v) => _s.nationality = v,
+          required: true,
+          placeholder: 'Enter nationality',
+        ),
+        _input(
+          'Ethnicity',
+          'Ethnicity',
+          _s.ethnicity,
+          (v) => _s.ethnicity = v,
+          required: true,
+          placeholder: 'Enter ethnicity',
+        ),
+        _input(
+          'Religion',
+          'Religion',
+          _s.religion,
+          (v) => _s.religion = v,
+          required: true,
+          placeholder: 'Enter religion',
+        ),
+        _input(
+          'Passport No.',
+          'Passport_no',
+          _s.passportNo,
+          (v) => _s.passportNo = v,
+          required: true,
+          placeholder: 'Enter passport number',
+        ),
+      ],
+    );
   }
 
   Widget _stepAddress() {
     return Column(
       children: [
-        _section(1, 'Place of Birth', children: [
-          _input('Village of Birth', 'Village_Birth', _s.villageBirth,
-              (v) => _s.villageBirth = v, required: true, placeholder: 'Enter village'),
-          _input('District of Birth', 'District_Birth', _s.districtBirth,
-              (v) => _s.districtBirth = v, required: true, placeholder: 'Enter district'),
-          _input('Province of Birth', 'Province_Birth', _s.provinceBirth,
-              (v) => _s.provinceBirth = v, required: true, placeholder: 'Enter province'),
-        ]),
+        _section(
+          1,
+          'Place of Birth',
+          children: [
+            _input(
+              'Village of Birth',
+              'Village_Birth',
+              _s.villageBirth,
+              (v) => _s.villageBirth = v,
+              required: true,
+              placeholder: 'Enter village',
+            ),
+            _input(
+              'District of Birth',
+              'District_Birth',
+              _s.districtBirth,
+              (v) => _s.districtBirth = v,
+              required: true,
+              placeholder: 'Enter district',
+            ),
+            _input(
+              'Province of Birth',
+              'Province_Birth',
+              _s.provinceBirth,
+              (v) => _s.provinceBirth = v,
+              required: true,
+              placeholder: 'Enter province',
+            ),
+          ],
+        ),
         const SizedBox(height: 14),
-        _section(2, 'Current Address', children: [
-          _input('Village', 'Village', _s.village, (v) => _s.village = v,
-              required: true, placeholder: 'Enter village'),
-          _input('District', 'District', _s.district, (v) => _s.district = v,
-              required: true, placeholder: 'Enter district'),
-          _input('Province', 'Province', _s.province, (v) => _s.province = v,
-              required: true, placeholder: 'Enter province'),
-        ]),
+        _section(
+          2,
+          'Current Address',
+          children: [
+            _input(
+              'Village',
+              'Village',
+              _s.village,
+              (v) => _s.village = v,
+              required: true,
+              placeholder: 'Enter village',
+            ),
+            _input(
+              'District',
+              'District',
+              _s.district,
+              (v) => _s.district = v,
+              required: true,
+              placeholder: 'Enter district',
+            ),
+            _input(
+              'Province',
+              'Province',
+              _s.province,
+              (v) => _s.province = v,
+              required: true,
+              placeholder: 'Enter province',
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -574,23 +796,69 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
   Widget _stepEducation() {
     return Column(
       children: [
-        _section(1, 'Education History — Kindergarten', children: [
-          _input('Academic Year', 'Academic_Year1', _s.kindergarten.academicYear,
-              (v) => _s.kindergarten.academicYear = v, required: true, placeholder: 'e.g. 2019-2020'),
-          _select('Year / Level', 'Year_Level1', _s.kindergarten.yearLevel, _yearLevels,
-              (v) => _s.kindergarten.yearLevel = v, required: true, placeholder: 'Select level'),
-          _input('School', 'School1', _s.kindergarten.school,
-              (v) => _s.kindergarten.school = v, required: true, placeholder: 'Enter school name'),
-        ]),
+        _section(
+          1,
+          'Education History — Kindergarten',
+          children: [
+            _input(
+              'Academic Year',
+              'Academic_Year1',
+              _s.kindergarten.academicYear,
+              (v) => _s.kindergarten.academicYear = v,
+              required: true,
+              placeholder: 'e.g. 2019-2020',
+            ),
+            _select(
+              'Year / Level',
+              'Year_Level1',
+              _s.kindergarten.yearLevel,
+              _yearLevels,
+              (v) => _s.kindergarten.yearLevel = v,
+              required: true,
+              placeholder: 'Select level',
+            ),
+            _input(
+              'School',
+              'School1',
+              _s.kindergarten.school,
+              (v) => _s.kindergarten.school = v,
+              required: true,
+              placeholder: 'Enter school name',
+            ),
+          ],
+        ),
         const SizedBox(height: 14),
-        _section(2, 'Education History — Primary School', children: [
-          _input('Academic Year', 'Academic_Year2', _s.primary.academicYear,
-              (v) => _s.primary.academicYear = v, required: true, placeholder: 'e.g. 2022-2023'),
-          _select('Year / Level', 'Year_Level2', _s.primary.yearLevel, _yearLevels,
-              (v) => _s.primary.yearLevel = v, required: true, placeholder: 'Select level'),
-          _input('School', 'School2', _s.primary.school,
-              (v) => _s.primary.school = v, required: true, placeholder: 'Enter school name'),
-        ]),
+        _section(
+          2,
+          'Education History — Primary School',
+          children: [
+            _input(
+              'Academic Year',
+              'Academic_Year2',
+              _s.primary.academicYear,
+              (v) => _s.primary.academicYear = v,
+              required: true,
+              placeholder: 'e.g. 2022-2023',
+            ),
+            _select(
+              'Year / Level',
+              'Year_Level2',
+              _s.primary.yearLevel,
+              _yearLevels,
+              (v) => _s.primary.yearLevel = v,
+              required: true,
+              placeholder: 'Select level',
+            ),
+            _input(
+              'School',
+              'School2',
+              _s.primary.school,
+              (v) => _s.primary.school = v,
+              required: true,
+              placeholder: 'Enter school name',
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -604,7 +872,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           const SizedBox(height: 14),
         ],
         _addCardButton(
-          label: _s.siblings.isEmpty ? 'Add a Bos' : 'Add another Bos',
+          label: _s.siblings.isEmpty ? 'Add a sibling' : 'Add another sibling',
           onTap: () {
             setState(() {
               _s.siblings.add(SiblingEntry());
@@ -616,8 +884,11 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           const SizedBox(height: 14),
           _emptyHint(
             icon: Icons.group_outlined,
-            title: missing ? 'At least one Bos is required' : 'No Bos added yet',
-            body: 'Add brothers or sisters who are direct relatives of the student.',
+            title: missing
+                ? 'At least one sibling is required'
+                : 'No siblings added yet',
+            body:
+                'Add brothers or sisters who are direct relatives of the student.',
             error: missing,
           ),
         ],
@@ -630,9 +901,9 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: _blueSofter,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _slate100),
+        border: Border.all(color: _slate200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -640,48 +911,110 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           Row(
             children: [
               Container(
-                height: 26, width: 26,
-                decoration: const BoxDecoration(color: _blue, shape: BoxShape.circle),
+                height: 26,
+                width: 26,
+                decoration: const BoxDecoration(
+                  color: _blue,
+                  shape: BoxShape.circle,
+                ),
                 alignment: Alignment.center,
-                child: Text('${i + 1}',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),
+                child: Text(
+                  '${i + 1}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                ),
               ),
               const SizedBox(width: 10),
               const Expanded(
-                child: Text('BOS',
-                    style: TextStyle(fontSize: 12, color: _blue, fontWeight: FontWeight.w800, letterSpacing: 1)),
+                child: Text(
+                  'SIBLING',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _blue,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1,
+                  ),
+                ),
               ),
               IconButton(
                 tooltip: 'Remove',
                 onPressed: () => setState(() => _s.siblings.removeAt(i)),
-                icon: const Icon(Icons.delete_outline_rounded, color: _rose500, size: 20),
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: _rose500,
+                  size: 20,
+                ),
                 visualDensity: VisualDensity.compact,
               ),
             ],
           ),
           const Divider(color: _slate100, height: 20),
-          _input('Full Name', 'S${i}_Fullname', sib.fullname,
-              (v) => sib.fullname = v, required: true, placeholder: 'Enter full name'),
+          _input(
+            'Full Name',
+            'S${i}_Fullname',
+            sib.fullname,
+            (v) => sib.fullname = v,
+            required: true,
+            placeholder: 'Enter full name',
+          ),
           const SizedBox(height: 12),
-          _input('Nickname', 'S${i}_Nickname', sib.nickname,
-              (v) => sib.nickname = v, required: true, placeholder: 'Enter nickname'),
+          _input(
+            'Nickname',
+            'S${i}_Nickname',
+            sib.nickname,
+            (v) => sib.nickname = v,
+            required: true,
+            placeholder: 'Enter nickname',
+          ),
           const SizedBox(height: 12),
-          _dateInput('Date of Birth', 'S${i}_DateofBirth', sib.dob,
-              (v) => sib.dob = v, required: true),
+          _dateInput(
+            'Date of Birth',
+            'S${i}_DateofBirth',
+            sib.dob,
+            (v) => sib.dob = v,
+            required: true,
+          ),
           const SizedBox(height: 12),
-          _input('Current School Name', 'S${i}_School', sib.currentSchool,
-              (v) => sib.currentSchool = v, required: true, placeholder: 'Enter current school'),
+          _input(
+            'Current School Name',
+            'S${i}_School',
+            sib.currentSchool,
+            (v) => sib.currentSchool = v,
+            required: true,
+            placeholder: 'Enter current school',
+          ),
           const SizedBox(height: 12),
-          _input('Phone No. 1', 'S${i}_Phone1', sib.phone1,
-              (v) => sib.phone1 = v, required: true, placeholder: 'Enter phone 1',
-              keyboard: TextInputType.phone),
+          _input(
+            'Phone No. 1',
+            'S${i}_Phone1',
+            sib.phone1,
+            (v) => sib.phone1 = v,
+            required: true,
+            placeholder: 'Enter phone 1',
+            keyboard: TextInputType.phone,
+          ),
           const SizedBox(height: 12),
-          _input('Phone No. 2', 'S${i}_Phone2', sib.phone2,
-              (v) => sib.phone2 = v, required: true, placeholder: 'Enter phone 2',
-              keyboard: TextInputType.phone),
+          _input(
+            'Phone No. 2',
+            'S${i}_Phone2',
+            sib.phone2,
+            (v) => sib.phone2 = v,
+            required: true,
+            placeholder: 'Enter phone 2',
+            keyboard: TextInputType.phone,
+          ),
           const SizedBox(height: 12),
-          _input('Village', 'S${i}_Village', sib.village,
-              (v) => sib.village = v, required: true, placeholder: 'Enter village'),
+          _input(
+            'Village',
+            'S${i}_Village',
+            sib.village,
+            (v) => sib.village = v,
+            required: true,
+            placeholder: 'Enter village',
+          ),
         ],
       ),
     );
@@ -711,7 +1044,9 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           const SizedBox(height: 14),
           _emptyHint(
             icon: Icons.home_outlined,
-            title: missing ? 'At least one person is required' : 'No one added yet',
+            title: missing
+                ? 'At least one person is required'
+                : 'No one added yet',
             body: 'Add at least one person who lives with the student.',
             error: missing,
           ),
@@ -723,15 +1058,15 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
   Widget _livingCard(int i) {
     final p = _s.livingWith[i];
     final expanded = _livingExpanded.contains(i);
-    final summary = [p.firstNameEng, p.lastNameEng]
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .join(' ');
+    final summary = [
+      p.firstNameEng,
+      p.lastNameEng,
+    ].map((e) => e.trim()).where((e) => e.isNotEmpty).join(' ');
     return Container(
       decoration: BoxDecoration(
-        color: _blueSofter,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _slate100),
+        border: Border.all(color: _slate200),
       ),
       child: Column(
         children: [
@@ -751,26 +1086,45 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
               child: Row(
                 children: [
                   Container(
-                    height: 26, width: 26,
-                    decoration: const BoxDecoration(color: _blue, shape: BoxShape.circle),
+                    height: 26,
+                    width: 26,
+                    decoration: const BoxDecoration(
+                      color: _blue,
+                      shape: BoxShape.circle,
+                    ),
                     alignment: Alignment.center,
-                    child: Text('${i + 1}',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),
+                    child: Text(
+                      '${i + 1}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('PERSON LIVING WITH STUDENT',
-                            style: TextStyle(fontSize: 11, color: _blue, fontWeight: FontWeight.w800, letterSpacing: 1)),
+                        const Text(
+                          'PERSON LIVING WITH STUDENT',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: _blue,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1,
+                          ),
+                        ),
                         const SizedBox(height: 2),
-                        Text(summary.isEmpty ? 'Tap to expand' : summary,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: summary.isEmpty ? _muted : _navy,
-                              fontWeight: FontWeight.w600,
-                            )),
+                        Text(
+                          summary.isEmpty ? 'Tap to expand' : summary,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: summary.isEmpty ? _muted : _navy,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -780,11 +1134,17 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                       _s.livingWith.removeAt(i);
                       _livingExpanded.remove(i);
                     }),
-                    icon: const Icon(Icons.delete_outline_rounded, color: _rose500, size: 20),
+                    icon: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: _rose500,
+                      size: 20,
+                    ),
                     visualDensity: VisualDensity.compact,
                   ),
                   Icon(
-                    expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                    expanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
                     color: _muted,
                   ),
                 ],
@@ -797,83 +1157,233 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  _input('First Name (Lao)', 'L${i}_Firstname_Lao', p.firstNameLao,
-                      (v) => p.firstNameLao = v, required: true, placeholder: 'Enter (Lao)'),
+                  _input(
+                    'First Name (Lao)',
+                    'L${i}_Firstname_Lao',
+                    p.firstNameLao,
+                    (v) => p.firstNameLao = v,
+                    required: true,
+                    placeholder: 'Enter (Lao)',
+                  ),
                   const SizedBox(height: 12),
-                  _input('First Name (English)', 'L${i}_Firstname_Eng', p.firstNameEng,
-                      (v) => p.firstNameEng = v, required: true, placeholder: 'Enter (English)'),
+                  _input(
+                    'First Name (English)',
+                    'L${i}_Firstname_Eng',
+                    p.firstNameEng,
+                    (v) => p.firstNameEng = v,
+                    required: true,
+                    placeholder: 'Enter (English)',
+                  ),
                   const SizedBox(height: 12),
-                  _input('Middle Name (Lao)', 'L${i}_Midlename_Lao', p.middleNameLao,
-                      (v) => p.middleNameLao = v, required: true, placeholder: 'Enter (Lao)'),
+                  _input(
+                    'Middle Name (Lao)',
+                    'L${i}_Midlename_Lao',
+                    p.middleNameLao,
+                    (v) => p.middleNameLao = v,
+                    required: true,
+                    placeholder: 'Enter (Lao)',
+                  ),
                   const SizedBox(height: 12),
-                  _input('Middle Name (English)', 'L${i}_Midlename_Eng', p.middleNameEng,
-                      (v) => p.middleNameEng = v, required: true, placeholder: 'Enter (English)'),
+                  _input(
+                    'Middle Name (English)',
+                    'L${i}_Midlename_Eng',
+                    p.middleNameEng,
+                    (v) => p.middleNameEng = v,
+                    required: true,
+                    placeholder: 'Enter (English)',
+                  ),
                   const SizedBox(height: 12),
-                  _input('Last Name (Lao)', 'L${i}_Lastname_Lao', p.lastNameLao,
-                      (v) => p.lastNameLao = v, required: true, placeholder: 'Enter (Lao)'),
+                  _input(
+                    'Last Name (Lao)',
+                    'L${i}_Lastname_Lao',
+                    p.lastNameLao,
+                    (v) => p.lastNameLao = v,
+                    required: true,
+                    placeholder: 'Enter (Lao)',
+                  ),
                   const SizedBox(height: 12),
-                  _input('Last Name (English)', 'L${i}_Lastname_Eng', p.lastNameEng,
-                      (v) => p.lastNameEng = v, required: true, placeholder: 'Enter (English)'),
+                  _input(
+                    'Last Name (English)',
+                    'L${i}_Lastname_Eng',
+                    p.lastNameEng,
+                    (v) => p.lastNameEng = v,
+                    required: true,
+                    placeholder: 'Enter (English)',
+                  ),
                   const SizedBox(height: 12),
-                  _input('Nickname', 'L${i}_Nickname', p.nickname,
-                      (v) => p.nickname = v, required: true, placeholder: 'Enter nickname'),
+                  _input(
+                    'Nickname',
+                    'L${i}_Nickname',
+                    p.nickname,
+                    (v) => p.nickname = v,
+                    required: true,
+                    placeholder: 'Enter nickname',
+                  ),
                   const SizedBox(height: 12),
-                  _select('Education Level', 'L${i}_Educatio_Level', p.educationLevel,
-                      _educationLevels, (v) => p.educationLevel = v,
-                      required: true, placeholder: 'Select level'),
+                  _select(
+                    'Education Level',
+                    'L${i}_Educatio_Level',
+                    p.educationLevel,
+                    _educationLevels,
+                    (v) => p.educationLevel = v,
+                    required: true,
+                    placeholder: 'Select level',
+                  ),
                   const SizedBox(height: 12),
-                  _input('Occupation', 'L${i}_Job', p.occupation,
-                      (v) => p.occupation = v, required: true, placeholder: 'Enter occupation'),
+                  _input(
+                    'Occupation',
+                    'L${i}_Job',
+                    p.occupation,
+                    (v) => p.occupation = v,
+                    required: true,
+                    placeholder: 'Enter occupation',
+                  ),
                   const SizedBox(height: 12),
-                  _input('Workplace', 'L${i}_Workplace', p.workplace,
-                      (v) => p.workplace = v, required: true, placeholder: 'Enter workplace'),
+                  _input(
+                    'Workplace',
+                    'L${i}_Workplace',
+                    p.workplace,
+                    (v) => p.workplace = v,
+                    required: true,
+                    placeholder: 'Enter workplace',
+                  ),
                   const SizedBox(height: 12),
-                  _input('Email', 'L${i}_Email', p.email, (v) => p.email = v,
-                      required: true, placeholder: 'Enter email', keyboard: TextInputType.emailAddress),
+                  _input(
+                    'Email',
+                    'L${i}_Email',
+                    p.email,
+                    (v) => p.email = v,
+                    required: true,
+                    placeholder: 'Enter email',
+                    keyboard: TextInputType.emailAddress,
+                  ),
                   const SizedBox(height: 12),
-                  _input('Phone No. 1', 'L${i}_Phone1', p.phone1,
-                      (v) => p.phone1 = v, required: true, placeholder: 'Enter phone 1',
-                      keyboard: TextInputType.phone),
+                  _input(
+                    'Phone No. 1',
+                    'L${i}_Phone1',
+                    p.phone1,
+                    (v) => p.phone1 = v,
+                    required: true,
+                    placeholder: 'Enter phone 1',
+                    keyboard: TextInputType.phone,
+                  ),
                   const SizedBox(height: 12),
-                  _input('Phone No. 2', 'L${i}_Phone2', p.phone2,
-                      (v) => p.phone2 = v, required: true, placeholder: 'Enter phone 2',
-                      keyboard: TextInputType.phone),
+                  _input(
+                    'Phone No. 2',
+                    'L${i}_Phone2',
+                    p.phone2,
+                    (v) => p.phone2 = v,
+                    required: true,
+                    placeholder: 'Enter phone 2',
+                    keyboard: TextInputType.phone,
+                  ),
                   const SizedBox(height: 12),
-                  _dateInput('Date of Birth', 'L${i}_DateofBirth', p.dob,
-                      (v) => p.dob = v, required: true),
+                  _dateInput(
+                    'Date of Birth',
+                    'L${i}_DateofBirth',
+                    p.dob,
+                    (v) => p.dob = v,
+                    required: true,
+                  ),
                   const SizedBox(height: 12),
-                  _input('ID Card No.', 'L${i}_IDCard_no', p.idCardNo,
-                      (v) => p.idCardNo = v, required: true, placeholder: 'Enter ID card no.'),
+                  _input(
+                    'ID Card No.',
+                    'L${i}_IDCard_no',
+                    p.idCardNo,
+                    (v) => p.idCardNo = v,
+                    required: true,
+                    placeholder: 'Enter ID card no.',
+                  ),
                   const SizedBox(height: 12),
-                  _input('Passport No.', 'L${i}_Passport_no', p.passportNo,
-                      (v) => p.passportNo = v, required: true, placeholder: 'Enter passport no.'),
+                  _input(
+                    'Passport No.',
+                    'L${i}_Passport_no',
+                    p.passportNo,
+                    (v) => p.passportNo = v,
+                    required: true,
+                    placeholder: 'Enter passport no.',
+                  ),
                   const SizedBox(height: 12),
-                  _input('Family Book No.', 'L${i}_FamillyBook_no', p.familyBookNo,
-                      (v) => p.familyBookNo = v, required: true, placeholder: 'Enter family book no.'),
+                  _input(
+                    'Family Book No.',
+                    'L${i}_FamillyBook_no',
+                    p.familyBookNo,
+                    (v) => p.familyBookNo = v,
+                    required: true,
+                    placeholder: 'Enter family book no.',
+                  ),
                   const SizedBox(height: 12),
-                  _input('Nationality', 'L${i}_Nationality', p.nationality,
-                      (v) => p.nationality = v, required: true, placeholder: 'Enter nationality'),
+                  _input(
+                    'Nationality',
+                    'L${i}_Nationality',
+                    p.nationality,
+                    (v) => p.nationality = v,
+                    required: true,
+                    placeholder: 'Enter nationality',
+                  ),
                   const SizedBox(height: 12),
-                  _input('Ethnicity', 'L${i}_Ethnicty', p.ethnicity,
-                      (v) => p.ethnicity = v, required: true, placeholder: 'Enter ethnicity'),
+                  _input(
+                    'Ethnicity',
+                    'L${i}_Ethnicty',
+                    p.ethnicity,
+                    (v) => p.ethnicity = v,
+                    required: true,
+                    placeholder: 'Enter ethnicity',
+                  ),
                   const SizedBox(height: 12),
-                  _input('Religion', 'L${i}_Religion', p.religion,
-                      (v) => p.religion = v, required: true, placeholder: 'Enter religion'),
+                  _input(
+                    'Religion',
+                    'L${i}_Religion',
+                    p.religion,
+                    (v) => p.religion = v,
+                    required: true,
+                    placeholder: 'Enter religion',
+                  ),
                   const SizedBox(height: 12),
-                  _input('House No.', 'L${i}_Home_no', p.homeNo,
-                      (v) => p.homeNo = v, required: true, placeholder: 'Enter house no.'),
+                  _input(
+                    'House No.',
+                    'L${i}_Home_no',
+                    p.homeNo,
+                    (v) => p.homeNo = v,
+                    required: true,
+                    placeholder: 'Enter house no.',
+                  ),
                   const SizedBox(height: 12),
-                  _input('House Unit', 'L${i}_Home_unit', p.homeUnit,
-                      (v) => p.homeUnit = v, required: true, placeholder: 'Enter unit / room'),
+                  _input(
+                    'House Unit',
+                    'L${i}_Home_unit',
+                    p.homeUnit,
+                    (v) => p.homeUnit = v,
+                    required: true,
+                    placeholder: 'Enter unit / room',
+                  ),
                   const SizedBox(height: 12),
-                  _input('Village', 'L${i}_Village', p.village,
-                      (v) => p.village = v, required: true, placeholder: 'Enter village'),
+                  _input(
+                    'Village',
+                    'L${i}_Village',
+                    p.village,
+                    (v) => p.village = v,
+                    required: true,
+                    placeholder: 'Enter village',
+                  ),
                   const SizedBox(height: 12),
-                  _input('District', 'L${i}_District', p.district,
-                      (v) => p.district = v, required: true, placeholder: 'Enter district'),
+                  _input(
+                    'District',
+                    'L${i}_District',
+                    p.district,
+                    (v) => p.district = v,
+                    required: true,
+                    placeholder: 'Enter district',
+                  ),
                   const SizedBox(height: 12),
-                  _input('Province', 'L${i}_Province', p.province,
-                      (v) => p.province = v, required: true, placeholder: 'Enter province'),
+                  _input(
+                    'Province',
+                    'L${i}_Province',
+                    p.province,
+                    (v) => p.province = v,
+                    required: true,
+                    placeholder: 'Enter province',
+                  ),
                 ],
               ),
             ),
@@ -884,26 +1394,174 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
   }
 
   Widget _stepEmergency() {
-    final e = _s.emergency;
-    return _section(1, 'Emergency Contact', children: [
-      _input('Full Name', 'E_Fullname', e.fullname, (v) => e.fullname = v,
-          required: true, placeholder: 'Enter full name'),
-      _input('Occupation', 'E_Job', e.occupation, (v) => e.occupation = v,
-          required: true, placeholder: 'Enter occupation'),
-      _input('Workplace', 'E_Working_place', e.workplace,
-          (v) => e.workplace = v, required: true, placeholder: 'Enter workplace'),
-      _input('Phone No. 1', 'E_Phone1', e.phone1, (v) => e.phone1 = v,
-          required: true, placeholder: 'Enter phone 1', keyboard: TextInputType.phone),
-      _input('Phone No. 2', 'E_Phone2', e.phone2, (v) => e.phone2 = v,
-          required: true, placeholder: 'Enter phone 2', keyboard: TextInputType.phone),
-      _input('Hospital', 'E_Hospital', e.hospital,
-          (v) => e.hospital = v, required: true, placeholder: 'Enter hospital name'),
-      _input('Doctor Name', 'E_Doc_name', e.docName,
-          (v) => e.docName = v, required: true, placeholder: 'Enter doctor name'),
-      _input('Doctor Contact', 'E_Doc_contract', e.docContact,
-          (v) => e.docContact = v, required: true, placeholder: 'Enter doctor contact',
-          keyboard: TextInputType.phone),
-    ]);
+    final missing = _errors.containsKey('Emergency_Required');
+    return Column(
+      children: [
+        for (var i = 0; i < _s.emergencyContacts.length; i++) ...[
+          _emergencyCard(i),
+          const SizedBox(height: 14),
+        ],
+        _addCardButton(
+          label: _s.emergencyContacts.isEmpty
+              ? 'Add an emergency contact'
+              : 'Add another emergency contact',
+          onTap: () {
+            setState(() {
+              _s.emergencyContacts.add(EmergencyContactEntry());
+              _errors.remove('Emergency_Required');
+            });
+          },
+        ),
+        if (_s.emergencyContacts.isEmpty) ...[
+          const SizedBox(height: 14),
+          _emptyHint(
+            icon: Icons.warning_amber_rounded,
+            title: missing
+                ? 'At least one emergency contact is required'
+                : 'No emergency contact added yet',
+            body:
+                'Add one or more emergency contacts the school can reach if needed.',
+            error: missing,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _emergencyCard(int i) {
+    final e = _s.emergencyContacts[i];
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _slate200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                height: 26,
+                width: 26,
+                decoration: const BoxDecoration(
+                  color: _blue,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '${i + 1}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'EMERGENCY CONTACT',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _blue,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Remove',
+                onPressed: () =>
+                    setState(() => _s.emergencyContacts.removeAt(i)),
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: _rose500,
+                  size: 20,
+                ),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+          const Divider(color: _slate100, height: 20),
+          _input(
+            'Full Name',
+            'E${i}_Fullname',
+            e.fullname,
+            (v) => e.fullname = v,
+            required: true,
+            placeholder: 'Enter full name',
+          ),
+          const SizedBox(height: 12),
+          _input(
+            'Occupation',
+            'E${i}_Job',
+            e.occupation,
+            (v) => e.occupation = v,
+            required: true,
+            placeholder: 'Enter occupation',
+          ),
+          const SizedBox(height: 12),
+          _input(
+            'Workplace',
+            'E${i}_Working_place',
+            e.workplace,
+            (v) => e.workplace = v,
+            required: true,
+            placeholder: 'Enter workplace',
+          ),
+          const SizedBox(height: 12),
+          _input(
+            'Phone No. 1',
+            'E${i}_Phone1',
+            e.phone1,
+            (v) => e.phone1 = v,
+            required: true,
+            placeholder: 'Enter phone 1',
+            keyboard: TextInputType.phone,
+          ),
+          const SizedBox(height: 12),
+          _input(
+            'Phone No. 2',
+            'E${i}_Phone2',
+            e.phone2,
+            (v) => e.phone2 = v,
+            required: true,
+            placeholder: 'Enter phone 2',
+            keyboard: TextInputType.phone,
+          ),
+          const SizedBox(height: 12),
+          _input(
+            'Hospital',
+            'E${i}_Hospital',
+            e.hospital,
+            (v) => e.hospital = v,
+            required: true,
+            placeholder: 'Enter hospital name',
+          ),
+          const SizedBox(height: 12),
+          _input(
+            'Doctor Name',
+            'E${i}_Doc_name',
+            e.docName,
+            (v) => e.docName = v,
+            required: true,
+            placeholder: 'Enter doctor name',
+          ),
+          const SizedBox(height: 12),
+          _input(
+            'Doctor Contact',
+            'E${i}_Doc_contract',
+            e.docContact,
+            (v) => e.docContact = v,
+            required: true,
+            placeholder: 'Enter doctor contact',
+            keyboard: TextInputType.phone,
+          ),
+        ],
+      ),
+    );
   }
 
   // ──────────────────────────────────────────────────────────────────
@@ -914,36 +1572,53 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: _blueSofter,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _slate100),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _slate200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.only(bottom: 18),
             child: Row(
               children: [
                 Container(
-                  height: 28, width: 28,
-                  decoration: const BoxDecoration(color: _blue, shape: BoxShape.circle),
+                  height: 28,
+                  width: 28,
+                  decoration: const BoxDecoration(
+                    color: _blue,
+                    shape: BoxShape.circle,
+                  ),
                   alignment: Alignment.center,
-                  child: Text('$num',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),
+                  child: Text(
+                    '$num',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(label.toUpperCase(),
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _blue, letterSpacing: 1)),
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 21,
+                      fontWeight: FontWeight.w800,
+                      color: _navy,
+                      height: 1.1,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
           const Divider(height: 1, color: _slate100),
-          const SizedBox(height: 14),
+          const SizedBox(height: 20),
           for (var i = 0; i < children.length; i++) ...[
-            if (i > 0) const SizedBox(height: 12),
+            if (i > 0) const SizedBox(height: 18),
             children[i],
           ],
         ],
@@ -961,20 +1636,38 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
           decoration: BoxDecoration(
-            border: Border.all(color: _blueSoft, width: 2, style: BorderStyle.solid),
+            border: Border.all(
+              color: _blueSoft,
+              width: 2,
+              style: BorderStyle.solid,
+            ),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                height: 28, width: 28,
-                decoration: const BoxDecoration(color: _blue, shape: BoxShape.circle),
-                child: const Icon(Icons.add_rounded, color: Colors.white, size: 18),
+                height: 28,
+                width: 28,
+                decoration: const BoxDecoration(
+                  color: _blue,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.add_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
               const SizedBox(width: 10),
-              Text(label,
-                  style: const TextStyle(color: _blue, fontWeight: FontWeight.w700, fontSize: 14)),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: _blue,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
             ],
           ),
         ),
@@ -1004,19 +1697,40 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            height: 36, width: 36,
-            decoration: BoxDecoration(color: tile, borderRadius: BorderRadius.circular(10)),
-            child: Icon(error ? Icons.error_outline_rounded : icon, color: iconColor, size: 18),
+            height: 36,
+            width: 36,
+            decoration: BoxDecoration(
+              color: tile,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              error ? Icons.error_outline_rounded : icon,
+              color: iconColor,
+              size: 18,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: TextStyle(fontSize: 13, color: titleColor, fontWeight: FontWeight.w700)),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: titleColor,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(body, style: const TextStyle(fontSize: 12, color: _muted, height: 1.4)),
+                Text(
+                  body,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: _muted,
+                    height: 1.4,
+                  ),
+                ),
               ],
             ),
           ),
@@ -1027,13 +1741,22 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
 
   Widget _label(String text, bool required) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: 8),
       child: RichText(
         text: TextSpan(
           text: text,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _navy),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: _navy,
+            height: 1.2,
+          ),
           children: [
-            if (required) const TextSpan(text: ' *', style: TextStyle(color: _rose500)),
+            if (required)
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: _rose500),
+              ),
           ],
         ),
       ),
@@ -1043,19 +1766,26 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
   InputDecoration _decoration(String? placeholder, String? error) {
     return InputDecoration(
       hintText: placeholder,
-      hintStyle: const TextStyle(color: _slate400, fontSize: 14),
+      hintStyle: const TextStyle(
+        color: _slate400,
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+      ),
       filled: true,
       fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide(color: error != null ? _rose500 : _slate200),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: error != null ? _rose500 : _blue, width: 1.5),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(
+          color: error != null ? _rose500 : _blue,
+          width: 2,
+        ),
       ),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
       isDense: true,
     );
   }
@@ -1084,13 +1814,24 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
             }
           },
           keyboardType: keyboard,
-          style: const TextStyle(fontSize: 14, color: _navy),
+          style: const TextStyle(
+            fontSize: 16,
+            color: _navy,
+            fontWeight: FontWeight.w500,
+          ),
           decoration: _decoration(placeholder, err),
         ),
         if (err != null)
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Text(err, style: const TextStyle(fontSize: 11, color: _rose500)),
+            child: Text(
+              err,
+              style: const TextStyle(
+                fontSize: 13,
+                color: _rose500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
       ],
     );
@@ -1114,11 +1855,19 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           initialValue: options.contains(value) ? value : null,
           isExpanded: true,
           icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _muted),
-          hint: Text(placeholder ?? 'Select...',
-              style: const TextStyle(color: _slate400, fontSize: 14)),
-          style: const TextStyle(fontSize: 14, color: _navy),
+          hint: Text(
+            placeholder ?? 'Select...',
+            style: const TextStyle(color: _slate400, fontSize: 14),
+          ),
+          style: const TextStyle(
+            fontSize: 16,
+            color: _navy,
+            fontWeight: FontWeight.w500,
+          ),
           decoration: _decoration(null, err),
-          items: options.map((o) => DropdownMenuItem(value: o, child: Text(o))).toList(),
+          items: options
+              .map((o) => DropdownMenuItem(value: o, child: Text(o)))
+              .toList(),
           onChanged: (v) {
             if (v != null) {
               onChanged(v);
@@ -1131,7 +1880,14 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         if (err != null)
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Text(err, style: const TextStyle(fontSize: 11, color: _rose500)),
+            child: Text(
+              err,
+              style: const TextStyle(
+                fontSize: 13,
+                color: _rose500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
       ],
     );
@@ -1154,7 +1910,9 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
             final now = DateTime.now();
             DateTime initial = now;
             if (value.isNotEmpty) {
-              try { initial = DateTime.parse(value); } catch (_) {}
+              try {
+                initial = DateTime.parse(value);
+              } catch (_) {}
             }
             final picked = await showDatePicker(
               context: context,
@@ -1163,13 +1921,17 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
               lastDate: now,
               builder: (context, child) => Theme(
                 data: Theme.of(context).copyWith(
-                  colorScheme: const ColorScheme.light(primary: _blue, onPrimary: Colors.white),
+                  colorScheme: const ColorScheme.light(
+                    primary: _blue,
+                    onPrimary: Colors.white,
+                  ),
                 ),
                 child: child!,
               ),
             );
             if (picked != null) {
-              final iso = '${picked.year.toString().padLeft(4, '0')}-'
+              final iso =
+                  '${picked.year.toString().padLeft(4, '0')}-'
                   '${picked.month.toString().padLeft(2, '0')}-'
                   '${picked.day.toString().padLeft(2, '0')}';
               onChanged(iso);
@@ -1178,21 +1940,36 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
               });
             }
           },
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           child: InputDecorator(
             decoration: _decoration(null, err).copyWith(
-              suffixIcon: const Icon(Icons.calendar_today_rounded, size: 16, color: _muted),
+              suffixIcon: const Icon(
+                Icons.calendar_today_rounded,
+                size: 16,
+                color: _muted,
+              ),
             ),
             child: Text(
               value.isEmpty ? 'YYYY-MM-DD' : value,
-              style: TextStyle(fontSize: 14, color: value.isEmpty ? _slate400 : _navy),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: value.isEmpty ? _slate400 : _navy,
+              ),
             ),
           ),
         ),
         if (err != null)
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Text(err, style: const TextStyle(fontSize: 11, color: _rose500)),
+            child: Text(
+              err,
+              style: const TextStyle(
+                fontSize: 13,
+                color: _rose500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
       ],
     );

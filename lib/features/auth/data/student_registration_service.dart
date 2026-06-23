@@ -158,8 +158,10 @@ class StudentSubmission {
   // Step 5 — Living with (dynamic)
   final List<LiveWithEntry> livingWith = [];
 
-  // Step 6 — Emergency contact (single — matches design)
-  final EmergencyContactEntry emergency = EmergencyContactEntry();
+  // Step 6 — Emergency contacts (dynamic, like siblings)
+  final List<EmergencyContactEntry> emergencyContacts = [
+    EmergencyContactEntry(),
+  ];
 }
 
 class StudentRegistrationService {
@@ -223,8 +225,11 @@ class StudentRegistrationService {
             .toList(),
       if (s.livingWith.isNotEmpty)
         'live_with': s.livingWith.map((e) => e.toJson()).toList(),
-      if (s.emergency.fullname.trim().isNotEmpty)
-        'emergency_contacts': [s.emergency.toJson()],
+      if (s.emergencyContacts.any((e) => e.fullname.trim().isNotEmpty))
+        'emergency_contacts': s.emergencyContacts
+            .where((e) => e.fullname.trim().isNotEmpty)
+            .map((e) => e.toJson())
+            .toList(),
       if (!s.kindergarten.isEmpty) 'his_school_kindergarten': [s.kindergarten.toJson()],
       if (!s.primary.isEmpty) 'his_school_primary': [s.primary.toJson()],
       'parentIds': [parentId],
