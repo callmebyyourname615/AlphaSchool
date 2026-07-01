@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:table_calendar/table_calendar.dart';
 
@@ -352,7 +353,7 @@ class _YearHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _IconBubble(icon: Icons.calendar_month_rounded, isDark: isDark),
+          _IconBubble(icon: LucideIcons.calendarDays, isDark: isDark),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -405,7 +406,7 @@ class _HintPill extends StatelessWidget {
       ),
       alignment: Alignment.center,
       child: Icon(
-        Icons.visibility_rounded,
+        LucideIcons.eye,
         size: 18,
         color: isDark ? Colors.white.withOpacity(.92) : Colors.black54,
       ),
@@ -674,13 +675,9 @@ class _MiniMonthCardPreview extends StatelessWidget {
                     ),
                   ),
                   if (isCurrentMonth)
-                    const Icon(
-                      Icons.star_rounded,
-                      size: 16,
-                      color: Colors.white,
-                    ),
+                    const Icon(LucideIcons.star, size: 16, color: Colors.white),
                   if (isFocus && !isCurrentMonth)
-                    Icon(Icons.circle, size: 10, color: focusColor),
+                    Icon(LucideIcons.circle, size: 10, color: focusColor),
                 ],
               ),
             ),
@@ -1195,10 +1192,7 @@ class _MonthHeaderCard extends StatelessWidget {
                 colors: [Color(0xFF0B2A6F), Color(0xFF0B4DB3)],
               ),
             ),
-            child: const Icon(
-              Icons.calendar_month_rounded,
-              color: Colors.white,
-            ),
+            child: const Icon(LucideIcons.calendarDays, color: Colors.white),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1244,7 +1238,7 @@ class _MonthHeaderCard extends StatelessWidget {
               ),
               alignment: Alignment.center,
               child: Icon(
-                Icons.calendar_view_month_rounded,
+                LucideIcons.calendarDays,
                 size: 18,
                 color: isDark ? Colors.white.withOpacity(.92) : Colors.black54,
               ),
@@ -1406,7 +1400,7 @@ class _SectionTitle extends StatelessWidget {
           ),
           alignment: Alignment.center,
           child: const Icon(
-            Icons.list_alt_rounded,
+            LucideIcons.listChecks,
             color: Colors.white,
             size: 18,
           ),
@@ -1445,7 +1439,7 @@ class _EmptyEventsCard extends StatelessWidget {
       child: Column(
         children: [
           Icon(
-            Icons.event_busy_rounded,
+            LucideIcons.calendarX,
             size: 44,
             color: isDark ? Colors.white.withOpacity(.86) : Colors.black54,
           ),
@@ -1664,11 +1658,11 @@ class _TypePill extends StatelessWidget {
   static IconData _typeIcon(CalendarEventType t) {
     switch (t) {
       case CalendarEventType.event:
-        return Icons.event_rounded;
+        return LucideIcons.calendarDays;
       case CalendarEventType.task:
-        return Icons.task_alt_rounded;
+        return LucideIcons.circleCheck;
       case CalendarEventType.holiday:
-        return Icons.celebration_rounded;
+        return LucideIcons.partyPopper;
     }
   }
 }

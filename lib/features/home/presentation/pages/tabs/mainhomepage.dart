@@ -145,14 +145,8 @@ class _ExplorePageState extends State<ExplorePage> {
           classId: student.classId,
         ),
         AppointmentService().fetchAppointments(),
-        _menuReadsService.fetchReadIds(
-          studentId: sid,
-          resource: 'homework',
-        ),
-        _menuReadsService.fetchReadIds(
-          studentId: sid,
-          resource: 'appointment',
-        ),
+        _menuReadsService.fetchReadIds(studentId: sid, resource: 'homework'),
+        _menuReadsService.fetchReadIds(studentId: sid, resource: 'appointment'),
       ]);
 
       // Bail out if the student switched while we were fetching.

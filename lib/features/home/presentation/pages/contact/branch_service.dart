@@ -7,6 +7,12 @@ class BranchService {
 
   final ApiClient _apiClient;
 
+  /// Returns all branches.
+  Future<List<BranchInfo>> fetchBranches() async {
+    final response = await _apiClient.get('/branches');
+    return _extractRows(response).map(BranchInfo.fromJson).toList();
+  }
+
   /// Returns the branch matching [branchId], or `null` if not found.
   Future<BranchInfo?> fetchBranch(String branchId) async {
     final code = branchId.trim();

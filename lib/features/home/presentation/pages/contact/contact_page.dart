@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../../core/theme/app_theme.dart';
@@ -118,38 +118,38 @@ class _Content extends StatelessWidget {
       _ContactItem(
         'Phone #1',
         branch.phone,
-        FontAwesomeIcons.whatsapp,
+        LucideIcons.circle,
         iconColor: const Color(0xFF22C55E),
       ),
       _ContactItem(
         'Phone #2',
         branch.contact,
-        FontAwesomeIcons.whatsapp,
+        LucideIcons.circle,
         iconColor: const Color(0xFF22C55E),
       ),
       _ContactItem(
         'Branch Code',
         branch.code,
-        FontAwesomeIcons.hashtag,
+        LucideIcons.circle,
         iconColor: const Color(0xFF6366F1),
       ),
       _ContactItem(
         'Governance Branch ID',
         branch.branchNo,
-        FontAwesomeIcons.building,
+        LucideIcons.building,
         iconColor: const Color(0xFF0EA5E9),
       ),
       _ContactItem(
         'Location',
         branch.address,
-        FontAwesomeIcons.locationDot,
+        LucideIcons.mapPin,
         iconColor: const Color(0xFFF59E0B),
         maxLines: 3,
       ),
       _ContactItem(
         'Google Maps',
         branch.mapUrl,
-        FontAwesomeIcons.mapLocationDot,
+        LucideIcons.mapPinned,
         iconColor: const Color(0xFFEA4335),
         isLink: true,
         maxLines: 2,
@@ -157,7 +157,7 @@ class _Content extends StatelessWidget {
       _ContactItem(
         'Facebook',
         branch.facebookUrl,
-        FontAwesomeIcons.facebook,
+        LucideIcons.circle,
         iconColor: const Color(0xFF1877F2),
         isLink: true,
         maxLines: 2,
@@ -165,7 +165,7 @@ class _Content extends StatelessWidget {
       _ContactItem(
         'Website',
         branch.websiteUrl,
-        FontAwesomeIcons.globe,
+        LucideIcons.globe,
         iconColor: const Color(0xFF14B8A6),
         isLink: true,
         maxLines: 2,
@@ -282,7 +282,7 @@ class _LogoAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final fallback = Center(
-      child: FaIcon(FontAwesomeIcons.school, size: 44, color: cs.primary),
+      child: Icon(LucideIcons.school, size: 44, color: cs.primary),
     );
 
     return Container(
@@ -457,7 +457,7 @@ class _ContactRow extends StatelessWidget {
                 border: Border.all(color: bubbleBorder),
               ),
               child: Center(
-                child: FaIcon(item.icon, color: item.iconColor, size: 18),
+                child: Icon(item.icon, color: item.iconColor, size: 18),
               ),
             ),
             const SizedBox(width: 12),
@@ -488,10 +488,8 @@ class _ContactRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            FaIcon(
-              item.isLink
-                  ? FontAwesomeIcons.arrowUpRightFromSquare
-                  : FontAwesomeIcons.copy,
+            Icon(
+              item.isLink ? LucideIcons.externalLink : LucideIcons.copy,
               size: 18,
               color: hasValue
                   ? (isDark
@@ -545,7 +543,7 @@ class _ErrorState extends StatelessWidget {
       child: Column(
         children: [
           Icon(
-            Icons.cloud_off_rounded,
+            LucideIcons.cloudOff,
             size: 44,
             color: cs.onSurface.withValues(alpha: .55),
           ),
@@ -599,7 +597,7 @@ class _NoBranchState extends StatelessWidget {
       child: Column(
         children: [
           Icon(
-            Icons.school_outlined,
+            LucideIcons.school,
             size: 48,
             color: cs.onSurface.withValues(alpha: .55),
           ),

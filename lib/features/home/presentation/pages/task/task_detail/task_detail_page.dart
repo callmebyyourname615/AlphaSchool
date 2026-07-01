@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../../../core/widgets/app_page_template.dart';
@@ -339,7 +340,7 @@ class _TaskCard extends StatelessWidget {
                         ? Colors.white.withOpacity(.06)
                         : const Color(0xFFF3F4F6),
                     child: const Center(
-                      child: Icon(Icons.image_not_supported_rounded, size: 28),
+                      child: Icon(LucideIcons.imageOff, size: 28),
                     ),
                   ),
                 ),
@@ -362,8 +363,8 @@ class _TaskCard extends StatelessWidget {
                   top: 12,
                   child: _Chip(
                     icon: task.mediaType == TaskMediaType.video
-                        ? Icons.videocam_rounded
-                        : Icons.image_rounded,
+                        ? LucideIcons.video
+                        : LucideIcons.image,
                     label: task.mediaType == TaskMediaType.video
                         ? 'Video'
                         : 'Image',
@@ -376,7 +377,7 @@ class _TaskCard extends StatelessWidget {
                   right: 12,
                   top: 12,
                   child: _Chip(
-                    icon: Icons.timer_rounded,
+                    icon: LucideIcons.timer,
                     label: 'Deadline • ${_fmtDate(task.deadline)}',
                     bg: Colors.black.withOpacity(.45),
                     fg: Colors.white,
@@ -407,8 +408,8 @@ class _TaskCard extends StatelessWidget {
                     const SizedBox(width: 10),
                     _Chip(
                       icon: task.status == TaskStatus.success
-                          ? Icons.verified_rounded
-                          : Icons.pending_actions_rounded,
+                          ? LucideIcons.badgeCheck
+                          : LucideIcons.clock3,
                       label: 'Status • $statusText',
                       bg: isDark
                           ? Colors.white.withOpacity(.10)
@@ -435,22 +436,22 @@ class _TaskCard extends StatelessWidget {
                   runSpacing: 10,
                   children: [
                     _MetaPill(
-                      icon: Icons.calendar_month_rounded,
+                      icon: LucideIcons.calendarDays,
                       label: 'Created • ${_fmtDateTime(task.createdAt)}',
                       isDark: isDark,
                     ),
                     _MetaPill(
-                      icon: Icons.person_rounded,
+                      icon: LucideIcons.user,
                       label: 'By • ${task.createdBy}',
                       isDark: isDark,
                     ),
                     _MetaPill(
-                      icon: Icons.flag_rounded,
+                      icon: LucideIcons.flag,
                       label: 'Deadline • ${_fmtDate(task.deadline)}',
                       isDark: isDark,
                     ),
                     _MetaPill(
-                      icon: Icons.info_outline_rounded,
+                      icon: LucideIcons.info,
                       label: 'Status • $statusText',
                       isDark: isDark,
                     ),
@@ -506,7 +507,7 @@ class _ChatHeader extends StatelessWidget {
                   : Colors.black.withOpacity(.06),
             ),
           ),
-          child: Icon(Icons.forum_rounded, color: fg, size: 20),
+          child: Icon(LucideIcons.messagesSquare, color: fg, size: 20),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -690,7 +691,7 @@ class _ComposerBar extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.chat_bubble_outline_rounded,
+                      LucideIcons.messageCircle,
                       size: 18,
                       color: isDark
                           ? Colors.white.withOpacity(.75)
@@ -762,7 +763,7 @@ class _SendButton extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: border),
               ),
-              child: Icon(Icons.send_rounded, color: fg, size: 20),
+              child: Icon(LucideIcons.send, color: fg, size: 20),
             ),
           ),
         )

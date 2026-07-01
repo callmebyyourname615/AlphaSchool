@@ -5,6 +5,10 @@ class SavingTransaction {
   final double amount;
   final double closingBalance;
   final DateTime createdAt;
+  // PayReceive cross-reference — only meaningful for WITHDRAW rows.
+  // Null = no in-flight pay receive (the withdrawal is finalized).
+  final String? payReceiveId;
+  final String? payReceiveStatus;
 
   const SavingTransaction({
     required this.id,
@@ -13,6 +17,8 @@ class SavingTransaction {
     required this.amount,
     required this.closingBalance,
     required this.createdAt,
+    this.payReceiveId,
+    this.payReceiveStatus,
   });
 
   factory SavingTransaction.fromJson(Map<String, dynamic> json) {
@@ -25,6 +31,22 @@ class SavingTransaction {
       createdAt:
           DateTime.tryParse(json['created_at']?.toString() ?? '')?.toLocal() ??
           DateTime.fromMillisecondsSinceEpoch(0),
+    );
+  }
+
+  SavingTransaction copyWith({
+    String? payReceiveId,
+    String? payReceiveStatus,
+  }) {
+    return SavingTransaction(
+      id: id,
+      ownerType: ownerType,
+      transactionType: transactionType,
+      amount: amount,
+      closingBalance: closingBalance,
+      createdAt: createdAt,
+      payReceiveId: payReceiveId ?? this.payReceiveId,
+      payReceiveStatus: payReceiveStatus ?? this.payReceiveStatus,
     );
   }
 

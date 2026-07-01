@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../../core/services/global_alert_service.dart';
@@ -169,7 +169,7 @@ class _AppointmentPageState extends State<AppointmentPage> {
       message: 'Confirm "${a.title}" scheduled on ${_shortDate(a.date)}?',
       confirmText: 'Confirm',
       cancelText: 'Cancel',
-      icon: Icons.check_circle_outline_rounded,
+      icon: LucideIcons.circleCheck,
     ).then((confirmed) {
       if (confirmed != true) return;
       GlobalAlert.showLoading(message: 'Confirming...');
@@ -210,7 +210,7 @@ class _AppointmentPageState extends State<AppointmentPage> {
         message: 'Move "${a.title}" to $dateStr?',
         confirmText: 'Reschedule',
         cancelText: 'Cancel',
-        icon: Icons.calendar_month_outlined,
+        icon: LucideIcons.calendarDays,
       ).then((confirmed) {
         if (confirmed != true || !mounted) return;
         GlobalAlert.showLoading(message: 'Rescheduling...');
@@ -254,9 +254,7 @@ class _AppointmentPageState extends State<AppointmentPage> {
       message: isOwner ? 'Delete "${a.title}"?' : 'Decline "${a.title}"?',
       confirmText: isOwner ? 'Delete' : 'Decline',
       cancelText: 'Keep',
-      icon: isOwner
-          ? Icons.delete_outline_rounded
-          : FontAwesomeIcons.circleXmark,
+      icon: isOwner ? LucideIcons.trash2 : LucideIcons.circleX,
       confirmColor: _kRed,
     ).then((confirmed) {
       if (confirmed != true) return;
@@ -520,11 +518,7 @@ class _PageHeader extends StatelessWidget {
         children: [
           IconButton(
             onPressed: onBack,
-            icon: const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              size: 20,
-              color: _kNavy,
-            ),
+            icon: const Icon(LucideIcons.arrowLeft, size: 20, color: _kNavy),
             splashRadius: 22,
           ),
           const SizedBox(width: 2),
@@ -569,7 +563,11 @@ class _PageHeader extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Icon(Icons.add, color: Colors.white, size: 24),
+              child: const Icon(
+                LucideIcons.plus,
+                color: Colors.white,
+                size: 24,
+              ),
             ),
           ),
         ],
@@ -647,7 +645,7 @@ class _CalendarCard extends StatelessWidget {
                   // ── Month nav ──
                   Row(
                     children: [
-                      _NavBtn(icon: Icons.chevron_left_rounded, onTap: onPrev),
+                      _NavBtn(icon: LucideIcons.chevronLeft, onTap: onPrev),
                       Expanded(
                         child: Text(
                           '${_monthNames[month - 1]} $year',
@@ -660,7 +658,7 @@ class _CalendarCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      _NavBtn(icon: Icons.chevron_right_rounded, onTap: onNext),
+                      _NavBtn(icon: LucideIcons.chevronRight, onTap: onNext),
                     ],
                   ),
                   const SizedBox(height: 14),
@@ -927,7 +925,7 @@ class _SectionHeader extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                Icons.tune_rounded,
+                LucideIcons.slidersHorizontal,
                 size: 18,
                 color: hasFilter ? _kNavy : _kBlue,
               ),
@@ -977,19 +975,19 @@ class _ApptCard extends StatelessWidget {
   static IconData _iconFor(String title) {
     final t = title.toLowerCase();
     if (t.contains('meet') || t.contains('parent') || t.contains('teacher')) {
-      return Icons.people_alt_rounded;
+      return LucideIcons.users;
     }
     if (t.contains('vacc') ||
         t.contains('health') ||
         t.contains('medical') ||
         t.contains('nurse') ||
         t.contains('doctor')) {
-      return Icons.vaccines_rounded;
+      return LucideIcons.syringe;
     }
     if (t.contains('sport') || t.contains('activity')) {
-      return Icons.sports_soccer_rounded;
+      return LucideIcons.circle;
     }
-    return Icons.event_note_rounded;
+    return LucideIcons.notebookPen;
   }
 
   static Color _iconBg(String title) {
@@ -1125,11 +1123,7 @@ class _ApptCard extends StatelessWidget {
                             style: TextStyle(color: _kMuted, fontSize: 12),
                           ),
                         ),
-                        const Icon(
-                          Icons.access_time_rounded,
-                          size: 13,
-                          color: _kMuted,
-                        ),
+                        const Icon(LucideIcons.clock, size: 13, color: _kMuted),
                         const SizedBox(width: 4),
                         Text(
                           timeStr,
@@ -1146,7 +1140,7 @@ class _ApptCard extends StatelessWidget {
                       Row(
                         children: [
                           const Icon(
-                            Icons.location_on_outlined,
+                            LucideIcons.mapPin,
                             size: 13,
                             color: _kMuted,
                           ),
@@ -1188,11 +1182,7 @@ class _ApptCard extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const FaIcon(
-                    FontAwesomeIcons.chartGantt,
-                    size: 16,
-                    color: _kBlue,
-                  ),
+                  const Icon(LucideIcons.ganttChart, size: 16, color: _kBlue),
                   const SizedBox(width: 7),
                   const Text(
                     'Timeline',
@@ -1214,7 +1204,7 @@ class _ApptCard extends StatelessWidget {
               Expanded(
                 child: _ActionBtn(
                   label: isConfirmed ? 'Confirmed' : 'Confirm',
-                  icon: Icons.check_rounded,
+                  icon: LucideIcons.check,
                   filled: !isConfirmed,
                   color: isConfirmed ? _kGreen : _kNavy,
                   disabled: isCancelled || isConfirmed,
@@ -1236,9 +1226,7 @@ class _ApptCard extends StatelessWidget {
               Expanded(
                 child: _ActionBtn(
                   label: isOwner ? 'Delete' : 'Cancel',
-                  icon: isOwner
-                      ? Icons.delete_outline_rounded
-                      : Icons.close_rounded,
+                  icon: isOwner ? LucideIcons.trash2 : LucideIcons.x,
                   filled: isOwner,
                   color: isOwner ? _kRed : _kText,
                   disabled: isCancelled,
@@ -1294,11 +1282,7 @@ class _TimelineSheet extends StatelessWidget {
                   border: Border.all(color: _kBorder),
                 ),
                 child: const Center(
-                  child: FaIcon(
-                    FontAwesomeIcons.chartGantt,
-                    size: 18,
-                    color: _kBlue,
-                  ),
+                  child: Icon(LucideIcons.ganttChart, size: 18, color: _kBlue),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1787,13 +1771,13 @@ class _TimelineEventRow extends StatelessWidget {
   }
 
   static IconData _icon(_TimelineVariant variant) => switch (variant) {
-    _TimelineVariant.accepted => Icons.check_rounded,
-    _TimelineVariant.declined => Icons.close_rounded,
-    _TimelineVariant.reschedule => Icons.sync_rounded,
-    _TimelineVariant.created => Icons.description_outlined,
-    _TimelineVariant.scheduled => Icons.calendar_today_rounded,
-    _TimelineVariant.invited => Icons.schedule_rounded,
-    _TimelineVariant.updated => Icons.edit_rounded,
+    _TimelineVariant.accepted => LucideIcons.check,
+    _TimelineVariant.declined => LucideIcons.x,
+    _TimelineVariant.reschedule => LucideIcons.refreshCw,
+    _TimelineVariant.created => LucideIcons.fileText,
+    _TimelineVariant.scheduled => LucideIcons.calendarDays,
+    _TimelineVariant.invited => LucideIcons.clock3,
+    _TimelineVariant.updated => LucideIcons.squarePen,
   };
 
   static Color _color(_TimelineVariant variant) => switch (variant) {
@@ -1825,24 +1809,24 @@ class _TimelineEventRow extends StatelessWidget {
   static IconData _detailIcon(String detail) {
     final text = detail.toLowerCase();
     if (text.contains('accepted') || text.contains('changed to')) {
-      return Icons.check_rounded;
+      return LucideIcons.check;
     }
     if (text.contains('declined') || text.contains('cancelled')) {
-      return Icons.close_rounded;
+      return LucideIcons.x;
     }
     if (text.contains('schedule') ||
         text.contains('date') ||
         text.contains('time') ||
         text.contains('proposed')) {
-      return Icons.access_time_rounded;
+      return LucideIcons.clock;
     }
-    if (text.contains('location')) return Icons.location_on_outlined;
+    if (text.contains('location')) return LucideIcons.mapPin;
     if (text.contains('created') ||
         text.contains('participant') ||
         text.contains(' by ')) {
-      return Icons.person_outline_rounded;
+      return LucideIcons.user;
     }
-    return Icons.circle;
+    return LucideIcons.circle;
   }
 }
 
@@ -1907,7 +1891,7 @@ class _RescheduleBtn extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.calendar_month_outlined,
+                    LucideIcons.calendarDays,
                     size: 13,
                     color: effectiveColor,
                   ),
@@ -2143,11 +2127,7 @@ class _CalendarIllustration extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Icon(
-                  Icons.sentiment_satisfied_alt_rounded,
-                  size: 18,
-                  color: _kBlue,
-                ),
+                const Icon(LucideIcons.smile, size: 18, color: _kBlue),
               ],
             ),
           ),
@@ -2162,7 +2142,7 @@ class _CalendarIllustration extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: const Icon(
-                Icons.check_rounded,
+                LucideIcons.check,
                 size: 11,
                 color: Colors.white,
               ),
@@ -2227,7 +2207,7 @@ class _ErrorCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Icon(Icons.cloud_off_rounded, size: 36, color: _kMuted),
+          const Icon(LucideIcons.cloudOff, size: 36, color: _kMuted),
           const SizedBox(height: 8),
           Text(
             message,
@@ -2245,7 +2225,7 @@ class _ErrorCard extends StatelessWidget {
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.refresh_rounded, size: 16, color: Colors.white),
+                  Icon(LucideIcons.refreshCw, size: 16, color: Colors.white),
                   SizedBox(width: 6),
                   Text(
                     'Retry',
@@ -2382,7 +2362,7 @@ class _FilterOption extends StatelessWidget {
             ),
             const Spacer(),
             if (isSelected)
-              const Icon(Icons.check_circle_rounded, size: 18, color: _kBlue),
+              const Icon(LucideIcons.circleCheck, size: 18, color: _kBlue),
           ],
         ),
       ),
@@ -2720,7 +2700,7 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
           '"$title"\n${_fmtDate(_date)} · ${_fmtTime(_start)} – ${_fmtTime(_end)}\n$empLabel\n$parentLabel',
       confirmText: 'Create',
       cancelText: 'Back',
-      icon: Icons.event_note_rounded,
+      icon: LucideIcons.notebookPen,
     );
     if (confirmed != true || !mounted) return;
     setState(() => _saving = true);
@@ -2797,11 +2777,7 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
                 const Spacer(),
                 GestureDetector(
                   onTap: () => Navigator.pop(context),
-                  child: const Icon(
-                    Icons.close_rounded,
-                    color: _kMuted,
-                    size: 22,
-                  ),
+                  child: const Icon(LucideIcons.x, color: _kMuted, size: 22),
                 ),
               ],
             ),
@@ -2820,7 +2796,7 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
             _FieldLabel(label: 'Date'),
             const SizedBox(height: 6),
             _PickerTile(
-              icon: Icons.calendar_today_outlined,
+              icon: LucideIcons.calendarDays,
               iconOverride: Image.asset(
                 'assets/images/icons/Calendar.png',
                 width: 16,
@@ -2838,7 +2814,7 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
                   child: _TimeCard(
                     label: 'Start At',
                     value: _fmtTime(_start),
-                    icon: Icons.access_time_rounded,
+                    icon: LucideIcons.clock,
                     onTap: pickStartAt,
                   ),
                 ),
@@ -2847,7 +2823,7 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
                   child: _TimeCard(
                     label: 'End At',
                     value: _fmtTime(_end),
-                    icon: Icons.timer_outlined,
+                    icon: LucideIcons.timer,
                     onTap: pickEndAt,
                   ),
                 ),
@@ -3028,7 +3004,7 @@ class _EmployeeTile extends StatelessWidget {
         child: Row(
           children: [
             Icon(
-              Icons.people_alt_rounded,
+              LucideIcons.users,
               size: 16,
               color: hasError ? _kRed : (selected.isEmpty ? _kMuted : _kBlue),
             ),
@@ -3080,7 +3056,7 @@ class _EmployeeTile extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Icon(
-              Icons.keyboard_arrow_down_rounded,
+              LucideIcons.chevronDown,
               size: 18,
               color: loading ? _kMuted : _kNavy,
             ),
@@ -3116,7 +3092,7 @@ class _ParentInviteTile extends StatelessWidget {
         child: Row(
           children: [
             Icon(
-              Icons.family_restroom_rounded,
+              LucideIcons.usersRound,
               size: 17,
               color: selected.isEmpty ? _kMuted : _kBlue,
             ),
@@ -3168,7 +3144,7 @@ class _ParentInviteTile extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Icon(
-              Icons.keyboard_arrow_down_rounded,
+              LucideIcons.chevronDown,
               size: 18,
               color: loading ? _kMuted : _kNavy,
             ),
@@ -3398,11 +3374,7 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
                           ),
                         ),
                         if (conflict != null)
-                          const Icon(
-                            Icons.lock_clock_rounded,
-                            color: _kRed,
-                            size: 20,
-                          )
+                          const Icon(LucideIcons.clock3, color: _kRed, size: 20)
                         else
                           AnimatedContainer(
                             duration: const Duration(milliseconds: 150),
@@ -3418,7 +3390,7 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
                             ),
                             child: picked
                                 ? const Icon(
-                                    Icons.check_rounded,
+                                    LucideIcons.check,
                                     size: 13,
                                     color: Colors.white,
                                   )
@@ -3893,10 +3865,10 @@ class _ParentInviteSheetState extends State<_ParentInviteSheet> {
               ),
             ),
             if (conflict != null)
-              const Icon(Icons.lock_clock_rounded, color: _kRed, size: 20)
+              const Icon(LucideIcons.clock3, color: _kRed, size: 20)
             else
               Icon(
-                selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+                selected ? LucideIcons.circleCheck : LucideIcons.circle,
                 color: selected ? _kBlue : _kMuted,
                 size: 22,
               ),
@@ -4459,7 +4431,7 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
                               border: Border.all(color: _kBorder),
                             ),
                             child: const Icon(
-                              Icons.close_rounded,
+                              LucideIcons.x,
                               size: 18,
                               color: _kMuted,
                             ),
@@ -4485,7 +4457,7 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
                           child: Row(
                             children: [
                               const Icon(
-                                Icons.event_note_rounded,
+                                LucideIcons.notebookPen,
                                 size: 14,
                                 color: _kBlue,
                               ),
@@ -4529,7 +4501,7 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
                     // Date label
                     const _RSLabel(
                       label: 'New Date',
-                      icon: Icons.calendar_today_rounded,
+                      icon: LucideIcons.calendarDays,
                     ).animate().fadeIn(delay: 90.ms, duration: 200.ms),
                     const SizedBox(height: 10),
 
@@ -4546,7 +4518,7 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
                               Row(
                                 children: [
                                   _NavBtn(
-                                    icon: Icons.chevron_left_rounded,
+                                    icon: LucideIcons.chevronLeft,
                                     onTap: _prev,
                                   ),
                                   Expanded(
@@ -4573,7 +4545,7 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
                                     ),
                                   ),
                                   _NavBtn(
-                                    icon: Icons.chevron_right_rounded,
+                                    icon: LucideIcons.chevronRight,
                                     onTap: _next,
                                   ),
                                 ],
@@ -4645,7 +4617,7 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
                     // Time label
                     const _RSLabel(
                       label: 'New Time',
-                      icon: Icons.access_time_rounded,
+                      icon: LucideIcons.clock,
                     ).animate().fadeIn(delay: 160.ms, duration: 200.ms),
                     const SizedBox(height: 10),
 
@@ -5031,7 +5003,7 @@ class _RSConfirmBtnState extends State<_RSConfirmBtn> {
           child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.check_rounded, size: 18, color: Colors.white),
+              Icon(LucideIcons.check, size: 18, color: Colors.white),
               SizedBox(width: 8),
               Text(
                 'Confirm Reschedule',

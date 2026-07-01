@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../../shared/models/student_card_item.dart';
@@ -104,7 +105,7 @@ class _ClassroomPageState extends State<ClassroomPage> {
                     if ((widget.selectedStudent?.classId ?? '').isEmpty) {
                       return const SliverToBoxAdapter(
                         child: _ClassroomState(
-                          icon: Icons.person_search_rounded,
+                          icon: LucideIcons.userSearch,
                           message: 'Please select a student first.',
                         ),
                       );
@@ -119,7 +120,7 @@ class _ClassroomPageState extends State<ClassroomPage> {
                     if (snapshot.hasError) {
                       return SliverToBoxAdapter(
                         child: _ClassroomState(
-                          icon: Icons.wifi_off_rounded,
+                          icon: LucideIcons.wifiOff,
                           message: 'Could not load timetable.',
                           action: () => setState(_load),
                         ),
@@ -131,7 +132,7 @@ class _ClassroomPageState extends State<ClassroomPage> {
                     if (lessons.isEmpty) {
                       return SliverToBoxAdapter(
                         child: _ClassroomState(
-                          icon: Icons.event_available_rounded,
+                          icon: LucideIcons.calendarCheck,
                           message: 'No classes scheduled for this day.',
                         ),
                       );
@@ -180,7 +181,7 @@ class _CalendarHeader extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
-                Icons.calendar_today_outlined,
+                LucideIcons.calendarDays,
                 size: 16,
                 color: _muted,
               ),
@@ -343,7 +344,7 @@ class _TimelineLesson extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.schedule_rounded, size: 13, color: _purple),
+                  const Icon(LucideIcons.clock3, size: 13, color: _purple),
                   const SizedBox(width: 4),
                   Text(
                     _formatDuration(lesson.durationMinutes),
@@ -389,13 +390,13 @@ class _TimelineLesson extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               _InfoLine(
-                icon: Icons.person_rounded,
+                icon: LucideIcons.user,
                 title: lesson.teacher,
                 subtitle: lesson.phone,
               ),
               const SizedBox(height: 14),
               _InfoLine(
-                icon: Icons.location_on_rounded,
+                icon: LucideIcons.mapPin,
                 title: lesson.className,
                 subtitle: 'Classroom',
               ),

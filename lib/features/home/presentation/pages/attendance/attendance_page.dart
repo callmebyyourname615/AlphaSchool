@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../../shared/models/student_card_item.dart';
@@ -182,7 +183,7 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
               ),
               IconButton(
                 onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close_rounded, color: _muted),
+                icon: const Icon(LucideIcons.x, color: _muted),
               ),
             ],
           ),
@@ -200,7 +201,7 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
                   onPressed: _year > widget.firstYear
                       ? () => setState(() => _year--)
                       : null,
-                  icon: const Icon(Icons.chevron_left_rounded),
+                  icon: const Icon(LucideIcons.chevronLeft),
                 ),
                 Expanded(
                   child: Text(
@@ -217,7 +218,7 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
                   onPressed: _year < widget.lastYear
                       ? () => setState(() => _year++)
                       : null,
-                  icon: const Icon(Icons.chevron_right_rounded),
+                  icon: const Icon(LucideIcons.chevronRight),
                 ),
               ],
             ),
@@ -281,7 +282,7 @@ class _Header extends StatelessWidget {
         children: [
           IconButton.filledTonal(
             onPressed: onBack,
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+            icon: const Icon(LucideIcons.arrowLeft, size: 18),
             style: IconButton.styleFrom(
               minimumSize: const Size(48, 48),
               backgroundColor: Colors.white,
@@ -377,7 +378,7 @@ class _StudentBar extends StatelessWidget {
         const CircleAvatar(
           radius: 22,
           backgroundColor: _softBlue,
-          child: Icon(Icons.person_rounded, color: _blue),
+          child: Icon(LucideIcons.user, color: _blue),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -460,7 +461,7 @@ class _Summary extends StatelessWidget {
                   color: _softBlue,
                   borderRadius: BorderRadius.circular(13),
                 ),
-                child: const Icon(Icons.calendar_month_rounded, color: _blue),
+                child: const Icon(LucideIcons.calendarDays, color: _blue),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -478,10 +479,10 @@ class _Summary extends StatelessWidget {
               if (month != null)
                 IconButton(
                   onPressed: onClearMonth,
-                  icon: const Icon(Icons.close_rounded, color: _muted),
+                  icon: const Icon(LucideIcons.x, color: _muted),
                 )
               else
-                const Icon(Icons.keyboard_arrow_down_rounded, color: _muted),
+                const Icon(LucideIcons.chevronDown, color: _muted),
             ],
           ),
         ),
@@ -502,7 +503,7 @@ class _Summary extends StatelessWidget {
                 label: 'Attended',
                 value: present,
                 color: _green,
-                icon: Icons.check_rounded,
+                icon: LucideIcons.check,
                 selected: filter == _AttendanceFilter.present,
                 onTap: () => onFilterChanged(_AttendanceFilter.present),
               ),
@@ -513,7 +514,7 @@ class _Summary extends StatelessWidget {
                 label: 'Absent',
                 value: absent,
                 color: _red,
-                icon: Icons.close_rounded,
+                icon: LucideIcons.x,
                 selected: filter == _AttendanceFilter.absent,
                 onTap: () => onFilterChanged(_AttendanceFilter.absent),
               ),

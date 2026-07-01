@@ -7,6 +7,18 @@ import 'package:http/http.dart' as http;
 import 'api_config.dart';
 import 'api_exception.dart';
 
+class MultipartFilePart {
+  const MultipartFilePart({
+    required this.field,
+    required this.bytes,
+    required this.filename,
+  });
+
+  final String field;
+  final Uint8List bytes;
+  final String filename;
+}
+
 class ApiClient {
   ApiClient({
     http.Client? httpClient,
@@ -99,6 +111,7 @@ class ApiClient {
     Uint8List? fileBytes,
     String? fileName,
     String fileField = 'file',
+    List<MultipartFilePart> files = const [],
     Map<String, String>? headers,
   }) async {
     final request = http.MultipartRequest('POST', _buildUri(path, null));
@@ -113,6 +126,15 @@ class ApiClient {
         ),
       );
     }
+    for (final file in files) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          file.field,
+          file.bytes,
+          filename: file.filename,
+        ),
+      );
+    }
 
     try {
       final streamedResponse = await _httpClient
@@ -120,6 +142,38 @@ class ApiClient {
           .timeout(_timeout);
       final response = await http.Response.fromStream(streamedResponse);
       return _decodeResponse(response);
+    } on TimeoutException catch (error) {
+      throw ApiException('Request timed out', cause: error);
+    } on http.ClientException catch (error) {
+      throw ApiException('Could not connect to the API', cause: error);
+    } on FormatException catch (error) {
+      throw ApiException('Invalid response from API', cause: error);
+    }
+  }
+
+  Future<dynamic> multipartPut(
+    String path, {
+    required Map<String, String> fields,
+    List<MultipartFilePart> files = const [],
+    Map<String, String>? headers,
+  }) async {
+    final request = http.MultipartRequest('PUT', _buildUri(path, null));
+    request.headers.addAll({'Accept': 'application/json', ...?headers});
+    request.fields.addAll(fields);
+    for (final file in files) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          file.field,
+          file.bytes,
+          filename: file.filename,
+        ),
+      );
+    }
+    try {
+      final streamedResponse = await _httpClient
+          .send(request)
+          .timeout(_timeout);
+      return _decodeResponse(await http.Response.fromStream(streamedResponse));
     } on TimeoutException catch (error) {
       throw ApiException('Request timed out', cause: error);
     } on http.ClientException catch (error) {

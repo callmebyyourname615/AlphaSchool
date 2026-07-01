@@ -2,8 +2,8 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 /// ✅ Model that NewsPage can pass to this page
 class NewsArticle {
@@ -117,12 +117,12 @@ class NewsDetailsPage extends StatelessWidget {
                               ),
                               const Spacer(),
                               _IconPillButton(
-                                icon: FontAwesomeIcons.bookmark,
+                                icon: LucideIcons.bookmark,
                                 onTap: () {},
                               ),
                               const SizedBox(width: 10),
                               _IconPillButton(
-                                icon: FontAwesomeIcons.shareNodes,
+                                icon: LucideIcons.share2,
                                 onTap: () {},
                               ),
                             ],
@@ -184,7 +184,7 @@ class NewsDetailsPage extends StatelessWidget {
                                       Row(
                                         children: [
                                           Icon(
-                                            FontAwesomeIcons.clock,
+                                            LucideIcons.clock,
                                             size: 12,
                                             color: subC,
                                           ),
@@ -199,7 +199,7 @@ class NewsDetailsPage extends StatelessWidget {
                                           ),
                                           const SizedBox(width: 12),
                                           Icon(
-                                            FontAwesomeIcons.eye,
+                                            LucideIcons.eye,
                                             size: 12,
                                             color: subC,
                                           ),
@@ -235,7 +235,7 @@ class NewsDetailsPage extends StatelessWidget {
                                     ),
                                   ),
                                   child: Icon(
-                                    FontAwesomeIcons.newspaper,
+                                    LucideIcons.newspaper,
                                     size: 14,
                                     color: _dotColor(article.category),
                                   ),
@@ -517,7 +517,7 @@ class _HeaderImage extends StatelessWidget {
               errorBuilder: (_, __, ___) => Container(
                 color: isDark ? Colors.white.withOpacity(.10) : Colors.black12,
                 child: Icon(
-                  Icons.image_not_supported_rounded,
+                  LucideIcons.imageOff,
                   color: isDark
                       ? Colors.white.withOpacity(.85)
                       : const Color(0xFF0F172A),
@@ -604,7 +604,7 @@ class _GlassTopBar extends StatelessWidget {
                   width: 44,
                   height: 44,
                   child: Center(
-                    child: Icon(Icons.arrow_back_rounded, color: Colors.white),
+                    child: Icon(LucideIcons.arrowLeft, color: Colors.white),
                   ),
                 ),
               ),
@@ -786,7 +786,7 @@ class _Avatar extends StatelessWidget {
           height: size,
           color: isDark ? Colors.white.withOpacity(.10) : Colors.black12,
           child: Icon(
-            Icons.person_rounded,
+            LucideIcons.user,
             color: isDark
                 ? Colors.white.withOpacity(.85)
                 : const Color(0xFF0F172A),

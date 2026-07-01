@@ -69,7 +69,22 @@ class AuthService {
           email.toLowerCase() == login.toLowerCase();
       if (!matchesLogin) continue;
 
-      if (!_isActive(record)) {
+      final approvalStatus = _approvalStatus(record);
+      if (approvalStatus == 'rejected') {
+        final reason = _readString(record, const [
+          'reject_reason',
+          'rejectReason',
+          'rejection_reason',
+          'rejectionReason',
+        ]);
+        throw ApiException(
+          reason.isEmpty
+              ? 'Your account was rejected by admin. Please review your application and submit again.'
+              : 'Your account was rejected by admin: $reason',
+          statusCode: 403,
+        );
+      }
+      if (!_isActive(record) || approvalStatus == 'pending') {
         throw const ApiException(
           'Your account is pending admin approval. Please wait until an administrator activates your account.',
           statusCode: 403,
@@ -120,6 +135,17 @@ class AuthService {
   bool _isActive(Map<String, dynamic> json) {
     final value = json['is_active'] ?? json['isActive'];
     return value != false;
+  }
+
+  String _approvalStatus(Map<String, dynamic> json) {
+    final raw = (json['approval_status'] ?? json['approvalStatus'])
+        ?.toString()
+        .trim()
+        .toLowerCase();
+    if (raw == 'approved' || raw == 'rejected' || raw == 'pending') {
+      return raw!;
+    }
+    return '';
   }
 
   bool _passwordMatches(Map<String, dynamic> json, String password) {

@@ -1,5 +1,6 @@
 import 'package:alpha_school/features/home/presentation/pages/gallery/gallery_detail/gallery_detail_page.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../../core/widgets/app_page_template.dart';
@@ -250,7 +251,7 @@ class _GalleryTile extends StatelessWidget {
                         ? Colors.white.withOpacity(.06)
                         : const Color(0xFFF3F4F6),
                     child: const Center(
-                      child: Icon(Icons.image_not_supported_rounded, size: 30),
+                      child: Icon(LucideIcons.imageOff, size: 30),
                     ),
                   ),
                 ),

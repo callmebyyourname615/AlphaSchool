@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../../shared/models/student_card_item.dart';
@@ -91,8 +92,18 @@ class _ParticipantPageState extends State<ParticipantPage> {
   static String _formatDate(DateTime d) {
     const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const mo = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${wd[d.weekday - 1]}, ${d.day} ${mo[d.month - 1]} ${d.year}';
   }
@@ -134,114 +145,111 @@ class _ParticipantPageState extends State<ParticipantPage> {
               const Expanded(child: _NoStudentState())
             else
               Expanded(
-              child: FutureBuilder<ParticipantSummary>(
-                future: _future,
-                builder: (context, snapshot) {
-                  final loading =
-                      snapshot.connectionState != ConnectionState.done;
-                  final error = snapshot.error?.toString();
-                  final summary = snapshot.data;
+                child: FutureBuilder<ParticipantSummary>(
+                  future: _future,
+                  builder: (context, snapshot) {
+                    final loading =
+                        snapshot.connectionState != ConnectionState.done;
+                    final error = snapshot.error?.toString();
+                    final summary = snapshot.data;
 
-                  return SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.fromLTRB(
-                      16,
-                      4,
-                      16,
-                      24 + bottomInset,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        () {
-                          final selectedDay = summary?.days
-                              .where((d) => _sameDay(d.date, _filterDate))
-                              .toList()
-                              .firstOrNull;
-                          return _HeroCard(
-                            student: student,
-                            percent: selectedDay?.percent ?? 0,
-                            latestLabel: loading
-                                ? 'Loading…'
-                                : _formatDate(_filterDate),
-                          );
-                        }()
-                            .animate()
-                            .fadeIn(duration: 240.ms)
-                            .slideY(
-                              begin: .04,
-                              end: 0,
-                              duration: 380.ms,
-                              curve: Curves.easeOutCubic,
-                            ),
-                        const SizedBox(height: 20),
-                        _SectionRow(
-                          title: 'Activity Weights',
-                          subtitle: _isToday(_filterDate)
-                              ? 'Today'
-                              : 'Selected day',
-                          filterDate: _filterDate,
-                          onPick: () => _pickDate(summary),
-                          onResetToday: _resetToToday,
-                        ).animate().fadeIn(delay: 60.ms, duration: 220.ms),
-                        const SizedBox(height: 12),
-                        if (loading)
-                          const _LoadCard().animate().fadeIn(
-                            delay: 100.ms,
-                            duration: 220.ms,
-                          )
-                        else if (error != null)
-                          _ErrorCard(message: error, onRetry: _reload)
-                              .animate()
-                              .fadeIn(delay: 100.ms, duration: 220.ms)
-                        else ...[
+                    return SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: EdgeInsets.fromLTRB(16, 4, 16, 24 + bottomInset),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
                           () {
-                            final days = (summary?.days ?? [])
-                                .where((d) => _sameDay(d.date, _filterDate))
-                                .toList();
+                                final selectedDay = summary?.days
+                                    .where((d) => _sameDay(d.date, _filterDate))
+                                    .toList()
+                                    .firstOrNull;
+                                return _HeroCard(
+                                  student: student,
+                                  percent: selectedDay?.percent ?? 0,
+                                  latestLabel: loading
+                                      ? 'Loading…'
+                                      : _formatDate(_filterDate),
+                                );
+                              }()
+                              .animate()
+                              .fadeIn(duration: 240.ms)
+                              .slideY(
+                                begin: .04,
+                                end: 0,
+                                duration: 380.ms,
+                                curve: Curves.easeOutCubic,
+                              ),
+                          const SizedBox(height: 20),
+                          _SectionRow(
+                            title: 'Activity Weights',
+                            subtitle: _isToday(_filterDate)
+                                ? 'Today'
+                                : 'Selected day',
+                            filterDate: _filterDate,
+                            onPick: () => _pickDate(summary),
+                            onResetToday: _resetToToday,
+                          ).animate().fadeIn(delay: 60.ms, duration: 220.ms),
+                          const SizedBox(height: 12),
+                          if (loading)
+                            const _LoadCard().animate().fadeIn(
+                              delay: 100.ms,
+                              duration: 220.ms,
+                            )
+                          else if (error != null)
+                            _ErrorCard(
+                              message: error,
+                              onRetry: _reload,
+                            ).animate().fadeIn(delay: 100.ms, duration: 220.ms)
+                          else ...[
+                            () {
+                              final days = (summary?.days ?? [])
+                                  .where((d) => _sameDay(d.date, _filterDate))
+                                  .toList();
 
-                            if (days.isEmpty) {
-                              return _NoMatchCard(
-                                onResetToday: _resetToToday,
-                                isToday: _isToday(_filterDate),
-                              ).animate().fadeIn(
-                                delay: 100.ms,
-                                duration: 240.ms,
-                              );
-                            }
+                              if (days.isEmpty) {
+                                return _NoMatchCard(
+                                  onResetToday: _resetToToday,
+                                  isToday: _isToday(_filterDate),
+                                ).animate().fadeIn(
+                                  delay: 100.ms,
+                                  duration: 240.ms,
+                                );
+                              }
 
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                for (int i = 0; i < days.length; i++)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child:
-                                        _DayCard(day: days[i], index: i)
-                                            .animate()
-                                            .fadeIn(
-                                              delay: Duration(
-                                                milliseconds: 100 + i * 60,
-                                              ),
-                                              duration: 240.ms,
-                                            )
-                                            .slideY(
-                                              begin: .04,
-                                              end: 0,
-                                              duration: 360.ms,
-                                              curve: Curves.easeOutCubic,
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  for (int i = 0; i < days.length; i++)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 12,
+                                      ),
+                                      child: _DayCard(day: days[i], index: i)
+                                          .animate()
+                                          .fadeIn(
+                                            delay: Duration(
+                                              milliseconds: 100 + i * 60,
                                             ),
-                                  ),
-                              ],
-                            );
-                          }(),
+                                            duration: 240.ms,
+                                          )
+                                          .slideY(
+                                            begin: .04,
+                                            end: 0,
+                                            duration: 360.ms,
+                                            curve: Curves.easeOutCubic,
+                                          ),
+                                    ),
+                                ],
+                              );
+                            }(),
+                          ],
                         ],
-                      ],
-                    ),
-                  );
-                },
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -264,11 +272,7 @@ class _PageHeader extends StatelessWidget {
         children: [
           IconButton(
             onPressed: onBack,
-            icon: const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              size: 20,
-              color: _kNavy,
-            ),
+            icon: const Icon(LucideIcons.arrowLeft, size: 20, color: _kNavy),
             splashRadius: 22,
           ),
           const SizedBox(width: 2),
@@ -351,11 +355,7 @@ class _SectionRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        _DateChip(
-          date: filterDate,
-          onPick: onPick,
-          onResetToday: onResetToday,
-        ),
+        _DateChip(date: filterDate, onPick: onPick, onResetToday: onResetToday),
       ],
     );
   }
@@ -375,8 +375,18 @@ class _DateChip extends StatelessWidget {
   String _label(DateTime d) {
     const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const mo = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${wd[d.weekday - 1]}, ${d.day} ${mo[d.month - 1]}';
   }
@@ -396,11 +406,7 @@ class _DateChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.calendar_month_rounded,
-              size: 15,
-              color: Colors.white,
-            ),
+            const Icon(LucideIcons.calendarDays, size: 15, color: Colors.white),
             const SizedBox(width: 6),
             Text(
               _label(date),
@@ -418,11 +424,7 @@ class _DateChip extends StatelessWidget {
                 behavior: HitTestBehavior.opaque,
                 child: const Padding(
                   padding: EdgeInsets.all(2),
-                  child: Icon(
-                    Icons.close_rounded,
-                    size: 14,
-                    color: Colors.white,
-                  ),
+                  child: Icon(LucideIcons.x, size: 14, color: Colors.white),
                 ),
               ),
             ],
@@ -459,11 +461,7 @@ class _NoMatchCard extends StatelessWidget {
               color: Color(0xFFEFF6FF),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.event_busy_outlined,
-              size: 22,
-              color: _kBlue,
-            ),
+            child: const Icon(LucideIcons.calendarX, size: 22, color: _kBlue),
           ),
           const SizedBox(height: 10),
           Text(
@@ -533,7 +531,7 @@ class _NoStudentState extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: const Icon(
-                Icons.person_search_rounded,
+                LucideIcons.userSearch,
                 size: 28,
                 color: _kBlue,
               ),
@@ -602,11 +600,7 @@ class _HeroCard extends StatelessWidget {
               color: const Color(0xFFEFF6FF),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.person_rounded,
-              size: 26,
-              color: _kBlue,
-            ),
+            child: const Icon(LucideIcons.user, size: 26, color: _kBlue),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -627,11 +621,7 @@ class _HeroCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(
-                      Icons.badge_outlined,
-                      size: 13,
-                      color: _kMuted,
-                    ),
+                    const Icon(LucideIcons.badge, size: 13, color: _kMuted),
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
@@ -651,11 +641,7 @@ class _HeroCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(
-                        Icons.class_outlined,
-                        size: 13,
-                        color: _kMuted,
-                      ),
+                      const Icon(LucideIcons.school, size: 13, color: _kMuted),
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(
@@ -676,7 +662,7 @@ class _HeroCard extends StatelessWidget {
                 Row(
                   children: [
                     const Icon(
-                      Icons.event_available_outlined,
+                      LucideIcons.calendarCheck,
                       size: 13,
                       color: _kMuted,
                     ),
@@ -759,50 +745,50 @@ class _PercentRingState extends State<_PercentRing>
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 76,
-      height: 76,
-      child: AnimatedBuilder(
-        animation: _anim,
-        builder: (context, _) {
-          final f = _anim.value;
-          final shown = (f * 100).round();
-          return CustomPaint(
-            painter: _RingPainter(
-              fraction: f,
-              fg: _kBlue,
-              track: const Color(0xFFEFF2F7),
-            ),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '$shown',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                      color: _kNavy,
-                      letterSpacing: -.4,
-                      height: 1,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
+          width: 76,
+          height: 76,
+          child: AnimatedBuilder(
+            animation: _anim,
+            builder: (context, _) {
+              final f = _anim.value;
+              final shown = (f * 100).round();
+              return CustomPaint(
+                painter: _RingPainter(
+                  fraction: f,
+                  fg: _kBlue,
+                  track: const Color(0xFFEFF2F7),
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$shown',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: _kNavy,
+                          letterSpacing: -.4,
+                          height: 1,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      const Text(
+                        '%',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: _kMuted,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 1),
-                  const Text(
-                    '%',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: _kMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    )
+                ),
+              );
+            },
+          ),
+        )
         .animate()
         .scale(
           begin: const Offset(.85, .85),
@@ -903,7 +889,7 @@ class _DayCard extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.calendar_today_rounded,
+                  LucideIcons.calendarDays,
                   size: 19,
                   color: _kBlue,
                 ),
@@ -926,7 +912,7 @@ class _DayCard extends StatelessWidget {
                     Row(
                       children: [
                         const Icon(
-                          Icons.fact_check_outlined,
+                          LucideIcons.clipboardCheck,
                           size: 13,
                           color: _kMuted,
                         ),
@@ -955,11 +941,7 @@ class _DayCard extends StatelessWidget {
           for (int i = 0; i < day.rows.length; i++) ...[
             _ActivityRow(row: day.rows[i]),
             if (i < day.rows.length - 1)
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: Color(0xFFF1F3F6),
-              ),
+              const Divider(height: 1, thickness: 1, color: Color(0xFFF1F3F6)),
           ],
         ],
       ),
@@ -1058,10 +1040,7 @@ class _StatusDot extends StatelessWidget {
       width: 8,
       height: 8,
       child: Container(
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-        ),
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       ),
     );
   }
@@ -1148,11 +1127,7 @@ class _ErrorCard extends StatelessWidget {
               color: _kRed.withValues(alpha: .12),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.wifi_tethering_error_rounded,
-              size: 22,
-              color: _kRed,
-            ),
+            child: const Icon(LucideIcons.wifiOff, size: 22, color: _kRed),
           ),
           const SizedBox(height: 10),
           const Text(
@@ -1179,10 +1154,7 @@ class _ErrorCard extends StatelessWidget {
           GestureDetector(
             onTap: onRetry,
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               decoration: BoxDecoration(
                 color: _kBlue,
                 borderRadius: BorderRadius.circular(12),
@@ -1202,4 +1174,3 @@ class _ErrorCard extends StatelessWidget {
     );
   }
 }
-

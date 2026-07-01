@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/network/api_exception.dart';
@@ -168,7 +168,7 @@ class _LoginPageState extends State<LoginPage> {
           centerTitle: false,
           leading: IconButton(
             onPressed: _loading ? null : _goYearPicker,
-            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            icon: const Icon(LucideIcons.arrowLeft),
             color: AppColors.dark,
             tooltip: 'Back',
           ),
@@ -227,7 +227,7 @@ class _LoginPageState extends State<LoginPage> {
                       _LoginField(
                         hint: 'Email',
                         controller: _emailCtrl,
-                        icon: FontAwesomeIcons.envelope,
+                        icon: LucideIcons.mail,
                         keyboardType: TextInputType.emailAddress,
                         autofillHints: const [
                           AutofillHints.username,
@@ -238,15 +238,13 @@ class _LoginPageState extends State<LoginPage> {
                       _LoginField(
                         hint: 'Password',
                         controller: _passCtrl,
-                        icon: FontAwesomeIcons.lock,
+                        icon: LucideIcons.lock,
                         obscureText: _obscure,
                         autofillHints: const [AutofillHints.password],
                         suffix: IconButton(
                           onPressed: () => setState(() => _obscure = !_obscure),
                           icon: Icon(
-                            _obscure
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
+                            _obscure ? LucideIcons.eye : LucideIcons.eyeOff,
                             size: 21,
                           ),
                           color: AppColors.gray,
@@ -342,10 +340,7 @@ class _LoginPageState extends State<LoginPage> {
                         height: 54,
                         child: OutlinedButton.icon(
                           onPressed: _loading ? null : () {},
-                          icon: const Icon(
-                            Icons.qr_code_scanner_rounded,
-                            size: 17,
-                          ),
+                          icon: const Icon(LucideIcons.scanQrCode, size: 17),
                           label: const Text('Scan to login'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.blue300,
@@ -423,7 +418,7 @@ class _LoginField extends StatelessWidget {
         ),
         prefixIcon: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: FaIcon(icon, size: 17, color: AppColors.gray),
+          child: Icon(icon, size: 17, color: AppColors.gray),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 50),
         suffixIcon: suffix,

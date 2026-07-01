@@ -1,22 +1,22 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../network/api_client.dart';
 import '../../network/api_exception.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
-const _kNavy   = Color(0xFF1E2D5B);
-const _kBlue   = Color(0xFF3B82F6);
-const _kGreen  = Color(0xFF22C55E);
+const _kNavy = Color(0xFF1E2D5B);
+const _kBlue = Color(0xFF3B82F6);
+const _kGreen = Color(0xFF22C55E);
 const _kOrange = Color(0xFFF59E0B);
-const _kBg     = Color(0xFFF5F7FA);
+const _kBg = Color(0xFFF5F7FA);
 const _kBorder = Color(0xFFE8ECF0);
-const _kMuted  = Color(0xFF9CA3AF);
-const _kText   = Color(0xFF1F2937);
+const _kMuted = Color(0xFF9CA3AF);
+const _kText = Color(0xFF1F2937);
 
 class ScanQrCodePage extends StatefulWidget {
   const ScanQrCodePage({super.key});
@@ -68,12 +68,13 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
     if (!_isValidUuid(studentId)) {
       setState(() {
         _result = _ScanResult(
-          studentId:   raw.length > 20 ? '${raw.substring(0, 20)}...' : raw,
+          studentId: raw.length > 20 ? '${raw.substring(0, 20)}...' : raw,
           studentName: '',
-          checkIn:     '',
-          type:        'ERROR',
-          remark:      'This QR code is not a valid student card. Please scan again.',
-          isSuccess:   false,
+          checkIn: '',
+          type: 'ERROR',
+          remark:
+              'This QR code is not a valid student card. Please scan again.',
+          isSuccess: false,
         );
         _processing = false;
       });
@@ -85,40 +86,47 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
         : studentId;
 
     try {
-      final now   = TimeOfDay.now();
+      final now = TimeOfDay.now();
       final today = _todayString();
       final timeStr = '${_two(now.hour)}:${_two(now.minute)}';
 
-      final response = await _api.post('/attendances/scan', body: {
-        'studentId':      studentId,
-        'attendanceDate': today,
-        'deviceTime':     timeStr,
-      });
+      final response = await _api.post(
+        '/attendances/scan',
+        body: {
+          'studentId': studentId,
+          'attendanceDate': today,
+          'deviceTime': timeStr,
+        },
+      );
 
       // Try to get student name
       try {
         final s = await _api.get('/students/$studentId');
         if (s is Map) {
           final fn = s['first_name']?.toString() ?? '';
-          final ln = s['last_name']?.toString()  ?? '';
+          final ln = s['last_name']?.toString() ?? '';
           final full = '$fn $ln'.trim();
           if (full.isNotEmpty) studentName = full;
         }
       } catch (_) {}
 
-      final type   = (response is Map ? response['type'] : null)?.toString() ?? 'PRESENT';
-      final remark = (response is Map ? response['remark'] : null)?.toString() ?? '';
-      final checkIn = (response is Map ? response['check_in'] : null)?.toString() ?? timeStr;
+      final type =
+          (response is Map ? response['type'] : null)?.toString() ?? 'PRESENT';
+      final remark =
+          (response is Map ? response['remark'] : null)?.toString() ?? '';
+      final checkIn =
+          (response is Map ? response['check_in'] : null)?.toString() ??
+          timeStr;
 
       if (!mounted) return;
       setState(() {
         _result = _ScanResult(
-          studentId:   studentId,
+          studentId: studentId,
           studentName: studentName,
-          checkIn:     checkIn,
-          type:        type,
-          remark:      remark,
-          isSuccess:   true,
+          checkIn: checkIn,
+          type: type,
+          remark: remark,
+          isSuccess: true,
         );
         _processing = false;
       });
@@ -127,19 +135,22 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
       // 409 Conflict = already checked in today
       if (e.statusCode == 409) {
         final body = e.body;
-        final existingCheckIn = (body is Map ? body['check_in'] : null)?.toString() ?? '';
-        final existingType    = (body is Map ? body['type']     : null)?.toString() ?? 'PRESENT';
-        final existingRemark  = (body is Map ? body['remark']   : null)?.toString() ?? '';
+        final existingCheckIn =
+            (body is Map ? body['check_in'] : null)?.toString() ?? '';
+        final existingType =
+            (body is Map ? body['type'] : null)?.toString() ?? 'PRESENT';
+        final existingRemark =
+            (body is Map ? body['remark'] : null)?.toString() ?? '';
         setState(() {
           _result = _ScanResult(
-            studentId:   studentId,
+            studentId: studentId,
             studentName: studentName,
-            checkIn:     existingCheckIn.length >= 5
+            checkIn: existingCheckIn.length >= 5
                 ? existingCheckIn.substring(0, 5)
                 : existingCheckIn,
-            type:        existingType,
-            remark:      existingRemark,
-            isSuccess:   false,
+            type: existingType,
+            remark: existingRemark,
+            isSuccess: false,
             isDuplicate: true,
           );
           _processing = false;
@@ -147,12 +158,12 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
       } else {
         setState(() {
           _result = _ScanResult(
-            studentId:   studentId,
+            studentId: studentId,
             studentName: '',
-            checkIn:     '',
-            type:        'ERROR',
-            remark:      e.message,
-            isSuccess:   false,
+            checkIn: '',
+            type: 'ERROR',
+            remark: e.message,
+            isSuccess: false,
           );
           _processing = false;
         });
@@ -161,12 +172,12 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
       if (!mounted) return;
       setState(() {
         _result = _ScanResult(
-          studentId:   studentId,
+          studentId: studentId,
           studentName: '',
-          checkIn:     '',
-          type:        'ERROR',
-          remark:      'Unable to connect. Please try again.',
-          isSuccess:   false,
+          checkIn: '',
+          type: 'ERROR',
+          remark: 'Unable to connect. Please try again.',
+          isSuccess: false,
         );
         _processing = false;
       });
@@ -174,7 +185,10 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
   }
 
   void _reset() {
-    setState(() { _result = null; _processing = false; });
+    setState(() {
+      _result = null;
+      _processing = false;
+    });
     _scanner.start();
   }
 
@@ -195,8 +209,8 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
   }
 
   static bool _isValidUuid(String s) => RegExp(
-        r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
-      ).hasMatch(s);
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+  ).hasMatch(s);
 
   static String _todayString() {
     final d = DateTime.now();
@@ -233,7 +247,11 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xCC050B14), Color(0x33050B14), Color(0xCC050B14)],
+                colors: [
+                  Color(0xCC050B14),
+                  Color(0x33050B14),
+                  Color(0xCC050B14),
+                ],
               ),
             ),
           ),
@@ -256,17 +274,17 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
                   Row(
                     children: [
                       _RoundIconButton(
-                        icon: Icons.arrow_back_rounded,
+                        icon: LucideIcons.arrowLeft,
                         onTap: () => Navigator.of(context).maybePop(),
                       ),
                       const Spacer(),
                       _RoundIconButton(
-                        icon: Icons.flash_on_rounded,
+                        icon: LucideIcons.zap,
                         onTap: () => _scanner.toggleTorch(),
                       ),
                       const SizedBox(width: 10),
                       _RoundIconButton(
-                        icon: Icons.cameraswitch_rounded,
+                        icon: LucideIcons.switchCamera,
                         onTap: () => _scanner.switchCamera(),
                       ),
                     ],
@@ -306,10 +324,12 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
                               height: 68,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white.withValues(alpha: .18)),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: .18),
+                                ),
                               ),
                               child: const Icon(
-                                Icons.qr_code_scanner_rounded,
+                                LucideIcons.scanQrCode,
                                 size: 32,
                                 color: Colors.white,
                               ),
@@ -335,7 +355,9 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
 
                   // Labels
                   Text(
-                    _processing ? 'Processing...' : 'Align student QR code inside the frame',
+                    _processing
+                        ? 'Processing...'
+                        : 'Align student QR code inside the frame',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Color(0xFFF4F8FB),
@@ -358,17 +380,25 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
 
                   // Bottom pill
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xE60A1320),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withValues(alpha: .12)),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: .12),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.center_focus_strong_rounded,
-                            size: 16, color: Colors.white.withValues(alpha: .80)),
+                        Icon(
+                          LucideIcons.focus,
+                          size: 16,
+                          color: Colors.white.withValues(alpha: .80),
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           'Attendance • QR Check-in',
@@ -443,8 +473,12 @@ class _ScanResultOverlay extends StatelessWidget {
       child: result.isDuplicate
           ? _DuplicateCard(result: result, onScanAgain: onScanAgain)
           : result.isSuccess
-              ? _SuccessCard(result: result, onScanAgain: onScanAgain, onClose: onClose)
-              : _ErrorCard(result: result, onScanAgain: onScanAgain),
+          ? _SuccessCard(
+              result: result,
+              onScanAgain: onScanAgain,
+              onClose: onClose,
+            )
+          : _ErrorCard(result: result, onScanAgain: onScanAgain),
     );
   }
 }
@@ -464,25 +498,34 @@ class _SuccessCard extends StatelessWidget {
 
   Color get _statusColor {
     switch (result.type.toUpperCase()) {
-      case 'LATE': return _kOrange;
-      default:     return _kGreen;
+      case 'LATE':
+        return _kOrange;
+      default:
+        return _kGreen;
     }
   }
 
   String get _statusLabel {
     switch (result.type.toUpperCase()) {
-      case 'LATE':    return 'Late';
-      case 'PRESENT': return result.remark == 'EARLY' ? 'Early' : 'Present';
-      default:        return result.type;
+      case 'LATE':
+        return 'Late';
+      case 'PRESENT':
+        return result.remark == 'EARLY' ? 'Early' : 'Present';
+      default:
+        return result.type;
     }
   }
 
   String get _remarkLabel {
     switch (result.remark.toUpperCase()) {
-      case 'EARLY':   return 'Arrived early';
-      case 'ON_TIME': return 'On time';
-      case 'LATE':    return 'Arrived late';
-      default:        return result.remark.isNotEmpty ? result.remark : 'Recorded';
+      case 'EARLY':
+        return 'Arrived early';
+      case 'ON_TIME':
+        return 'On time';
+      case 'LATE':
+        return 'Arrived late';
+      default:
+        return result.remark.isNotEmpty ? result.remark : 'Recorded';
     }
   }
 
@@ -507,17 +550,21 @@ class _SuccessCard extends StatelessWidget {
         children: [
           // Icon circle
           Container(
-            width: 72, height: 72,
+            width: 72,
+            height: 72,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: _statusColor.withValues(alpha: .10),
-              border: Border.all(color: _statusColor.withValues(alpha: .22), width: 1.5),
+              border: Border.all(
+                color: _statusColor.withValues(alpha: .22),
+                width: 1.5,
+              ),
             ),
             child: Center(
-              child: FaIcon(
+              child: Icon(
                 result.type.toUpperCase() == 'LATE'
-                    ? FontAwesomeIcons.clockRotateLeft
-                    : FontAwesomeIcons.circleCheck,
+                    ? LucideIcons.history
+                    : LucideIcons.circleCheck,
                 color: _statusColor,
                 size: 30,
               ),
@@ -557,13 +604,18 @@ class _SuccessCard extends StatelessWidget {
             ),
           ),
 
-          if (result.studentName.isEmpty || result.studentName.contains('...')) ...[
+          if (result.studentName.isEmpty ||
+              result.studentName.contains('...')) ...[
             const SizedBox(height: 4),
             Text(
               result.studentId.length > 12
                   ? result.studentId.substring(0, 12).toUpperCase()
                   : result.studentId,
-              style: const TextStyle(fontSize: 12, color: _kMuted, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                fontSize: 12,
+                color: _kMuted,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
 
@@ -581,7 +633,7 @@ class _SuccessCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _InfoCell(
-                    icon: FontAwesomeIcons.clock,
+                    icon: LucideIcons.clock,
                     label: 'Check-in',
                     value: result.checkIn.length > 5
                         ? result.checkIn.substring(0, 5)
@@ -592,7 +644,7 @@ class _SuccessCard extends StatelessWidget {
                 Container(width: 1, height: 40, color: _kBorder),
                 Expanded(
                   child: _InfoCell(
-                    icon: FontAwesomeIcons.tag,
+                    icon: LucideIcons.tag,
                     label: 'Status',
                     value: _remarkLabel,
                     valueColor: _statusColor,
@@ -608,11 +660,15 @@ class _SuccessCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const FaIcon(FontAwesomeIcons.qrcode, size: 11, color: _kMuted),
+              const Icon(LucideIcons.qrCode, size: 11, color: _kMuted),
               const SizedBox(width: 5),
               const Text(
                 'Scanned via QR code',
-                style: TextStyle(fontSize: 11.5, color: _kMuted, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: _kMuted,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -631,11 +687,7 @@ class _SuccessCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: _CardBtn(
-                  label: 'Done',
-                  filled: true,
-                  onTap: onClose,
-                ),
+                child: _CardBtn(label: 'Done', filled: true, onTap: onClose),
               ),
             ],
           ),
@@ -655,10 +707,14 @@ class _DuplicateCard extends StatelessWidget {
 
   String get _remarkLabel {
     switch (result.remark.toUpperCase()) {
-      case 'EARLY':   return 'Arrived early';
-      case 'ON_TIME': return 'On time';
-      case 'LATE':    return 'Arrived late';
-      default:        return result.remark.isNotEmpty ? result.remark : '';
+      case 'EARLY':
+        return 'Arrived early';
+      case 'ON_TIME':
+        return 'On time';
+      case 'LATE':
+        return 'Arrived late';
+      default:
+        return result.remark.isNotEmpty ? result.remark : '';
     }
   }
 
@@ -684,14 +740,18 @@ class _DuplicateCard extends StatelessWidget {
         children: [
           // Icon
           Container(
-            width: 72, height: 72,
+            width: 72,
+            height: 72,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: amber.withValues(alpha: .10),
-              border: Border.all(color: amber.withValues(alpha: .25), width: 1.5),
+              border: Border.all(
+                color: amber.withValues(alpha: .25),
+                width: 1.5,
+              ),
             ),
             child: const Center(
-              child: FaIcon(FontAwesomeIcons.clockRotateLeft, color: amber, size: 28),
+              child: Icon(LucideIcons.history, color: amber, size: 28),
             ),
           ),
           const SizedBox(height: 14),
@@ -707,8 +767,10 @@ class _DuplicateCard extends StatelessWidget {
             child: const Text(
               'ALREADY CHECKED IN',
               style: TextStyle(
-                fontSize: 10.5, fontWeight: FontWeight.w900,
-                color: amber, letterSpacing: .8,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w900,
+                color: amber,
+                letterSpacing: .8,
               ),
             ),
           ),
@@ -719,8 +781,10 @@ class _DuplicateCard extends StatelessWidget {
             result.studentName.isNotEmpty ? result.studentName : 'Student',
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 20, fontWeight: FontWeight.w900,
-              color: _kNavy, letterSpacing: -.3,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              color: _kNavy,
+              letterSpacing: -.3,
             ),
           ),
           const SizedBox(height: 16),
@@ -738,7 +802,7 @@ class _DuplicateCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: _InfoCell(
-                      icon: FontAwesomeIcons.clock,
+                      icon: LucideIcons.clock,
                       label: 'Checked in at',
                       value: result.checkIn,
                       valueColor: _kNavy,
@@ -748,7 +812,7 @@ class _DuplicateCard extends StatelessWidget {
                     Container(width: 1, height: 40, color: _kBorder),
                     Expanded(
                       child: _InfoCell(
-                        icon: FontAwesomeIcons.tag,
+                        icon: LucideIcons.tag,
                         label: 'Status',
                         value: _remarkLabel,
                         valueColor: amber,
@@ -771,7 +835,11 @@ class _DuplicateCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          _CardBtn(label: 'Scan Next Student', filled: true, onTap: onScanAgain),
+          _CardBtn(
+            label: 'Scan Next Student',
+            filled: true,
+            onTap: onScanAgain,
+          ),
         ],
       ),
     );
@@ -807,29 +875,37 @@ class _ErrorCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 72, height: 72,
+            width: 72,
+            height: 72,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: red.withValues(alpha: .10),
               border: Border.all(color: red.withValues(alpha: .22), width: 1.5),
             ),
             child: const Center(
-              child: FaIcon(FontAwesomeIcons.circleXmark, color: red, size: 30),
+              child: Icon(LucideIcons.circleX, color: red, size: 30),
             ),
           ),
           const SizedBox(height: 16),
           const Text(
             'Check-in Failed',
             style: TextStyle(
-              fontSize: 19, fontWeight: FontWeight.w900,
-              color: _kNavy, letterSpacing: -.2,
+              fontSize: 19,
+              fontWeight: FontWeight.w900,
+              color: _kNavy,
+              letterSpacing: -.2,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             result.remark.isNotEmpty ? result.remark : 'Something went wrong.',
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 13.5, color: _kMuted, fontWeight: FontWeight.w500, height: 1.5),
+            style: const TextStyle(
+              fontSize: 13.5,
+              color: _kMuted,
+              fontWeight: FontWeight.w500,
+              height: 1.5,
+            ),
           ),
           const SizedBox(height: 22),
           _CardBtn(label: 'Try Again', filled: true, onTap: onScanAgain),
@@ -858,13 +934,24 @@ class _InfoCell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        FaIcon(icon, size: 14, color: _kMuted),
+        Icon(icon, size: 14, color: _kMuted),
         const SizedBox(height: 6),
-        Text(label, style: const TextStyle(fontSize: 10.5, color: _kMuted, fontWeight: FontWeight.w600)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 10.5,
+            color: _kMuted,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         const SizedBox(height: 3),
         Text(
           value,
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: valueColor),
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+            color: valueColor,
+          ),
         ),
       ],
     );
@@ -876,7 +963,11 @@ class _CardBtn extends StatefulWidget {
   final bool filled;
   final VoidCallback onTap;
 
-  const _CardBtn({required this.label, required this.filled, required this.onTap});
+  const _CardBtn({
+    required this.label,
+    required this.filled,
+    required this.onTap,
+  });
 
   @override
   State<_CardBtn> createState() => _CardBtnState();
@@ -889,7 +980,10 @@ class _CardBtnState extends State<_CardBtn> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTapDown: (_) => setState(() => _down = true),
-      onTapUp: (_) { setState(() => _down = false); widget.onTap(); },
+      onTapUp: (_) {
+        setState(() => _down = false);
+        widget.onTap();
+      },
       onTapCancel: () => setState(() => _down = false),
       child: AnimatedScale(
         scale: _down ? 0.97 : 1.0,
@@ -901,7 +995,9 @@ class _CardBtnState extends State<_CardBtn> {
           decoration: BoxDecoration(
             color: widget.filled ? _kNavy : Colors.transparent,
             borderRadius: BorderRadius.circular(13),
-            border: Border.all(color: widget.filled ? Colors.transparent : _kBorder),
+            border: Border.all(
+              color: widget.filled ? Colors.transparent : _kBorder,
+            ),
           ),
           child: Text(
             widget.label,
@@ -932,7 +1028,8 @@ class _RoundIconButton extends StatelessWidget {
         customBorder: const CircleBorder(),
         onTap: onTap,
         child: SizedBox(
-          width: 46, height: 46,
+          width: 46,
+          height: 46,
           child: Icon(icon, color: const Color(0xFFF4F8FB), size: 22),
         ),
       ),
@@ -978,7 +1075,10 @@ class _ScannerOverlayPainter extends CustomPainter {
       width: scanSize,
       height: scanSize,
     );
-    final scanRRect = RRect.fromRectAndRadius(scanRect, Radius.circular(radius));
+    final scanRRect = RRect.fromRectAndRadius(
+      scanRect,
+      Radius.circular(radius),
+    );
     final overlay = Path.combine(
       PathOperation.difference,
       Path()..addRect(Offset.zero & size),
@@ -989,7 +1089,9 @@ class _ScannerOverlayPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ScannerOverlayPainter old) =>
-      scanSize != old.scanSize || radius != old.radius || scrimColor != old.scrimColor;
+      scanSize != old.scanSize ||
+      radius != old.radius ||
+      scrimColor != old.scrimColor;
 }
 
 class _ScanFramePainter extends CustomPainter {
@@ -1000,16 +1102,19 @@ class _ScanFramePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rect  = Offset.zero & size;
+    final rect = Offset.zero & size;
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(28));
 
-    canvas.drawRRect(rrect, Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4
-      ..color = dimColor);
+    canvas.drawRRect(
+      rrect,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4
+        ..color = dimColor,
+    );
 
     const corner = 56.0;
-    const inset  = 2.5;
+    const inset = 2.5;
     final path = Path()
       ..moveTo(inset, corner)
       ..lineTo(inset, 28)
@@ -1021,18 +1126,26 @@ class _ScanFramePainter extends CustomPainter {
       ..lineTo(size.width - inset, corner)
       ..moveTo(size.width - inset, size.height - corner)
       ..lineTo(size.width - inset, size.height - 28)
-      ..quadraticBezierTo(size.width - inset, size.height - inset, size.width - 28, size.height - inset)
+      ..quadraticBezierTo(
+        size.width - inset,
+        size.height - inset,
+        size.width - 28,
+        size.height - inset,
+      )
       ..lineTo(size.width - corner, size.height - inset)
       ..moveTo(corner, size.height - inset)
       ..lineTo(28, size.height - inset)
       ..quadraticBezierTo(inset, size.height - inset, inset, size.height - 28)
       ..lineTo(inset, size.height - corner);
 
-    canvas.drawPath(path, Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 5
-      ..strokeCap = StrokeCap.round
-      ..color = color);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5
+        ..strokeCap = StrokeCap.round
+        ..color = color,
+    );
   }
 
   @override

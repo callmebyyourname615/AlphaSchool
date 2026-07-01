@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:file_selector/file_selector.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/global_alert_service.dart';
+import '../../../home/presentation/pages/contact/branch_model.dart';
+import '../../../home/presentation/pages/contact/branch_service.dart';
 import '../../data/parent_registration_service.dart';
 import 'login_page.dart';
 
@@ -24,14 +30,17 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   static const _rose500 = Color(0xFFE11D48);
 
   static const List<_StepMeta> _steps = [
-    _StepMeta(1, 'Personal', Icons.person_outline),
-    _StepMeta(2, 'Contact', Icons.work_outline),
-    _StepMeta(3, 'Identity', Icons.badge_outlined),
-    _StepMeta(4, 'Address', Icons.place_outlined),
+    _StepMeta(1, 'Personal', LucideIcons.user),
+    _StepMeta(2, 'Contact', LucideIcons.briefcaseBusiness),
+    _StepMeta(3, 'Identity', LucideIcons.badge),
+    _StepMeta(4, 'Address', LucideIcons.mapPin),
   ];
+
+  static const String _kSelectedBranchIdKey = 'selected_branch_id';
 
   static const Map<int, List<String>> _required = {
     1: [
+      'Branch',
       'Firstname_Lao',
       'Firstname_Eng',
       'Midlename_Lao',
@@ -70,24 +79,11 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     'Doctorate',
   ];
   static const _genders = ['male', 'female', 'other'];
-  static const _districts = [
-    'Chanthabouly',
-    'Sikhottabong',
-    'Xaysetha',
-    'Sisattanak',
-    'Hadxaifong',
-  ];
-  static const _provinces = [
-    'Vientiane Capital',
-    'Luang Prabang',
-    'Savannakhet',
-    'Champasak',
-    'Xieng Khouang',
-  ];
 
   int _step = 1;
   final Map<String, String> _data = {};
   final Map<String, String> _errors = {};
+  final Map<String, XFile> _attachments = {};
   bool _submitted = false;
   bool _submitting = false;
   bool _bootstrapping = true;
@@ -102,6 +98,11 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   String? _rejectReason;
   final PageController _pageController = PageController();
   final ParentRegistrationService _service = ParentRegistrationService();
+  final BranchService _branchService = BranchService();
+  List<BranchInfo> _branches = const [];
+  bool _branchesLoading = false;
+  List<_ParentProvinceOption> _provinces = const [];
+  bool _provincesLoading = false;
 
   @override
   void initState() {
@@ -110,6 +111,13 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   }
 
   Future<void> _bootstrap() async {
+    _loadBranches();
+    _loadProvinces();
+    final prefs = await SharedPreferences.getInstance();
+    final savedBranch = prefs.getString(_kSelectedBranchIdKey);
+    if (savedBranch != null && savedBranch.isNotEmpty) {
+      _data['Branch'] = savedBranch;
+    }
     final pending = await _service.loadPending();
     if (!mounted) return;
     if (pending != null) {
@@ -119,12 +127,72 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         _pendingEmail = pending.email;
         _pendingPassword = pending.password;
         _pendingFullName = pending.fullName;
+        _data
+          ..clear()
+          ..addAll(pending.formData);
         _bootstrapping = false;
       });
       _refreshStatus(silent: true);
     } else {
       setState(() => _bootstrapping = false);
     }
+  }
+
+  Future<void> _loadProvinces() async {
+    if (_provincesLoading) return;
+    setState(() => _provincesLoading = true);
+    try {
+      final res = await ApiClient().get('/locations/province');
+      final raw = res is List
+          ? res
+          : (res is Map && res['data'] is List ? res['data'] as List : const []);
+      final list = raw
+          .whereType<Map>()
+          .map(
+            (m) => _ParentProvinceOption.fromJson(
+              Map<String, dynamic>.from(m),
+            ),
+          )
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _provinces = list;
+        _provincesLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _provincesLoading = false);
+    }
+  }
+
+  _ParentProvinceOption? _provinceByLabel(String label) {
+    if (label.trim().isEmpty) return null;
+    final lc = label.trim().toLowerCase();
+    for (final p in _provinces) {
+      if (p.label.toLowerCase() == lc) return p;
+    }
+    return null;
+  }
+
+  Future<void> _loadBranches() async {
+    if (_branchesLoading) return;
+    setState(() => _branchesLoading = true);
+    try {
+      final list = await _branchService.fetchBranches();
+      if (!mounted) return;
+      setState(() {
+        _branches = list;
+        _branchesLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _branchesLoading = false);
+    }
+  }
+
+  Future<void> _saveBranchSelection(String branchId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kSelectedBranchIdKey, branchId);
   }
 
   Future<void> _refreshStatus({bool silent = false}) async {
@@ -148,11 +216,22 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         );
       }
     } else if (result.status == 'rejected') {
+      final wasRejected = _rejected;
+      final reason = result.rejectReason?.trim() ?? '';
       setState(() {
         _rejected = true;
-        _rejectReason = result.rejectReason;
+        _approved = false;
+        _rejectReason = reason;
         _checkingStatus = false;
       });
+      if (!wasRejected || !silent) {
+        GlobalAlert.showError(
+          title: 'Application rejected',
+          message: reason.isEmpty
+              ? 'Admin rejected your parent application. Please review your information and submit again.'
+              : reason,
+        );
+      }
     } else {
       if (!silent) setState(() => _checkingStatus = false);
     }
@@ -169,8 +248,8 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       _pendingFullName = null;
       _passwordVisible = false;
       _rejected = false;
+      _approved = false;
       _rejectReason = null;
-      _data.clear();
       _errors.clear();
       _step = 1;
     });
@@ -210,6 +289,13 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         next['Email'] = 'Enter a valid email';
       }
     }
+    if (_step == 3) {
+      for (final field in ['id_card', 'family_book', 'passport_image']) {
+        if (!_attachments.containsKey(field)) {
+          next[field] = 'Please upload this document';
+        }
+      }
+    }
     setState(() {
       _errors
         ..clear()
@@ -237,7 +323,23 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     setState(() => _submitting = true);
     GlobalAlert.showLoading(message: 'Submitting your application...');
     try {
-      final result = await _service.register(_data);
+      final attachments = await Future.wait(
+        _attachments.entries.map(
+          (entry) async => ParentAttachment(
+            field: entry.key,
+            bytes: await entry.value.readAsBytes(),
+            filename: entry.value.name,
+          ),
+        ),
+      );
+      final isResubmission = _rejected && _referenceId != null;
+      final result = isResubmission
+          ? await _service.resubmit(
+              _referenceId!,
+              _data,
+              attachments: attachments,
+            )
+          : await _service.register(_data, attachments: attachments);
       final parent = result.data;
       final parentData = parent['data'] is Map
           ? Map<String, dynamic>.from(parent['data'] as Map)
@@ -255,7 +357,8 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         id: id,
         email: _data['Email'] ?? '',
         fullName: fullName.isEmpty ? null : fullName,
-        password: result.password,
+        password: isResubmission ? _pendingPassword : result.password,
+        formData: _data,
       );
       GlobalAlert.dismiss();
       if (!mounted) return;
@@ -263,9 +366,12 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         _submitted = true;
         _referenceId = id;
         _pendingEmail = _data['Email'];
-        _pendingPassword = result.password;
+        _pendingPassword = isResubmission ? _pendingPassword : result.password;
         _pendingFullName = fullName.isEmpty ? null : fullName;
         _passwordVisible = false;
+        _rejected = false;
+        _approved = false;
+        _rejectReason = null;
         _submitting = false;
       });
       GlobalAlert.showSuccess(
@@ -334,11 +440,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         children: [
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              size: 18,
-              color: _navy,
-            ),
+            icon: const Icon(LucideIcons.arrowLeft, size: 18, color: _navy),
             tooltip: 'Back',
           ),
           const SizedBox(width: 8),
@@ -486,7 +588,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
           child: FadeTransition(opacity: anim, child: child),
         ),
         child: Icon(
-          completed ? Icons.check_rounded : s.icon,
+          completed ? LucideIcons.check : s.icon,
           key: ValueKey('${s.id}_${completed ? 'done' : 'pending'}'),
           color: filled ? Colors.white : _slate400,
           size: 18,
@@ -499,6 +601,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     switch (step) {
       case 1:
         return _sectionCard(1, 'Personal Information', [
+          _branchSelect(),
           _input(
             'First Name (Lao)',
             'Firstname_Lao',
@@ -608,6 +711,29 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
             required: true,
             placeholder: 'Enter family book number',
           ),
+          _fileUpload(
+            'Identity card',
+            'id_card',
+            required: true,
+            pdfOnly: false,
+          ),
+          _fileUpload(
+            'Home picture (Optional)',
+            'home_picture',
+            pdfOnly: false,
+          ),
+          _fileUpload(
+            'Family book',
+            'family_book',
+            required: true,
+            pdfOnly: true,
+          ),
+          _fileUpload(
+            'Passport image',
+            'passport_image',
+            required: true,
+            pdfOnly: false,
+          ),
           _input(
             'Nationality',
             'Nationality',
@@ -650,26 +776,96 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 required: true,
                 placeholder: 'Enter village',
               ),
-              _select(
-                'District',
-                'District',
-                _districts,
-                required: true,
-                placeholder: 'Select district',
-              ),
-              _select(
-                'Province',
-                'Province',
-                _provinces,
-                required: true,
-                placeholder: 'Select province',
-              ),
+              _locationProvinceSelect(),
+              _locationDistrictSelect(),
             ]),
             const SizedBox(height: 16),
             _buildNote(),
           ],
         );
     }
+  }
+
+  Widget _fileUpload(
+    String label,
+    String field, {
+    bool required = false,
+    required bool pdfOnly,
+  }) {
+    final selected = _attachments[field];
+    final error = _errors[field];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text.rich(
+            TextSpan(
+              text: label,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: _navy,
+              ),
+              children: required
+                  ? const [
+                      TextSpan(
+                        text: ' *',
+                        style: TextStyle(color: _rose500),
+                      ),
+                    ]
+                  : null,
+            ),
+          ),
+          const SizedBox(height: 7),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final file = await openFile(
+                acceptedTypeGroups: [
+                  XTypeGroup(
+                    label: pdfOnly ? 'PDF' : 'Image',
+                    extensions: pdfOnly
+                        ? const ['pdf']
+                        : const ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+                  ),
+                ],
+              );
+              if (file == null || !mounted) return;
+              setState(() {
+                _attachments[field] = file;
+                _errors.remove(field);
+              });
+            },
+            icon: Icon(
+              selected == null ? LucideIcons.upload : LucideIcons.circleCheck,
+              size: 18,
+            ),
+            label: Text(
+              selected?.name ?? 'Choose ${pdfOnly ? 'PDF' : 'image'}',
+            ),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+              alignment: Alignment.centerLeft,
+              foregroundColor: selected == null
+                  ? _navy
+                  : const Color(0xFF059669),
+              side: BorderSide(color: error == null ? _slate200 : _rose500),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
+          if (error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 5),
+              child: Text(
+                error,
+                style: const TextStyle(fontSize: 12, color: _rose500),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Widget _sectionCard(int num, String label, List<Widget> children) {
@@ -819,6 +1015,196 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     );
   }
 
+  Widget _locationProvinceSelect() {
+    const name = 'Province';
+    final err = _errors[name];
+    final current = _data[name] ?? '';
+    final selected = _provinceByLabel(current);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('Province', true),
+        DropdownButtonFormField<String>(
+          initialValue: selected?.id,
+          isExpanded: true,
+          icon: _provincesLoading
+              ? const SizedBox(
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: _muted,
+                  ),
+                )
+              : const Icon(LucideIcons.chevronDown, color: _muted),
+          hint: Text(
+            _provincesLoading ? 'Loading provinces...' : 'Select province',
+            style: const TextStyle(color: _slate400, fontSize: 14),
+          ),
+          style: const TextStyle(
+            fontSize: 16,
+            color: _navy,
+            fontWeight: FontWeight.w500,
+          ),
+          decoration: _decoration(null, err),
+          items: _provinces
+              .map((p) => DropdownMenuItem(value: p.id, child: Text(p.label)))
+              .toList(),
+          onChanged: _provinces.isEmpty
+              ? null
+              : (v) {
+                  if (v == null) return;
+                  final picked = _provinces.firstWhere((p) => p.id == v);
+                  setState(() {
+                    _data[name] = picked.label;
+                    _data['District'] = '';
+                    _errors.remove(name);
+                    _errors.remove('District');
+                  });
+                },
+        ),
+        if (err != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              err,
+              style: const TextStyle(
+                fontSize: 13,
+                color: _rose500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _locationDistrictSelect() {
+    const name = 'District';
+    final err = _errors[name];
+    final current = _data[name] ?? '';
+    final province = _provinceByLabel(_data['Province'] ?? '');
+    final districts = province?.districts ?? const [];
+    final lc = current.trim().toLowerCase();
+    final selected = districts.firstWhere(
+      (d) => d.label.toLowerCase() == lc,
+      orElse: () => const _ParentDistrictOption(id: '', label: ''),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('District', true),
+        DropdownButtonFormField<String>(
+          initialValue: selected.id.isEmpty ? null : selected.id,
+          isExpanded: true,
+          icon: const Icon(LucideIcons.chevronDown, color: _muted),
+          hint: Text(
+            province == null ? 'Select province first' : 'Select district',
+            style: const TextStyle(color: _slate400, fontSize: 14),
+          ),
+          style: const TextStyle(
+            fontSize: 16,
+            color: _navy,
+            fontWeight: FontWeight.w500,
+          ),
+          decoration: _decoration(null, err),
+          items: districts
+              .map((d) => DropdownMenuItem(value: d.id, child: Text(d.label)))
+              .toList(),
+          onChanged: districts.isEmpty
+              ? null
+              : (v) {
+                  if (v == null) return;
+                  final picked = districts.firstWhere((d) => d.id == v);
+                  setState(() {
+                    _data[name] = picked.label;
+                    _errors.remove(name);
+                  });
+                },
+        ),
+        if (err != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              err,
+              style: const TextStyle(
+                fontSize: 13,
+                color: _rose500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _branchSelect() {
+    const name = 'Branch';
+    final err = _errors[name];
+    final value = _data[name];
+    final hasValue = value != null && _branches.any((b) => b.id == value);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('Branch', true),
+        DropdownButtonFormField<String>(
+          initialValue: hasValue ? value : null,
+          isExpanded: true,
+          icon: _branchesLoading
+              ? const SizedBox(
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: _muted,
+                  ),
+                )
+              : const Icon(LucideIcons.chevronDown, color: _muted),
+          hint: Text(
+            _branchesLoading ? 'Loading branches...' : 'Select branch',
+            style: const TextStyle(color: _slate400, fontSize: 14),
+          ),
+          style: const TextStyle(
+            fontSize: 16,
+            color: _navy,
+            fontWeight: FontWeight.w500,
+          ),
+          decoration: _decoration(null, err),
+          items: _branches
+              .map(
+                (b) => DropdownMenuItem(
+                  value: b.id,
+                  child: Text(
+                    b.name.isEmpty ? b.code : b.name,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: _branches.isEmpty
+              ? null
+              : (v) {
+                  if (v == null) return;
+                  _set(name, v);
+                  _saveBranchSelection(v);
+                },
+        ),
+        if (err != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              err,
+              style: const TextStyle(
+                fontSize: 13,
+                color: _rose500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _select(
     String label,
     String name,
@@ -837,7 +1223,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
               ? value
               : null,
           isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _muted),
+          icon: const Icon(LucideIcons.chevronDown, color: _muted),
           hint: Text(
             placeholder ?? 'Select...',
             style: const TextStyle(color: _slate400, fontSize: 14),
@@ -913,7 +1299,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
           child: InputDecorator(
             decoration: _decoration(null, err).copyWith(
               suffixIcon: const Icon(
-                Icons.calendar_today_rounded,
+                LucideIcons.calendarDays,
                 size: 16,
                 color: _muted,
               ),
@@ -963,7 +1349,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
               shape: BoxShape.circle,
               border: Border.all(color: _blue, width: 2),
             ),
-            child: const Icon(Icons.shield_outlined, color: _blue, size: 16),
+            child: const Icon(LucideIcons.shield, color: _blue, size: 16),
           ),
           const SizedBox(width: 12),
           const Expanded(
@@ -1009,7 +1395,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                   height: 50,
                   child: OutlinedButton.icon(
                     onPressed: _onBack,
-                    icon: const Icon(Icons.chevron_left_rounded, size: 18),
+                    icon: const Icon(LucideIcons.chevronLeft, size: 18),
                     label: const Text('Back'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: _navy,
@@ -1054,7 +1440,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                           children: [
                             Text('Next'),
                             SizedBox(width: 6),
-                            Icon(Icons.chevron_right_rounded, size: 18),
+                            Icon(LucideIcons.chevronRight, size: 18),
                           ],
                         )
                       : const Row(
@@ -1062,7 +1448,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                           children: [
                             Text('Submit parent information'),
                             SizedBox(width: 6),
-                            Icon(Icons.chevron_right_rounded, size: 18),
+                            Icon(LucideIcons.chevronRight, size: 18),
                           ],
                         ),
                 ),
@@ -1096,10 +1482,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
           ),
           child: Column(
             children: [
-              const _PendingPulseIcon(
-                color: amber,
-                background: amberSoft,
-              ),
+              const _PendingPulseIcon(color: amber, background: amberSoft),
               const SizedBox(height: 18),
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -1114,7 +1497,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.circle, color: amber, size: 8),
+                    Icon(LucideIcons.circle, color: amber, size: 8),
                     SizedBox(width: 6),
                     Text(
                       'PENDING APPROVAL',
@@ -1187,7 +1570,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                       color: Colors.white,
                     ),
                   )
-                : const Icon(Icons.refresh_rounded, size: 18),
+                : const Icon(LucideIcons.refreshCw, size: 18),
             label: Text(
               _checkingStatus ? 'Checking status...' : 'Check approval status',
             ),
@@ -1295,7 +1678,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                   ],
                 ),
                 child: const Icon(
-                  Icons.check_circle_rounded,
+                  LucideIcons.circleCheck,
                   color: green,
                   size: 40,
                 ),
@@ -1314,7 +1697,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.circle, color: green, size: 8),
+                    Icon(LucideIcons.circle, color: green, size: 8),
                     SizedBox(width: 6),
                     Text(
                       'ACCOUNT APPROVED',
@@ -1384,7 +1767,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 (route) => false,
               );
             },
-            icon: const Icon(Icons.login_rounded, size: 18),
+            icon: const Icon(LucideIcons.logIn, size: 18),
             label: const Text('Go to sign in'),
             style: ElevatedButton.styleFrom(
               backgroundColor: green,
@@ -1406,45 +1789,23 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   }
 
   Widget _buildRejected() {
-    const rose = Color(0xFFE11D48);
     const roseSoft = Color(0xFFFFF1F2);
-    const roseBorder = Color(0xFFFECDD3);
-    final reason =
-        (_rejectReason?.trim().isNotEmpty == true)
-            ? _rejectReason!.trim()
-            : 'No reason was provided by the admin.';
+    const rose = Color(0xFFE11D48);
+    final reason = (_rejectReason?.trim().isNotEmpty == true)
+        ? _rejectReason!.trim()
+        : 'Please review your parent information and submit again.';
     return Column(
       children: [
         Container(
           padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
-            color: roseSoft,
+            color: _blueSofter,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: roseBorder),
+            border: Border.all(color: _blueSoft),
           ),
           child: Column(
             children: [
-              Container(
-                height: 76,
-                width: 76,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white,
-                  border: Border.all(color: rose, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: rose.withValues(alpha: .22),
-                      blurRadius: 22,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.cancel_rounded,
-                  color: rose,
-                  size: 38,
-                ),
-              ),
+              const _RejectedIcon(),
               const SizedBox(height: 18),
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -1452,21 +1813,21 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: roseSoft,
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: roseBorder),
+                  border: Border.all(color: rose.withValues(alpha: .35)),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.circle, color: rose, size: 8),
+                    Icon(LucideIcons.circleX, color: rose, size: 12),
                     SizedBox(width: 6),
                     Text(
-                      'APPLICATION REJECTED',
+                      'REJECTED',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
-                        color: rose,
+                        color: Color(0xFF9F1239),
                         letterSpacing: 1,
                       ),
                     ),
@@ -1475,75 +1836,47 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
               ),
               const SizedBox(height: 14),
               const Text(
-                'Application not approved',
+                'Application Rejected',
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: 24,
                   fontWeight: FontWeight.w800,
                   color: _navy,
                 ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              const Text(
-                'The admin reviewed your submission and could not approve it for the reason below.',
+              const Text.rich(
+                TextSpan(
+                  text:
+                      'Admin reviewed this application and requested changes.',
+                ),
                 style: TextStyle(fontSize: 13, color: _muted, height: 1.5),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 18),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: roseBorder),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(
-                          Icons.info_outline_rounded,
-                          color: rose,
-                          size: 16,
-                        ),
-                        SizedBox(width: 6),
-                        Text(
-                          'Reason from admin',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: rose,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      reason,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: _navy,
-                        height: 1.55,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              const SizedBox(height: 14),
+              _rejectionReasonCard(reason),
             ],
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
+        _statusTimeline(),
+        const SizedBox(height: 20),
         SizedBox(
           width: double.infinity,
           height: 50,
           child: ElevatedButton.icon(
-            onPressed: _resubmitApplication,
-            icon: const Icon(Icons.restart_alt_rounded, size: 18),
-            label: const Text('Edit and resubmit'),
+            onPressed: _checkingStatus ? null : () => _refreshStatus(),
+            icon: _checkingStatus
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(LucideIcons.refreshCw, size: 18),
+            label: Text(_checkingStatus ? 'Checking status...' : 'Check again'),
             style: ElevatedButton.styleFrom(
               backgroundColor: _blue,
               foregroundColor: Colors.white,
@@ -1552,6 +1885,27 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
               ),
               textStyle: const TextStyle(
                 fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: OutlinedButton.icon(
+            onPressed: _resubmitApplication,
+            icon: const Icon(LucideIcons.filePenLine, size: 18),
+            label: const Text('Edit and resubmit'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _blue,
+              side: const BorderSide(color: _slate200, width: 1.5),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -1578,6 +1932,54 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _rejectionReasonCard(String reason) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFFCDD5)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            LucideIcons.messageCircleWarning,
+            color: Color(0xFFE11D48),
+            size: 18,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Reason from admin',
+                  style: TextStyle(
+                    color: Color(0xFF9F1239),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  reason,
+                  style: const TextStyle(
+                    color: _muted,
+                    fontSize: 12,
+                    height: 1.45,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1608,7 +2010,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
             _credRow(
               label: 'Email',
               value: _pendingEmail!,
-              icon: Icons.mail_outline_rounded,
+              icon: LucideIcons.mail,
             ),
           ],
           if (_pendingEmail != null)
@@ -1621,7 +2023,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
             value: pwd.isEmpty
                 ? 'Not available'
                 : (_passwordVisible ? pwd : masked),
-            icon: Icons.lock_outline_rounded,
+            icon: LucideIcons.lock,
             monospace: pwd.isNotEmpty,
             muted: pwd.isEmpty,
             trailing: IconButton(
@@ -1637,9 +2039,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 setState(() => _passwordVisible = !_passwordVisible);
               },
               icon: Icon(
-                _passwordVisible
-                    ? Icons.visibility_off_rounded
-                    : Icons.visibility_rounded,
+                _passwordVisible ? LucideIcons.eyeOff : LucideIcons.eye,
                 size: 20,
                 color: _blue,
               ),
@@ -1659,7 +2059,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
             child: const Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline_rounded, size: 14, color: _blue),
+                Icon(LucideIcons.info, size: 14, color: _blue),
                 SizedBox(width: 6),
                 Expanded(
                   child: Text(
@@ -1729,25 +2129,28 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
 
   Widget _statusTimeline() {
     const amber = Color(0xFFF59E0B);
+    const rose = Color(0xFFE11D48);
     final steps = [
       (
         'Submitted',
         'Application received',
-        Icons.check_circle_rounded,
+        LucideIcons.circleCheck,
         _blue,
         true,
       ),
       (
-        'Pending Review',
-        'Waiting for admin approval',
-        Icons.hourglass_top_rounded,
-        amber,
+        _rejected ? 'Rejected' : 'Pending Review',
+        _rejected ? 'Admin requested changes' : 'Waiting for admin approval',
+        _rejected ? LucideIcons.circleX : LucideIcons.hourglass,
+        _rejected ? rose : amber,
         true,
       ),
       (
-        'Approved',
-        "You'll be notified once approved",
-        Icons.verified_rounded,
+        _rejected ? 'Resubmit' : 'Approved',
+        _rejected
+            ? 'Update details and send again'
+            : "You'll be notified once approved",
+        _rejected ? LucideIcons.filePenLine : LucideIcons.badgeCheck,
         _slate400,
         false,
       ),
@@ -1777,7 +2180,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                             : _slate100,
                         shape: BoxShape.circle,
                       ),
-                      child: steps[i].$3 == Icons.hourglass_top_rounded
+                      child: steps[i].$3 == LucideIcons.hourglass
                           ? _SpinningHourglass(color: steps[i].$4, size: 16)
                           : Icon(steps[i].$3, color: steps[i].$4, size: 16),
                     ),
@@ -1833,17 +2236,10 @@ class _StepMeta {
 /// Animated hero pending icon: breathing badge with expanding ripple
 /// and an hourglass that tips end-over-end like sand falling.
 class _PendingPulseIcon extends StatefulWidget {
-  const _PendingPulseIcon({
-    required this.color,
-    required this.background,
-    this.size = 76,
-    this.iconSize = 36,
-  });
+  const _PendingPulseIcon({required this.color, required this.background});
 
   final Color color;
   final Color background;
-  final double size;
-  final double iconSize;
 
   @override
   State<_PendingPulseIcon> createState() => _PendingPulseIconState();
@@ -1870,8 +2266,8 @@ class _PendingPulseIconState extends State<_PendingPulseIcon>
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: widget.size,
-      height: widget.size,
+      width: 76,
+      height: 76,
       child: Stack(
         alignment: Alignment.center,
         clipBehavior: Clip.none,
@@ -1885,8 +2281,8 @@ class _PendingPulseIconState extends State<_PendingPulseIcon>
               return Opacity(
                 opacity: (1 - t) * 0.6,
                 child: Container(
-                  width: widget.size + extra,
-                  height: widget.size + extra,
+                  width: 76 + extra,
+                  height: 76 + extra,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(color: widget.color, width: 2),
@@ -1904,8 +2300,8 @@ class _PendingPulseIconState extends State<_PendingPulseIcon>
               return Transform.scale(scale: scale, child: child);
             },
             child: Container(
-              width: widget.size,
-              height: widget.size,
+              width: 76,
+              height: 76,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: widget.background,
@@ -1934,8 +2330,8 @@ class _PendingPulseIconState extends State<_PendingPulseIcon>
               return Transform.rotate(
                 angle: angle,
                 child: Icon(
-                  Icons.hourglass_top_rounded,
-                  size: widget.iconSize,
+                  LucideIcons.hourglass,
+                  size: 36,
                   color: widget.color,
                 ),
               );
@@ -1943,6 +2339,33 @@ class _PendingPulseIconState extends State<_PendingPulseIcon>
           ),
         ],
       ),
+    );
+  }
+}
+
+class _RejectedIcon extends StatelessWidget {
+  const _RejectedIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    const rose = Color(0xFFE11D48);
+    const roseSurface = Color(0xFFFFF1F2);
+    return Container(
+      width: 76,
+      height: 76,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: roseSurface,
+        border: Border.all(color: rose, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: rose.withValues(alpha: .18),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: const Icon(LucideIcons.circleX, size: 36, color: rose),
     );
   }
 }
@@ -1980,7 +2403,7 @@ class _SpinningHourglassState extends State<_SpinningHourglass>
         return Transform.rotate(
           angle: eased * 2 * 3.14159,
           child: Icon(
-            Icons.hourglass_top_rounded,
+            LucideIcons.hourglass,
             color: widget.color,
             size: widget.size,
           ),
@@ -1988,4 +2411,44 @@ class _SpinningHourglassState extends State<_SpinningHourglass>
       },
     );
   }
+}
+
+class _ParentProvinceOption {
+  final String id;
+  final String label;
+  final List<_ParentDistrictOption> districts;
+
+  const _ParentProvinceOption({
+    required this.id,
+    required this.label,
+    required this.districts,
+  });
+
+  factory _ParentProvinceOption.fromJson(Map<String, dynamic> j) {
+    final raw = (j['districts'] as List?) ?? const [];
+    return _ParentProvinceOption(
+      id: (j['id'] ?? '').toString(),
+      label: (j['nameEn'] ?? j['nameLa'] ?? j['name'] ?? '').toString(),
+      districts: raw
+          .whereType<Map>()
+          .map(
+            (d) => _ParentDistrictOption.fromJson(
+              Map<String, dynamic>.from(d),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class _ParentDistrictOption {
+  final String id;
+  final String label;
+  const _ParentDistrictOption({required this.id, required this.label});
+
+  factory _ParentDistrictOption.fromJson(Map<String, dynamic> j) =>
+      _ParentDistrictOption(
+        id: (j['id'] ?? '').toString(),
+        label: (j['nameEn'] ?? j['nameLa'] ?? j['name'] ?? '').toString(),
+      );
 }

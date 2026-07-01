@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../constants/app_colors.dart';
 
@@ -29,15 +29,17 @@ class GlobalAlertDialog extends StatelessWidget {
     this.onSecondary,
   });
 
-  bool get _isConfirm  => type == GlobalAlertType.confirm;
-  bool get _isLoading  => type == GlobalAlertType.loading;
+  bool get _isConfirm => type == GlobalAlertType.confirm;
+  bool get _isLoading => type == GlobalAlertType.loading;
 
   @override
   Widget build(BuildContext context) {
-    final spec      = _AlertSpec.fromType(type, customIcon: icon);
-    final iconColor = (_isConfirm && confirmColor != null) ? confirmColor! : spec.color;
+    final spec = _AlertSpec.fromType(type, customIcon: icon);
+    final iconColor = (_isConfirm && confirmColor != null)
+        ? confirmColor!
+        : spec.color;
     final media = MediaQuery.of(context);
-    final maxW  = media.size.width - 48;
+    final maxW = media.size.width - 48;
 
     return SafeArea(
       child: Center(
@@ -94,7 +96,11 @@ class GlobalAlertDialog extends StatelessWidget {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          _StatusIcon(spec: spec, isLoading: _isLoading, colorOverride: iconColor),
+                          _StatusIcon(
+                            spec: spec,
+                            isLoading: _isLoading,
+                            colorOverride: iconColor,
+                          ),
                           const SizedBox(height: 20),
                           if ((title ?? '').trim().isNotEmpty) ...[
                             Text(
@@ -137,7 +143,9 @@ class GlobalAlertDialog extends StatelessWidget {
                                     child: _AlertButton(
                                       text: primaryText,
                                       onTap: onPrimary,
-                                      color: confirmColor ?? GlobalAlertColors.primaryAction,
+                                      color:
+                                          confirmColor ??
+                                          GlobalAlertColors.primaryAction,
                                     ),
                                   ),
                                 ],
@@ -168,7 +176,11 @@ class _StatusIcon extends StatelessWidget {
   final bool isLoading;
   final Color? colorOverride;
 
-  const _StatusIcon({required this.spec, required this.isLoading, this.colorOverride});
+  const _StatusIcon({
+    required this.spec,
+    required this.isLoading,
+    this.colorOverride,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -191,7 +203,7 @@ class _StatusIcon extends StatelessWidget {
                   color: color,
                 ),
               )
-            : FaIcon(spec.faIcon, color: color, size: 30),
+            : Icon(spec.faIcon, color: color, size: 30),
       ),
     );
   }
@@ -212,9 +224,11 @@ class _AlertButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg     = outlined ? GlobalAlertColors.secondaryBg : (color ?? GlobalAlertColors.primaryAction);
-    final border = outlined ? GlobalAlertColors.border       : Colors.transparent;
-    final fg     = outlined ? GlobalAlertColors.textPrimary  : Colors.white;
+    final bg = outlined
+        ? GlobalAlertColors.secondaryBg
+        : (color ?? GlobalAlertColors.primaryAction);
+    final border = outlined ? GlobalAlertColors.border : Colors.transparent;
+    final fg = outlined ? GlobalAlertColors.textPrimary : Colors.white;
 
     return Material(
       color: bg,
@@ -259,34 +273,34 @@ class _AlertSpec {
   factory _AlertSpec.fromType(GlobalAlertType type, {IconData? customIcon}) {
     return switch (type) {
       GlobalAlertType.success => _AlertSpec(
-        color:       GlobalAlertColors.successGreen,
+        color: GlobalAlertColors.successGreen,
         buttonColor: GlobalAlertColors.primaryAction,
-        faIcon:      customIcon ?? FontAwesomeIcons.circleCheck,
+        faIcon: customIcon ?? LucideIcons.circleCheck,
       ),
       GlobalAlertType.error => _AlertSpec(
-        color:       GlobalAlertColors.errorPink,
+        color: GlobalAlertColors.errorPink,
         buttonColor: GlobalAlertColors.errorPink,
-        faIcon:      customIcon ?? FontAwesomeIcons.circleXmark,
+        faIcon: customIcon ?? LucideIcons.circleX,
       ),
       GlobalAlertType.warning => _AlertSpec(
-        color:       GlobalAlertColors.warningAmber,
+        color: GlobalAlertColors.warningAmber,
         buttonColor: GlobalAlertColors.primaryAction,
-        faIcon:      customIcon ?? FontAwesomeIcons.triangleExclamation,
+        faIcon: customIcon ?? LucideIcons.circle,
       ),
       GlobalAlertType.info => _AlertSpec(
-        color:       GlobalAlertColors.infoBlue,
+        color: GlobalAlertColors.infoBlue,
         buttonColor: GlobalAlertColors.primaryAction,
-        faIcon:      customIcon ?? FontAwesomeIcons.circleInfo,
+        faIcon: customIcon ?? LucideIcons.info,
       ),
       GlobalAlertType.confirm => _AlertSpec(
-        color:       GlobalAlertColors.infoBlue,
+        color: GlobalAlertColors.infoBlue,
         buttonColor: GlobalAlertColors.primaryAction,
-        faIcon:      customIcon ?? FontAwesomeIcons.circleQuestion,
+        faIcon: customIcon ?? LucideIcons.circleHelp,
       ),
       GlobalAlertType.loading => _AlertSpec(
-        color:       GlobalAlertColors.infoBlue,
+        color: GlobalAlertColors.infoBlue,
         buttonColor: GlobalAlertColors.primaryAction,
-        faIcon:      customIcon ?? FontAwesomeIcons.hourglass,
+        faIcon: customIcon ?? LucideIcons.hourglass,
       ),
     };
   }

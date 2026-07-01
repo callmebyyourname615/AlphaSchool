@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -168,7 +169,7 @@ class _CalendarPageState extends State<CalendarPage> {
                   child: Row(
                     children: [
                       _GlassIconButton(
-                        icon: Icons.arrow_back_rounded,
+                        icon: LucideIcons.arrowLeft,
                         onTap: () => Navigator.of(context).pop(),
                       ),
                       const SizedBox(width: 10),
@@ -183,7 +184,7 @@ class _CalendarPageState extends State<CalendarPage> {
                       ),
                       const Spacer(),
                       _GlassIconButton(
-                        icon: Icons.today_rounded,
+                        icon: LucideIcons.calendarDays,
                         onTap: () => _scrollToToday(jump: false),
                       ),
                     ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 enum GalleryTag { taskDone, event }
 
@@ -31,8 +32,9 @@ class GalleryItemModel {
 String galleryTagText(GalleryTag tag) =>
     tag == GalleryTag.taskDone ? 'Task Done' : 'Event';
 
-IconData galleryTagIcon(GalleryTag tag) =>
-    tag == GalleryTag.taskDone ? Icons.task_alt_rounded : Icons.event_rounded;
+IconData galleryTagIcon(GalleryTag tag) => tag == GalleryTag.taskDone
+    ? LucideIcons.circleCheck
+    : LucideIcons.calendarDays;
 
 String two(int n) => n.toString().padLeft(2, '0');
 

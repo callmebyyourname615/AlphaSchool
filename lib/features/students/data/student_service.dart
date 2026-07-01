@@ -84,6 +84,13 @@ class StudentService {
       branchId: _readStudentBranchId(record),
       classId: classId.isEmpty ? null : classId,
       isApproved: _isActive(record),
+      approvalStatus: _approvalStatus(record),
+      rejectReason: _readString(record, const [
+        'reject_reason',
+        'rejectReason',
+        'rejection_reason',
+        'rejectionReason',
+      ]),
     );
   }
 
@@ -188,8 +195,25 @@ class StudentService {
 
   /// Mirrors `AuthService._isActive`: missing/null counts as active.
   bool _isActive(Map<String, dynamic> json) {
+    final approvalStatus = _approvalStatus(json);
+    if (approvalStatus == 'rejected' || approvalStatus == 'pending') {
+      return false;
+    }
     final value = json['is_active'] ?? json['isActive'];
     return value != false;
+  }
+
+  String _approvalStatus(Map<String, dynamic> json) {
+    final raw = (json['approval_status'] ?? json['approvalStatus'])
+        ?.toString()
+        .trim()
+        .toLowerCase();
+    if (raw == 'approved' || raw == 'rejected' || raw == 'pending') {
+      return raw!;
+    }
+    final active = json['is_active'] ?? json['isActive'];
+    if (active == false) return 'pending';
+    return 'approved';
   }
 
   String _readString(Map<String, dynamic> json, List<String> keys) {

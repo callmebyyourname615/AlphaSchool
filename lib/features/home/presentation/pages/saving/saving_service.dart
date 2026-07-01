@@ -13,6 +13,7 @@ class SavingService {
       if ((classId ?? '').isNotEmpty) _api.get('/savings'),
       if ((classId ?? '').isNotEmpty)
         _api.get('/savings/class/$classId/balance'),
+      _api.get('/pay-receives'),
     ]);
 
     final personal = _records(responses[0]);
@@ -26,21 +27,55 @@ class SavingService {
       classBalance = _balance(responses[3]);
     }
 
+    // Build saving_id → (payReceiveId, status) so the UI can paint pending
+    // withdrawals amber, link to the tracking page, and avoid showing them
+    // as final-state deductions.
+    final payReceives = _payReceives(responses.last);
+    final lookup = <String, _PayReceiveInfo>{};
+    for (final pr in payReceives) {
+      final savingId = pr.savingId;
+      if (savingId.isEmpty) continue;
+      // Keep the latest update for each saving_id so a re-submitted record
+      // overrides a stale earlier one.
+      final existing = lookup[savingId];
+      if (existing == null || pr.updatedAt.isAfter(existing.updatedAt)) {
+        lookup[savingId] = pr;
+      }
+    }
+
+    SavingTransaction attach(SavingTransaction t) {
+      final info = lookup[t.id];
+      if (info == null) return t;
+      return t.copyWith(
+        payReceiveId: info.id,
+        payReceiveStatus: info.status,
+      );
+    }
+
     return SavingData(
-      personal: personal.map((e) => e.$2).toList(),
-      classTransactions: classTransactions,
+      personal: personal.map((e) => attach(e.$2)).toList(),
+      classTransactions: classTransactions.map(attach).toList(),
       personalBalance: personalBalance,
       classBalance: classBalance,
     );
   }
 
-  Future<void> requestWithdrawal({
+  List<_PayReceiveInfo> _payReceives(dynamic response) {
+    dynamic raw = response;
+    if (response is Map<String, dynamic>) {
+      raw = response['data'] ?? response['results'] ?? response;
+    }
+    if (raw is! List) return const [];
+    return raw.whereType<Map<String, dynamic>>().map(_PayReceiveInfo.fromJson).toList();
+  }
+
+  Future<Map<String, dynamic>> requestWithdrawal({
     required String studentId,
     required double amount,
     required String withdrawReasonId,
     String? note,
   }) async {
-    await _api.post(
+    final res = await _api.post(
       '/savings/parent-withdraw',
       body: {
         'studentId': studentId,
@@ -49,6 +84,29 @@ class SavingService {
         if ((note ?? '').trim().isNotEmpty) 'note': note!.trim(),
       },
     );
+    if (res is Map<String, dynamic>) {
+      final data = res['data'];
+      if (data is Map<String, dynamic>) return data;
+      return res;
+    }
+    if (res is Map) return Map<String, dynamic>.from(res);
+    return {};
+  }
+
+  /// Poll the status of a parent-initiated withdrawal request so the
+  /// pending screen can advance through its timeline.
+  Future<Map<String, dynamic>?> fetchWithdrawalStatus(String payReceiveId) async {
+    if (payReceiveId.trim().isEmpty) return null;
+    try {
+      final res = await _api.get('/pay-receives/$payReceiveId');
+      if (res is Map<String, dynamic>) return res['data'] is Map<String, dynamic>
+          ? res['data'] as Map<String, dynamic>
+          : res;
+      if (res is Map) return Map<String, dynamic>.from(res);
+    } catch (_) {
+      // Soft-fail — the page will retry on the next user tap.
+    }
+    return null;
   }
 
   Future<List<WithdrawalReason>> fetchWithdrawalReasons() async {

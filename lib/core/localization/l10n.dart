@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 
 class L10n {
-  static const supportedLocales = <Locale>[
-    Locale('en'),
-    Locale('th'),
-  ];
+  static const supportedLocales = <Locale>[Locale('en'), Locale('th')];
 
   static const _strings = <String, Map<String, String>>{
     'en': {

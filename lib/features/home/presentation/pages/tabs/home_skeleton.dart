@@ -64,15 +64,15 @@ class HomeSkeleton extends StatelessWidget {
                     Expanded(
                       child: GridView.builder(
                         physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate:
-                            SliverGridDelegateWithFixedCrossAxisCount(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: crossAxisCount,
                           mainAxisSpacing: isSmallPhone ? 14 : 18,
                           crossAxisSpacing: isSmallPhone ? 14 : 18,
                           childAspectRatio: 0.9,
                         ),
                         itemCount: crossAxisCount * 2,
-                        itemBuilder: (_, __) => _menuTile(isSmallPhone, isTablet),
+                        itemBuilder: (_, __) =>
+                            _menuTile(isSmallPhone, isTablet),
                       ),
                     ),
                   ],
@@ -85,11 +85,7 @@ class HomeSkeleton extends StatelessWidget {
     );
   }
 
-  Widget _box({
-    double? width,
-    double height = 16,
-    double radius = 10,
-  }) {
+  Widget _box({double? width, double height = 16, double radius = 10}) {
     return Container(
       width: width,
       height: height,
@@ -155,11 +151,7 @@ class HomeSkeleton extends StatelessWidget {
   }
 
   Widget _sectionTitle() {
-    return Row(
-      children: [
-        _box(width: 140, height: 18, radius: 6),
-      ],
-    );
+    return Row(children: [_box(width: 140, height: 18, radius: 6)]);
   }
 
   Widget _menuTile(bool isSmallPhone, bool isTablet) {

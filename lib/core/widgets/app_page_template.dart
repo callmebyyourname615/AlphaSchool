@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class AppPageTemplate extends StatelessWidget {
@@ -232,7 +233,7 @@ class AppTemplateTopBar extends StatelessWidget {
                   border: Border.all(color: Colors.white.withOpacity(.12)),
                 ),
                 child: const Icon(
-                  Icons.chevron_left_rounded,
+                  LucideIcons.chevronLeft,
                   color: Colors.white,
                   size: 26,
                 ),

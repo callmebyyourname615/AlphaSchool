@@ -1,6 +1,7 @@
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
@@ -60,9 +61,9 @@ class _HomeworkDetailPageState extends State<HomeworkDetailPage> {
   };
 
   IconData get _statusIcon => switch (_visual) {
-    HomeworkVisual.done => Icons.verified_rounded,
-    HomeworkVisual.pending => Icons.schedule_rounded,
-    HomeworkVisual.overdue => Icons.error_outline_rounded,
+    HomeworkVisual.done => LucideIcons.badgeCheck,
+    HomeworkVisual.pending => LucideIcons.clock3,
+    HomeworkVisual.overdue => LucideIcons.circleAlert,
   };
 
   @override
@@ -90,10 +91,10 @@ class _HomeworkDetailPageState extends State<HomeworkDetailPage> {
               ),
               icon: Icon(
                 _visual == HomeworkVisual.done
-                    ? Icons.check_circle_rounded
+                    ? LucideIcons.circleCheck
                     : _visual == HomeworkVisual.overdue
-                    ? Icons.lock_clock_rounded
-                    : Icons.upload_rounded,
+                    ? LucideIcons.clock3
+                    : LucideIcons.upload,
               ),
               label: Text(
                 _visual == HomeworkVisual.done
@@ -298,7 +299,7 @@ class _HomeworkDetailPageState extends State<HomeworkDetailPage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const Icon(
-                          Icons.picture_as_pdf_rounded,
+                          LucideIcons.fileText,
                           size: 38,
                           color: _kRed,
                         ),
@@ -403,14 +404,14 @@ class _ScoreBreakdownCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final graded = items.where((s) => s.awardedScore != null).toList();
     final earned = graded.fold<double>(0, (s, i) => s + (i.awardedScore ?? 0));
-    final maxTotal = totalScore ??
-        items.fold<double>(0, (s, i) => s + (i.score ?? 0));
+    final maxTotal =
+        totalScore ?? items.fold<double>(0, (s, i) => s + (i.score ?? 0));
     final ratio = maxTotal <= 0 ? 0.0 : (earned / maxTotal).clamp(0.0, 1.0);
     final barColor = ratio >= 0.8
         ? _kGreen
         : ratio >= 0.5
-            ? _kOrange
-            : _kRed;
+        ? _kOrange
+        : _kRed;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
@@ -431,7 +432,11 @@ class _ScoreBreakdownCard extends StatelessWidget {
                   color: barColor.withValues(alpha: .14),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.bar_chart_rounded, size: 16, color: barColor),
+                child: Icon(
+                  LucideIcons.chartNoAxesColumnIncreasing,
+                  size: 16,
+                  color: barColor,
+                ),
               ),
               const SizedBox(width: 10),
               const Text(
@@ -514,11 +519,7 @@ class _QuestionScorePill extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 6),
-          Container(
-            width: 1,
-            height: 11,
-            color: color.withValues(alpha: .25),
-          ),
+          Container(width: 1, height: 11, color: color.withValues(alpha: .25)),
           const SizedBox(width: 6),
           Text(
             label,
@@ -552,7 +553,7 @@ class _TeacherFeedbackCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.chat_bubble_outline_rounded, color: _kBlue),
+          const Icon(LucideIcons.messageCircle, color: _kBlue),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -607,7 +608,7 @@ class _YourScoreChip extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.workspace_premium_rounded, size: 20, color: color),
+          Icon(LucideIcons.award, size: 20, color: color),
           const SizedBox(width: 10),
           const Text(
             'Your Score',
@@ -660,13 +661,13 @@ class _UploadSourceSheet extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           _SourceTile(
-            icon: Icons.photo_camera_rounded,
+            icon: LucideIcons.camera,
             title: 'Take a photo',
             onTap: () => Navigator.pop(context, _UploadSource.camera),
           ),
           const SizedBox(height: 10),
           _SourceTile(
-            icon: Icons.photo_library_rounded,
+            icon: LucideIcons.images,
             title: 'Upload from phone',
             onTap: () => Navigator.pop(context, _UploadSource.file),
           ),
@@ -748,7 +749,7 @@ class _SourceTile extends StatelessWidget {
               ),
             ),
           ),
-          const Icon(Icons.chevron_right_rounded, color: _kMuted),
+          const Icon(LucideIcons.chevronRight, color: _kMuted),
         ],
       ),
     ),
@@ -779,11 +780,7 @@ class _PageHeader extends StatelessWidget {
                 borderRadius: BorderRadius.circular(13),
                 border: Border.all(color: _kBorder),
               ),
-              child: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                size: 18,
-                color: _kNavy,
-              ),
+              child: const Icon(LucideIcons.arrowLeft, size: 18, color: _kNavy),
             ),
           ),
           Expanded(
@@ -882,7 +879,7 @@ class _HeroCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              const Icon(Icons.menu_book_rounded, size: 14, color: _kMuted),
+              const Icon(LucideIcons.bookOpen, size: 14, color: _kMuted),
               const SizedBox(width: 6),
               Text(
                 item.grade,
@@ -900,11 +897,7 @@ class _HeroCard extends StatelessWidget {
                     style: TextStyle(color: _kMuted, fontSize: 14),
                   ),
                 ),
-                const Icon(
-                  Icons.person_outline_rounded,
-                  size: 14,
-                  color: _kBlue,
-                ),
+                const Icon(LucideIcons.user, size: 14, color: _kBlue),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(
@@ -949,14 +942,14 @@ class _InfoCard extends StatelessWidget {
       child: Column(
         children: [
           _InfoRow(
-            icon: Icons.move_to_inbox_rounded,
+            icon: LucideIcons.inbox,
             iconColor: _kBlue,
             label: 'Received',
             value: item.sentAt == null ? '—' : _fmtDate(item.sentAt!),
           ),
           const Divider(height: 1, color: _kBorder),
           _InfoRow(
-            icon: Icons.event_rounded,
+            icon: LucideIcons.calendarDays,
             iconColor: dueColor == _kRed ? _kRed : _kOrange,
             label: 'Due Date',
             value: _fmtDate(item.deadline),
@@ -964,7 +957,7 @@ class _InfoCard extends StatelessWidget {
           ),
           const Divider(height: 1, color: _kBorder),
           _InfoRow(
-            icon: Icons.equalizer_rounded,
+            icon: LucideIcons.slidersHorizontal,
             iconColor: _kNavy,
             label: 'Total score',
             value: item.totalScore == null ? '—' : _fmtScore(item.totalScore!),
@@ -1066,7 +1059,7 @@ class _InstructionCard extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.description_outlined,
+                  LucideIcons.fileText,
                   size: 15,
                   color: _kBlue,
                 ),
@@ -1293,11 +1286,7 @@ class _HomeworkQuestionImage extends StatelessWidget {
               errorBuilder: (_, __, ___) => const SizedBox(
                 height: 180,
                 child: Center(
-                  child: Icon(
-                    Icons.broken_image_outlined,
-                    size: 32,
-                    color: _kMuted,
-                  ),
+                  child: Icon(LucideIcons.imageOff, size: 32, color: _kMuted),
                 ),
               ),
             ),
@@ -1311,7 +1300,7 @@ class _HomeworkQuestionImage extends StatelessWidget {
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.zoom_in_rounded, size: 16, color: Colors.white),
+                  Icon(LucideIcons.zoomIn, size: 16, color: Colors.white),
                   SizedBox(width: 5),
                   Text(
                     'Preview',
@@ -1345,7 +1334,7 @@ class _HomeworkQuestionImage extends StatelessWidget {
                   children: [
                     IconButton(
                       onPressed: () => Navigator.pop(dialogContext),
-                      icon: const Icon(Icons.close_rounded),
+                      icon: const Icon(LucideIcons.x),
                       color: Colors.white,
                     ),
                     Expanded(
@@ -1362,7 +1351,7 @@ class _HomeworkQuestionImage extends StatelessWidget {
                     FilledButton.icon(
                       onPressed: () => _saveImage(),
                       style: FilledButton.styleFrom(backgroundColor: _kBlue),
-                      icon: const Icon(Icons.download_rounded, size: 18),
+                      icon: const Icon(LucideIcons.download, size: 18),
                       label: const Text('Save'),
                     ),
                   ],

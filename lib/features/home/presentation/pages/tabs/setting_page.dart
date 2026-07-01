@@ -1,7 +1,7 @@
 import 'package:alpha_school/features/home/presentation/pages/profile/profile.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 // ✅ same AppTheme.mode as Year Picker
 import '../../../../../core/theme/app_theme.dart';
@@ -49,10 +49,10 @@ class _SettingsPageState extends State<SettingsPage> {
 
         final tiles = <Widget>[
           _SettingsTile(
-            icon: FontAwesomeIcons.user,
+            icon: LucideIcons.user,
             label: 'Account',
             trailing: Icon(
-              Icons.chevron_right_rounded,
+              LucideIcons.chevronRight,
               size: 26,
               color: p.chevColor,
             ),
@@ -67,7 +67,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
           // ✅ toggle: updates AppTheme.mode, and THIS PAGE also turns dark
           _SettingsSwitchTile(
-            icon: FontAwesomeIcons.moon,
+            icon: LucideIcons.moon,
             label: isDarkMode ? 'Dark mode' : 'Light mode',
             value: isDarkMode,
             onChanged: _setTheme,
@@ -78,11 +78,11 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: 14),
 
           _SettingsTile(
-            icon: FontAwesomeIcons.globe,
+            icon: LucideIcons.globe,
             label: 'Language',
             valueText: _lang == 'lo' ? 'Laos' : 'English',
             trailing: Icon(
-              Icons.chevron_right_rounded,
+              LucideIcons.chevronRight,
               size: 26,
               color: p.chevColor,
             ),
@@ -371,7 +371,7 @@ class _TopBar extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: IconButton(
               onPressed: onBack,
-              icon: const Icon(Icons.arrow_back_rounded),
+              icon: const Icon(LucideIcons.arrowLeft),
               color: titleColor,
               splashRadius: 22,
               padding: EdgeInsets.zero,
@@ -451,7 +451,7 @@ class _SettingsTile extends StatelessWidget {
             children: [
               SizedBox(
                 width: 30,
-                child: Center(child: FaIcon(icon, size: 20, color: iconColor)),
+                child: Center(child: Icon(icon, size: 20, color: iconColor)),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -514,7 +514,7 @@ class _SettingsSwitchTile extends StatelessWidget {
             children: [
               SizedBox(
                 width: 30,
-                child: Center(child: FaIcon(icon, size: 20, color: iconColor)),
+                child: Center(child: Icon(icon, size: 20, color: iconColor)),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -568,11 +568,7 @@ class _LogoutButton extends StatelessWidget {
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  FaIcon(
-                    FontAwesomeIcons.rightFromBracket,
-                    size: 18,
-                    color: Color(0xFFDC2626),
-                  ),
+                  Icon(LucideIcons.logOut, size: 18, color: Color(0xFFDC2626)),
                   SizedBox(width: 10),
                   Text(
                     'Logout',
@@ -664,7 +660,7 @@ class _BottomSheetShell extends StatelessWidget {
                 ),
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
+                  icon: const Icon(LucideIcons.x),
                   splashRadius: 20,
                   color: closeColor,
                 ),
@@ -735,7 +731,7 @@ class _LanguageRow extends StatelessWidget {
                   ),
                 ),
               ),
-              if (selected) Icon(Icons.check_rounded, color: checkColor),
+              if (selected) Icon(LucideIcons.check, color: checkColor),
             ],
           ),
         ),

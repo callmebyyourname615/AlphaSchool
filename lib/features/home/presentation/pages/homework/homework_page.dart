@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../../shared/models/student_card_item.dart';
@@ -262,7 +263,7 @@ class _PageHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
       child: Row(
         children: [
-          _SquareIconBtn(icon: Icons.arrow_back_ios_new_rounded, onTap: onBack),
+          _SquareIconBtn(icon: LucideIcons.arrowLeft, onTap: onBack),
           Expanded(
             child: Center(
               child: Padding(
@@ -362,7 +363,7 @@ class _OverviewCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Icon(
-                  Icons.assignment_outlined,
+                  LucideIcons.clipboardList,
                   size: 26,
                   color: _kBlue,
                 ),
@@ -404,7 +405,7 @@ class _OverviewCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _KpiPill(
-                  icon: Icons.dashboard_rounded,
+                  icon: LucideIcons.layoutDashboard,
                   color: _kBlue,
                   label: 'All',
                   count: total,
@@ -413,7 +414,7 @@ class _OverviewCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _KpiPill(
-                  icon: Icons.schedule_rounded,
+                  icon: LucideIcons.clock3,
                   color: _kOrange,
                   label: 'Pending',
                   count: pending,
@@ -422,7 +423,7 @@ class _OverviewCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _KpiPill(
-                  icon: Icons.verified_rounded,
+                  icon: LucideIcons.badgeCheck,
                   color: _kGreen,
                   label: 'Done',
                   count: done,
@@ -431,7 +432,7 @@ class _OverviewCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _KpiPill(
-                  icon: Icons.error_outline_rounded,
+                  icon: LucideIcons.circleAlert,
                   color: _kRed,
                   label: 'Overdue',
                   count: overdue,
@@ -482,7 +483,7 @@ class _RatioRing extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
-                      Icons.check_rounded,
+                      LucideIcons.check,
                       size: 10,
                       color: Colors.white,
                     ),
@@ -698,7 +699,7 @@ class _SearchSortRow extends StatelessWidget {
             child: Row(
               children: [
                 const SizedBox(width: 14),
-                const Icon(Icons.search_rounded, size: 18, color: _kMuted),
+                const Icon(LucideIcons.search, size: 18, color: _kMuted),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
@@ -786,7 +787,7 @@ class _SortChip extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.unfold_more_rounded, size: 16, color: _kText),
+            const Icon(LucideIcons.chevronsUpDown, size: 16, color: _kText),
             const SizedBox(width: 6),
             Text(
               _label(sort),
@@ -797,7 +798,7 @@ class _SortChip extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            const Icon(Icons.expand_more_rounded, size: 16, color: _kMuted),
+            const Icon(LucideIcons.chevronDown, size: 16, color: _kMuted),
           ],
         ),
       ),
@@ -855,10 +856,10 @@ class _TabStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tabs = [
-      _TabSpec('All', Icons.dashboard_rounded, _kBlue),
-      _TabSpec('Pending', Icons.schedule_rounded, _kOrange),
-      _TabSpec('Done', Icons.verified_rounded, _kGreen),
-      _TabSpec('Overdue', Icons.error_outline_rounded, _kRed),
+      _TabSpec('All', LucideIcons.layoutDashboard, _kBlue),
+      _TabSpec('Pending', LucideIcons.clock3, _kOrange),
+      _TabSpec('Done', LucideIcons.badgeCheck, _kGreen),
+      _TabSpec('Overdue', LucideIcons.circleAlert, _kRed),
     ];
 
     return SingleChildScrollView(
@@ -972,9 +973,9 @@ class _HomeworkCard extends StatelessWidget {
   };
 
   IconData get _statusIcon => switch (visual) {
-    HomeworkVisual.done => Icons.verified_rounded,
-    HomeworkVisual.pending => Icons.schedule_rounded,
-    HomeworkVisual.overdue => Icons.error_outline_rounded,
+    HomeworkVisual.done => LucideIcons.badgeCheck,
+    HomeworkVisual.pending => LucideIcons.clock3,
+    HomeworkVisual.overdue => LucideIcons.circleAlert,
   };
 
   @override
@@ -1010,11 +1011,7 @@ class _HomeworkCard extends StatelessWidget {
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          const Icon(
-                            Icons.person_outline_rounded,
-                            size: 14,
-                            color: _kBlue,
-                          ),
+                          const Icon(LucideIcons.user, size: 14, color: _kBlue),
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
@@ -1061,24 +1058,24 @@ class _HomeworkCard extends StatelessWidget {
             runSpacing: 8,
             children: [
               _MetaChip(
-                icon: Icons.menu_book_rounded,
+                icon: LucideIcons.bookOpen,
                 label: 'Grade',
                 value: item.grade,
               ),
               _MetaChip(
-                icon: Icons.equalizer_rounded,
+                icon: LucideIcons.slidersHorizontal,
                 label: 'Total',
                 value: item.totalScore == null
                     ? '—'
                     : _fmtScore(item.totalScore!),
               ),
               _MetaChip(
-                icon: Icons.move_to_inbox_rounded,
+                icon: LucideIcons.inbox,
                 label: 'Received',
                 value: item.sentAt == null ? '—' : _fmtTime(item.sentAt!),
               ),
               _MetaChip(
-                icon: Icons.event_rounded,
+                icon: LucideIcons.calendarDays,
                 label: 'Due Date',
                 value: _fmtDate(item.deadline),
                 valueColor: visual == HomeworkVisual.overdue ? _kRed : _kText,
@@ -1112,8 +1109,8 @@ class _HomeworkCard extends StatelessWidget {
                       children: [
                         Icon(
                           visual == HomeworkVisual.done
-                              ? Icons.visibility_outlined
-                              : Icons.upload_rounded,
+                              ? LucideIcons.eye
+                              : LucideIcons.upload,
                           size: 17,
                           color: visual == HomeworkVisual.done
                               ? _kNavy
@@ -1186,11 +1183,7 @@ class _ScoreContainer extends StatelessWidget {
               color: color.withValues(alpha: .16),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(
-              Icons.workspace_premium_rounded,
-              size: 20,
-              color: color,
-            ),
+            child: Icon(LucideIcons.award, size: 20, color: color),
           ),
           const SizedBox(width: 11),
           const Expanded(
@@ -1340,7 +1333,7 @@ class _EmptyCard extends StatelessWidget {
               color: Color(0xFFEFF6FF),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.task_alt_rounded, size: 22, color: _kBlue),
+            child: const Icon(LucideIcons.circleCheck, size: 22, color: _kBlue),
           ),
           const SizedBox(height: 10),
           const Text(
@@ -1408,11 +1401,7 @@ class _ErrorState extends StatelessWidget {
                 color: _kRed.withValues(alpha: .12),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.wifi_tethering_error_rounded,
-                size: 24,
-                color: _kRed,
-              ),
+              child: const Icon(LucideIcons.wifiOff, size: 24, color: _kRed),
             ),
             const SizedBox(height: 12),
             const Text(
@@ -1483,7 +1472,7 @@ class _NoStudentState extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: const Icon(
-                Icons.person_search_rounded,
+                LucideIcons.userSearch,
                 size: 28,
                 color: _kBlue,
               ),

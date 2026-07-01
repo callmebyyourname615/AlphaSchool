@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../../core/theme/app_colors.dart';
@@ -10,6 +11,7 @@ import '../../../../../core/widgets/app_page_template.dart';
 import '../../../../../shared/models/student_card_item.dart';
 import 'saving_model.dart';
 import 'saving_service.dart';
+import 'withdrawal_pending_page.dart';
 
 class SavingPage extends StatefulWidget {
   const SavingPage({super.key, required this.selectedStudent});
@@ -173,109 +175,68 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
       return;
     }
 
-    final amountController = TextEditingController();
-    final noteController = TextEditingController();
-    var selectedReason = reasons.first;
-    final request = await showDialog<({double amount, String reasonId})>(
+    final request =
+        await showGeneralDialog<({double amount, String reasonId, String note})>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Withdraw money'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: amountController,
-                autofocus: true,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: InputDecoration(
-                  labelText: 'Amount',
-                  helperText:
-                      'Available: ${NumberFormat('#,##0.##').format(_personalBalance)}',
-                ),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<WithdrawalReason>(
-                initialValue: selectedReason,
-                decoration: const InputDecoration(labelText: 'Reason'),
-                isExpanded: true,
-                items: reasons
-                    .map(
-                      (reason) => DropdownMenuItem(
-                        value: reason,
-                        child: Text(
-                          reason.label,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setDialogState(() => selectedReason = value);
-                  }
-                },
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: noteController,
-                decoration: const InputDecoration(labelText: 'Note (optional)'),
-              ),
-            ],
+      barrierLabel: 'Withdraw',
+      barrierDismissible: true,
+      barrierColor: const Color(0xFF071B55).withValues(alpha: .45),
+      transitionDuration: const Duration(milliseconds: 280),
+      pageBuilder: (_, __, ___) => const SizedBox.shrink(),
+      transitionBuilder: (ctx, anim, _, __) {
+        final curved = CurvedAnimation(
+          parent: anim,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: .96, end: 1).animate(curved),
+            child: _WithdrawSheet(
+              available: _personalBalance,
+              reasons: reasons,
+            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final value = double.tryParse(
-                  amountController.text.replaceAll(',', '').trim(),
-                );
-                if (value != null && value > 0 && value <= _personalBalance) {
-                  Navigator.pop(dialogContext, (
-                    amount: value,
-                    reasonId: selectedReason.id,
-                  ));
-                }
-              },
-              child: const Text('Continue'),
-            ),
-          ],
-        ),
-      ),
+        );
+      },
     );
-    if (request == null || !mounted) {
-      amountController.dispose();
-      noteController.dispose();
-      return;
-    }
+    if (request == null || !mounted) return;
     final confirmed = await GlobalAlert.showConfirmation(
       title: 'Confirm withdrawal',
       message:
           'Request withdrawal of ${NumberFormat('#,##0').format(request.amount)}?',
     );
-    if (confirmed != true) {
-      amountController.dispose();
-      noteController.dispose();
-      return;
-    }
+    if (confirmed != true) return;
     GlobalAlert.showLoading(message: 'Submitting withdrawal request...');
     try {
-      await _service.requestWithdrawal(
+      final created = await _service.requestWithdrawal(
         studentId: widget.selectedStudent!.id!,
         amount: request.amount,
         withdrawReasonId: request.reasonId,
-        note: noteController.text,
+        note: request.note,
       );
       GlobalAlert.dismiss();
-      GlobalAlert.showSuccess(
-        title: 'Request submitted',
-        message: 'Your withdrawal is waiting for school approval.',
+      if (!mounted) return;
+      final payReceiveId = (created['id'] ??
+              created['payReceiveId'] ??
+              created['pay_receive_id'] ??
+              '')
+          .toString();
+      final initialStatus = (created['status'] ?? 'pending').toString();
+      final studentName = (widget.selectedStudent?.name ?? '').trim();
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => WithdrawalPendingPage(
+            payReceiveId: payReceiveId,
+            amount: request.amount,
+            studentName: studentName.isEmpty ? 'Your child' : studentName,
+            initialStatus: initialStatus,
+            note: request.note.isEmpty ? null : request.note,
+          ),
+        ),
       );
+      if (!mounted) return;
       await _load();
     } catch (error) {
       GlobalAlert.dismiss();
@@ -283,9 +244,6 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
         title: 'Withdrawal failed',
         message: error.toString(),
       );
-    } finally {
-      amountController.dispose();
-      noteController.dispose();
     }
   }
 
@@ -457,7 +415,7 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
                                         const SizedBox(height: 12),
                                         FilledButton.icon(
                                           onPressed: _load,
-                                          icon: const Icon(Icons.refresh),
+                                          icon: const Icon(LucideIcons.circle),
                                           label: const Text('Retry'),
                                         ),
                                       ],
@@ -601,7 +559,7 @@ class _RangeBar extends StatelessWidget {
         ),
         child: Row(
           children: [
-            FaIcon(FontAwesomeIcons.sliders, color: textPrimary, size: 16),
+            Icon(LucideIcons.sliders, color: textPrimary, size: 16),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -618,7 +576,7 @@ class _RangeBar extends StatelessWidget {
               style: TextStyle(color: textMuted, fontWeight: FontWeight.w900),
             ),
             const SizedBox(width: 8),
-            FaIcon(FontAwesomeIcons.chevronRight, color: textMuted, size: 14),
+            Icon(LucideIcons.chevronRight, color: textMuted, size: 14),
           ],
         ),
       ),
@@ -1014,8 +972,8 @@ class _SavingDetailPremium extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              FaIcon(
-                FontAwesomeIcons.circleInfo,
+              Icon(
+                LucideIcons.info,
                 size: 14,
                 color: Colors.white.withOpacity(.70),
               ),
@@ -1180,11 +1138,7 @@ class _BigWithdrawButton extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [
-              FaIcon(
-                FontAwesomeIcons.handHoldingDollar,
-                color: Colors.white,
-                size: 18,
-              ),
+              Icon(LucideIcons.handCoins, color: Colors.white, size: 18),
               SizedBox(width: 10),
               Text(
                 "Withdraw money",
@@ -1259,5 +1213,549 @@ NumberFormat _safeNumFmt(String localeTag) {
     return NumberFormat.decimalPattern(localeTag);
   } catch (_) {
     return NumberFormat.decimalPattern('en');
+  }
+}
+
+/// Minimal, modern withdraw dialog.
+///
+/// Returns `({double amount, String reasonId})` via `Navigator.pop` to keep
+/// the existing caller contract untouched.
+class _WithdrawSheet extends StatefulWidget {
+  const _WithdrawSheet({
+    required this.available,
+    required this.reasons,
+  });
+
+  final double available;
+  final List<WithdrawalReason> reasons;
+
+  @override
+  State<_WithdrawSheet> createState() => _WithdrawSheetState();
+}
+
+class _WithdrawSheetState extends State<_WithdrawSheet> {
+  static const _blue = Color(0xFF0756D1);
+  static const _blueSoft = Color(0xFFEAF1FF);
+  static const _blueSofter = Color(0xFFF7F9FE);
+  static const _navy = Color(0xFF071B55);
+  static const _muted = Color(0xFF64739B);
+  static const _slate200 = Color(0xFFE2E8F0);
+  static const _slate100 = Color(0xFFEFF2F8);
+  static const _slate50 = Color(0xFFF8FAFC);
+  static const _rose = Color(0xFFE11D48);
+
+  late final TextEditingController _amountController = TextEditingController();
+  late final TextEditingController _noteController = TextEditingController();
+  late WithdrawalReason _reason;
+  String? _amountError;
+
+  final _amountFmt = NumberFormat('#,##0');
+
+  @override
+  void initState() {
+    super.initState();
+    _reason = widget.reasons.first;
+    _amountController.addListener(_validate);
+  }
+
+  @override
+  void dispose() {
+    _amountController.removeListener(_validate);
+    _amountController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  double get _amount =>
+      double.tryParse(_amountController.text.replaceAll(',', '').trim()) ?? 0;
+
+  double get _percent =>
+      widget.available <= 0 ? 0 : (_amount / widget.available).clamp(0, 1.0);
+
+  void _validate() {
+    final v = _amount;
+    String? err;
+    if (_amountController.text.trim().isEmpty) {
+      err = null;
+    } else if (v <= 0) {
+      err = 'Enter an amount greater than zero';
+    } else if (v > widget.available) {
+      err = 'Exceeds your available balance';
+    }
+    // Always rebuild on input changes — the Continue button's enabled state
+    // and the available-meter both depend on the live amount, so reacting
+    // only when the error string flips would leave them stuck.
+    setState(() => _amountError = err);
+  }
+
+  void _setPercent(double p) {
+    final v = (widget.available * p).floor();
+    final text = v == 0 ? '' : _amountFmt.format(v);
+    _amountController.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+
+  bool get _canContinue =>
+      _amountError == null &&
+      _amount > 0 &&
+      _amount <= widget.available;
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    return Dialog(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: 20,
+        vertical: media.viewInsets.bottom > 0 ? 16 : 48,
+      ),
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          clipBehavior: Clip.antiAlias,
+          child: SingleChildScrollView(
+            padding: EdgeInsets.only(
+              left: 24,
+              right: 24,
+              top: 24,
+              bottom: 20 + media.viewInsets.bottom,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 20),
+                _buildAmountField(),
+                const SizedBox(height: 12),
+                _buildAvailableMeter(),
+                const SizedBox(height: 14),
+                _buildQuickChips(),
+                const SizedBox(height: 22),
+                _label('Note', optional: true),
+                const SizedBox(height: 8),
+                _buildNoteField(),
+                const SizedBox(height: 24),
+                _buildActions(),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Row(
+      children: [
+        Container(
+          height: 44,
+          width: 44,
+          decoration: BoxDecoration(
+            color: _blueSoft,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          alignment: Alignment.center,
+          child: const Icon(LucideIcons.arrowDownToLine, color: _blue, size: 20),
+        ),
+        const SizedBox(width: 12),
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Withdraw money',
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  color: _navy,
+                  letterSpacing: -.2,
+                ),
+              ),
+              SizedBox(height: 2),
+              Text(
+                'Tell the school how much to release.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _muted,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(LucideIcons.x, size: 18, color: _muted),
+          tooltip: 'Close',
+          visualDensity: VisualDensity.compact,
+        ),
+      ],
+    );
+  }
+
+  Widget _label(String text, {bool optional = false}) {
+    return Row(
+      children: [
+        Text(
+          text,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: _navy,
+            letterSpacing: .4,
+          ),
+        ),
+        if (optional) ...[
+          const SizedBox(width: 6),
+          const Text(
+            'OPTIONAL',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: _muted,
+              letterSpacing: .8,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildAmountField() {
+    final hasError = _amountError != null;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+      decoration: BoxDecoration(
+        color: _blueSofter,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: hasError ? _rose : _blueSoft,
+          width: hasError ? 1.5 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'AMOUNT',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: hasError ? _rose : _blue,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _amountController,
+                  autofocus: true,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: false,
+                  ),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    _ThousandsSeparatorInputFormatter(),
+                  ],
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    color: _navy,
+                    height: 1.1,
+                    letterSpacing: -.5,
+                  ),
+                  cursorColor: _blue,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    isCollapsed: true,
+                    hintText: '0',
+                    hintStyle: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                      color: _muted,
+                      height: 1.1,
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 6, left: 8),
+                child: Text(
+                  '₭',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: _muted,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (hasError) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(LucideIcons.circleAlert, size: 14, color: _rose),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _amountError!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: _rose,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvailableMeter() {
+    final formatted = _amountFmt.format(widget.available);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Icon(LucideIcons.wallet, size: 14, color: _muted),
+            const SizedBox(width: 6),
+            Text(
+              'Available  ',
+              style: TextStyle(
+                fontSize: 12,
+                color: _muted,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              '$formatted ₭',
+              style: const TextStyle(
+                fontSize: 12,
+                color: _navy,
+                fontWeight: FontWeight.w800,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '${(_percent * 100).round()}%',
+              style: const TextStyle(
+                fontSize: 11,
+                color: _muted,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(99),
+          child: LinearProgressIndicator(
+            minHeight: 4,
+            value: _percent,
+            backgroundColor: _slate100,
+            valueColor: AlwaysStoppedAnimation(
+              _percent > 1 ? _rose : _blue,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickChips() {
+    const presets = [.25, .50, .75, 1.0];
+    return Row(
+      children: [
+        for (final p in presets) ...[
+          Expanded(
+            child: _chip(
+              label: p == 1.0 ? 'Max' : '${(p * 100).round()}%',
+              onTap: () => _setPercent(p),
+            ),
+          ),
+          if (p != presets.last) const SizedBox(width: 8),
+        ],
+      ],
+    );
+  }
+
+  Widget _chip({required String label, required VoidCallback onTap}) {
+    return Material(
+      color: _slate50,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          height: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _slate200),
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              color: _navy,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoteField() {
+    return TextField(
+      controller: _noteController,
+      minLines: 2,
+      maxLines: 4,
+      maxLength: 200,
+      style: const TextStyle(
+        fontSize: 14,
+        color: _navy,
+        fontWeight: FontWeight.w500,
+      ),
+      decoration: InputDecoration(
+        hintText: 'Anything the school should know?',
+        hintStyle: const TextStyle(color: _muted, fontSize: 13),
+        filled: true,
+        fillColor: _slate50,
+        counterStyle: const TextStyle(fontSize: 11, color: _muted),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: _slate200),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: _blue, width: 1.5),
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActions() {
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: 50,
+            child: OutlinedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _navy,
+                side: const BorderSide(color: _slate200, width: 1.4),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              child: const Text('Cancel'),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          flex: 2,
+          child: SizedBox(
+            height: 50,
+            child: ElevatedButton(
+              onPressed: _canContinue
+                  ? () => Navigator.of(context).pop((
+                      amount: _amount,
+                      reasonId: _reason.id,
+                      note: _noteController.text.trim(),
+                    ))
+                  : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _blue,
+                disabledBackgroundColor: _blue.withValues(alpha: .35),
+                foregroundColor: Colors.white,
+                elevation: 2,
+                shadowColor: _blue.withValues(alpha: .35),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Continue'),
+                  SizedBox(width: 6),
+                  Icon(LucideIcons.arrowRight, size: 16),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Live-formats the amount field with thousand separators (e.g. "10000" →
+/// "10,000") while preserving the user's caret position relative to the
+/// digits they've typed so the cursor doesn't jump to the end on every key.
+class _ThousandsSeparatorInputFormatter extends TextInputFormatter {
+  static final NumberFormat _fmt = NumberFormat('#,##0');
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) {
+      return const TextEditingValue(text: '');
+    }
+    // Count digits before the caret so we can land the caret on the same
+    // logical digit after the commas are reinserted.
+    final selectionIndex = newValue.selection.end.clamp(0, newValue.text.length);
+    final digitsBeforeCaret = newValue.text
+        .substring(0, selectionIndex)
+        .replaceAll(RegExp(r'[^0-9]'), '')
+        .length;
+    final formatted = _fmt.format(int.parse(digits));
+    int newCaret = 0;
+    int seen = 0;
+    while (newCaret < formatted.length && seen < digitsBeforeCaret) {
+      if (RegExp(r'[0-9]').hasMatch(formatted[newCaret])) seen++;
+      newCaret++;
+    }
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: newCaret),
+    );
   }
 }

@@ -59,22 +59,20 @@ class ParticipantService {
         final activityId = (entry['participationId'] ?? '').toString();
         final weight = weightById[activityId];
 
-        final name =
-            (entry['participationName'] ?? weight?.name ?? 'Untitled')
-                .toString();
+        final name = (entry['participationName'] ?? weight?.name ?? 'Untitled')
+            .toString();
         final score = _toDouble(entry['score']);
         final max = weight?.weight ?? 0;
 
-        byDate.putIfAbsent(date, () => []).add(
-          DayRow(activityName: name, score: score, max: max),
-        );
+        byDate
+            .putIfAbsent(date, () => [])
+            .add(DayRow(activityName: name, score: score, max: max));
       }
     }
 
-    final days = byDate.entries
-        .map((e) => DayGroup(date: e.key, rows: e.value))
-        .toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
+    final days =
+        byDate.entries.map((e) => DayGroup(date: e.key, rows: e.value)).toList()
+          ..sort((a, b) => b.date.compareTo(a.date));
 
     developer.log(
       'built ${days.length} day groups with ${days.fold(0, (s, d) => s + d.rows.length)} rows',
@@ -86,9 +84,10 @@ class ParticipantService {
 
   Future<List<ActivityWeight>> _fetchActivities() async {
     final response = await _apiClient.get('/participation-list');
-    return _extractList(response, 'participationList')
-        .map(ActivityWeight.fromJson)
-        .toList();
+    return _extractList(
+      response,
+      'participationList',
+    ).map(ActivityWeight.fromJson).toList();
   }
 
   /// `StudentCardItem.studentId` holds the human-readable code. The internal
@@ -117,11 +116,7 @@ class ParticipantService {
     return null;
   }
 
-  bool _matchesStudent(
-    Map<String, dynamic> entry,
-    String? uuid,
-    String code,
-  ) {
+  bool _matchesStudent(Map<String, dynamic> entry, String? uuid, String code) {
     final entryStudentId = entry['studentId']?.toString().trim();
     if (entryStudentId == null || entryStudentId.isEmpty) return false;
 
@@ -145,7 +140,10 @@ class ParticipantService {
     return double.tryParse(v?.toString() ?? '') ?? 0;
   }
 
-  List<Map<String, dynamic>> _extractList(dynamic response, String resourceKey) {
+  List<Map<String, dynamic>> _extractList(
+    dynamic response,
+    String resourceKey,
+  ) {
     List<dynamic> raw = const [];
     if (response is List) {
       raw = response;

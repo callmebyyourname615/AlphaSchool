@@ -10,6 +10,7 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
@@ -312,7 +313,7 @@ class _NotificationDetailsPageState extends State<NotificationDetailsPage> {
                         child: Row(
                           children: [
                             _RoundIconButton(
-                              icon: Icons.arrow_back_rounded,
+                              icon: LucideIcons.arrowLeft,
                               onTap: () => Navigator.of(context).maybePop(),
                             ),
                             const SizedBox(width: 10),
@@ -343,7 +344,7 @@ class _NotificationDetailsPageState extends State<NotificationDetailsPage> {
                               ),
                             ),
                             _RoundIconButton(
-                              icon: Icons.done_all_rounded,
+                              icon: LucideIcons.checkCheck,
                               onTap: _unreadCount == 0 ? null : _markAllRead,
                             ),
                           ],
@@ -618,7 +619,7 @@ class _NotificationDetailPopupState extends State<_NotificationDetailPopup> {
                                           ),
                                         ),
                                         _MiniIconButton(
-                                          icon: Icons.close_rounded,
+                                          icon: LucideIcons.x,
                                           onTap: () => _close(),
                                         ),
                                       ],
@@ -797,8 +798,8 @@ class _NotificationDetailPopupState extends State<_NotificationDetailPopup> {
                                                       _toggleReadAndClose,
                                                   icon: Icon(
                                                     _entry.isUnread
-                                                        ? Icons.done_all_rounded
-                                                        : Icons.undo_rounded,
+                                                        ? LucideIcons.checkCheck
+                                                        : LucideIcons.undo2,
                                                   ),
                                                   label: Text(
                                                     _entry.isUnread
@@ -1163,9 +1164,7 @@ class _NotificationTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _CircleBadge(
-                icon: entry.isUnread
-                    ? Icons.notifications_active_rounded
-                    : Icons.notifications_none_rounded,
+                icon: entry.isUnread ? LucideIcons.bellRing : LucideIcons.bell,
                 dot: entry.isUnread,
               ),
               const SizedBox(width: 10),
@@ -1226,7 +1225,7 @@ class _NotificationTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(Icons.chevron_right_rounded, color: tok.sub),
+              Icon(LucideIcons.chevronRight, color: tok.sub),
             ],
           ),
         ),
@@ -1412,7 +1411,7 @@ class _StatusPill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            isUnread ? Icons.mark_email_unread_rounded : Icons.done_all_rounded,
+            isUnread ? LucideIcons.mailOpen : LucideIcons.checkCheck,
             size: 14,
             color: fg,
           ),
@@ -1498,7 +1497,7 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.notifications_off_rounded, color: tok.sub, size: 44),
+            Icon(LucideIcons.bellOff, color: tok.sub, size: 44),
             const SizedBox(height: 10),
             Text(
               title,

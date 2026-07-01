@@ -2,8 +2,8 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'package:alpha_school/core/widgets/app_page_template.dart';
 import 'package:alpha_school/core/widgets/app_modern_count_tabbar.dart' as tabs;
@@ -111,17 +111,17 @@ class _FeePageState extends State<FeePage> with SingleTickerProviderStateMixin {
             items: [
               tabs.AppTabItem(
                 label: "ທີ່ຕ້ອງຈ່າຍ",
-                icon: FontAwesomeIcons.moneyBillWave,
+                icon: LucideIcons.banknote,
                 count: mustPay.length,
               ),
               tabs.AppTabItem(
                 label: "ກຳລັງກວດສອບ",
-                icon: FontAwesomeIcons.clock,
+                icon: LucideIcons.clock,
                 count: pending.length,
               ),
               tabs.AppTabItem(
                 label: "ຈ່າຍແລ້ວ",
-                icon: FontAwesomeIcons.circleCheck,
+                icon: LucideIcons.circleCheck,
                 count: paid.length,
               ),
             ],
@@ -299,7 +299,7 @@ class _FeeCardGlass extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Icon(Icons.chevron_right_rounded, color: _o(textMain, .55)),
+                  Icon(LucideIcons.chevronRight, color: _o(textMain, .55)),
                 ],
               ),
               const SizedBox(height: 12),
@@ -307,7 +307,7 @@ class _FeeCardGlass extends StatelessWidget {
                 children: [
                   Expanded(
                     child: _InfoRow(
-                      icon: FontAwesomeIcons.moneyBillWave,
+                      icon: LucideIcons.banknote,
                       label: "Amount",
                       value: item.amountText,
                       isDark: isDark,
@@ -316,7 +316,7 @@ class _FeeCardGlass extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: _InfoRow(
-                      icon: FontAwesomeIcons.calendar,
+                      icon: LucideIcons.calendar,
                       label: "Due date",
                       value: item.dueText,
                       isDark: isDark,
@@ -329,7 +329,7 @@ class _FeeCardGlass extends StatelessWidget {
                 children: [
                   Expanded(
                     child: _InfoRow(
-                      icon: FontAwesomeIcons.circleInfo,
+                      icon: LucideIcons.info,
                       label: "Status",
                       value: statusMeta.valueText,
                       isDark: isDark,
@@ -338,7 +338,7 @@ class _FeeCardGlass extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: _InfoRow(
-                      icon: FontAwesomeIcons.clock,
+                      icon: LucideIcons.clock,
                       label: "Paid time",
                       value: item.paidText,
                       isDark: isDark,
@@ -382,9 +382,9 @@ class _FeeIcon extends StatelessWidget {
     final border = _o(base, isDark ? .34 : .22);
 
     final icon = switch (status) {
-      FeeStatus.mustPay => FontAwesomeIcons.moneyBillWave,
-      FeeStatus.pending => FontAwesomeIcons.clock,
-      FeeStatus.paid => FontAwesomeIcons.circleCheck,
+      FeeStatus.mustPay => LucideIcons.banknote,
+      FeeStatus.pending => LucideIcons.clock,
+      FeeStatus.paid => LucideIcons.circleCheck,
     };
 
     return Container(
@@ -396,7 +396,7 @@ class _FeeIcon extends StatelessWidget {
             border: Border.all(color: border),
           ),
           child: Center(
-            child: FaIcon(icon, size: 18, color: isDark ? Colors.white : base),
+            child: Icon(icon, size: 18, color: isDark ? Colors.white : base),
           ),
         )
         .animate()
@@ -436,7 +436,7 @@ class _InfoRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          FaIcon(icon, size: 14, color: _o(acc, isDark ? .95 : .90)),
+          Icon(icon, size: 14, color: _o(acc, isDark ? .95 : .90)),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -528,7 +528,7 @@ class _ViewDetailButton extends StatelessWidget {
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.visibility_rounded, size: 18, color: Colors.white),
+                  Icon(LucideIcons.eye, size: 18, color: Colors.white),
                   SizedBox(width: 8),
                   Text(
                     "View details",
@@ -672,7 +672,7 @@ class _DetailHeader extends StatelessWidget {
                       children: [
                         Expanded(
                           child: _InfoRow(
-                            icon: FontAwesomeIcons.moneyBillWave,
+                            icon: LucideIcons.banknote,
                             label: "Amount",
                             value: item.amountText,
                             isDark: isDark,
@@ -681,7 +681,7 @@ class _DetailHeader extends StatelessWidget {
                         const SizedBox(width: 10),
                         Expanded(
                           child: _InfoRow(
-                            icon: FontAwesomeIcons.calendar,
+                            icon: LucideIcons.calendar,
                             label: "Due",
                             value: item.dueText,
                             isDark: isDark,
@@ -797,7 +797,7 @@ class _PrimaryActionBar extends StatelessWidget {
             Expanded(
               child: _GhostButton(
                 onTap: () => Navigator.of(context).maybePop(),
-                icon: Icons.arrow_back_rounded,
+                icon: LucideIcons.arrowLeft,
                 label: "Back",
               ),
             ),
@@ -811,7 +811,7 @@ class _PrimaryActionBar extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Icon(
-                      Icons.payment_rounded,
+                      LucideIcons.creditCard,
                       size: 18,
                       color: Colors.white,
                     ),

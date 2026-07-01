@@ -2,8 +2,8 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 // ✅ Use your template
 import '../../../../../core/widgets/app_page_template.dart';
@@ -250,7 +250,7 @@ class _NewsPageState extends State<NewsPage> {
                       ),
                       trailing: selected
                           ? Icon(
-                              Icons.check_rounded,
+                              LucideIcons.check,
                               color: isDark
                                   ? Colors.white
                                   : const Color(0xFF111827),
@@ -662,7 +662,7 @@ class _SearchBar extends StatelessWidget {
                 width: 54,
                 height: 50,
                 child: Center(
-                  child: Icon(FontAwesomeIcons.search, size: 18, color: iconC),
+                  child: Icon(LucideIcons.search, size: 18, color: iconC),
                 ),
               ),
             ),
@@ -733,7 +733,7 @@ class _FilterBar extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.calendar_month_rounded,
+                    LucideIcons.calendarDays,
                     size: 16,
                     color: isDark
                         ? Colors.white.withOpacity(.86)
@@ -947,7 +947,7 @@ class _FeaturedCard extends StatelessWidget {
                       Row(
                         children: [
                           Icon(
-                            FontAwesomeIcons.clock,
+                            LucideIcons.clock,
                             size: 12,
                             color: Colors.white.withOpacity(.78),
                           ),
@@ -962,7 +962,7 @@ class _FeaturedCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 10),
                           Icon(
-                            FontAwesomeIcons.eye,
+                            LucideIcons.eye,
                             size: 12,
                             color: Colors.white.withOpacity(.78),
                           ),
@@ -1086,7 +1086,7 @@ class _WideEducationCard extends StatelessWidget {
                         left: -16,
                         top: 14,
                         child: Icon(
-                          Icons.extension_rounded,
+                          LucideIcons.puzzle,
                           size: 120,
                           color:
                               (isDark ? Colors.white : const Color(0xFF8B5CF6))
@@ -1275,23 +1275,23 @@ class _CategoryChip extends StatelessWidget {
   IconData _iconFor(String v) {
     switch (v.toLowerCase()) {
       case "all":
-        return FontAwesomeIcons.layerGroup;
+        return LucideIcons.circle;
       case "education":
-        return FontAwesomeIcons.graduationCap;
+        return LucideIcons.graduationCap;
       case "campus":
-        return FontAwesomeIcons.school;
+        return LucideIcons.school;
       case "exams":
-        return FontAwesomeIcons.penToSquare;
+        return LucideIcons.squarePen;
       case "scholarships":
-        return FontAwesomeIcons.award;
+        return LucideIcons.award;
       case "events":
-        return FontAwesomeIcons.calendarDays;
+        return LucideIcons.calendarDays;
       case "sports":
-        return FontAwesomeIcons.futbol;
+        return LucideIcons.circle;
       case "health":
-        return FontAwesomeIcons.heartPulse;
+        return LucideIcons.heartPulse;
       default:
-        return FontAwesomeIcons.solidNewspaper;
+        return LucideIcons.newspaper;
     }
   }
 }
@@ -1395,7 +1395,7 @@ class _NetImage extends StatelessWidget {
           ),
           child: Center(
             child: Icon(
-              FontAwesomeIcons.solidImage,
+              LucideIcons.image,
               color: Colors.white.withOpacity(.85),
               size: 20,
             ),

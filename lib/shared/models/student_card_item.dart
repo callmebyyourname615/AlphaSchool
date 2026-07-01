@@ -17,6 +17,8 @@ class StudentCardItem {
   /// false → student is awaiting admin approval; the parent can see it as a
   /// placeholder card but cannot open its details.
   final bool isApproved;
+  final String approvalStatus;
+  final String? rejectReason;
 
   const StudentCardItem({
     required this.studentId,
@@ -27,5 +29,9 @@ class StudentCardItem {
     this.branchId,
     this.classId,
     this.isApproved = true,
+    this.approvalStatus = 'approved',
+    this.rejectReason,
   });
+
+  bool get isRejected => approvalStatus == 'rejected';
 }

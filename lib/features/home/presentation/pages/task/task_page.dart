@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../../core/widgets/app_page_template.dart';
@@ -159,19 +160,15 @@ class _TaskPageState extends State<TaskPage>
     final tabs = AppModernCountTabBar(
       controller: _tab,
       items: [
-        AppTabItem(
-          label: 'ທັງໝົດ',
-          icon: Icons.view_list_rounded,
-          count: _totalCount,
-        ),
+        AppTabItem(label: 'ທັງໝົດ', icon: LucideIcons.list, count: _totalCount),
         AppTabItem(
           label: 'ວຽກຄ້າງ',
-          icon: Icons.pending_actions_rounded,
+          icon: LucideIcons.clock3,
           count: _backlogCount,
         ),
         AppTabItem(
           label: 'ສຳເລັດ',
-          icon: Icons.verified_rounded,
+          icon: LucideIcons.badgeCheck,
           count: _successCount,
         ),
       ],
@@ -332,7 +329,7 @@ class _ModernTaskTabs extends StatelessWidget {
           _TabPill(
             height: tabH,
             text: 'ທັງໝົດ',
-            icon: Icons.view_list_rounded,
+            icon: LucideIcons.list,
             count: totalCount,
             iconSize: iconSize,
             gap: gap,
@@ -341,7 +338,7 @@ class _ModernTaskTabs extends StatelessWidget {
           _TabPill(
             height: tabH,
             text: 'ວຽກຄ້າງ',
-            icon: Icons.pending_actions_rounded,
+            icon: LucideIcons.clock3,
             count: backlogCount,
             iconSize: iconSize,
             gap: gap,
@@ -350,7 +347,7 @@ class _ModernTaskTabs extends StatelessWidget {
           _TabPill(
             height: tabH,
             text: 'ສຳເລັດ',
-            icon: Icons.verified_rounded,
+            icon: LucideIcons.badgeCheck,
             count: successCount,
             iconSize: iconSize,
             gap: gap,
@@ -589,7 +586,7 @@ class _EmptyTasks extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.task_alt_rounded,
+              LucideIcons.circleCheck,
               size: 44,
               color: isDark ? Colors.white.withOpacity(.85) : Colors.black54,
             ),
@@ -692,7 +689,7 @@ class _TaskCard extends StatelessWidget {
                         ? Colors.white.withOpacity(.06)
                         : const Color(0xFFF3F4F6),
                     child: const Center(
-                      child: Icon(Icons.image_not_supported_rounded, size: 28),
+                      child: Icon(LucideIcons.imageOff, size: 28),
                     ),
                   ),
                 ),
@@ -715,8 +712,8 @@ class _TaskCard extends StatelessWidget {
                   top: 12,
                   child: _Chip(
                     icon: task.mediaType == TaskMediaType.video
-                        ? Icons.videocam_rounded
-                        : Icons.image_rounded,
+                        ? LucideIcons.video
+                        : LucideIcons.image,
                     label: task.mediaType == TaskMediaType.video
                         ? 'Video'
                         : 'Image',
@@ -729,7 +726,7 @@ class _TaskCard extends StatelessWidget {
                   right: 12,
                   top: 12,
                   child: _Chip(
-                    icon: Icons.timer_rounded,
+                    icon: LucideIcons.timer,
                     label: 'Deadline • ${_fmtDate(task.deadline)}',
                     bg: Colors.black.withOpacity(.45),
                     fg: Colors.white,
@@ -760,8 +757,8 @@ class _TaskCard extends StatelessWidget {
                     const SizedBox(width: 10),
                     _Chip(
                       icon: task.status == TaskStatus.success
-                          ? Icons.verified_rounded
-                          : Icons.pending_actions_rounded,
+                          ? LucideIcons.badgeCheck
+                          : LucideIcons.clock3,
                       label: 'Status • $statusText',
                       bg: isDark
                           ? Colors.white.withOpacity(.10)
@@ -788,12 +785,12 @@ class _TaskCard extends StatelessWidget {
                   runSpacing: 10,
                   children: [
                     _MetaPill(
-                      icon: Icons.calendar_month_rounded,
+                      icon: LucideIcons.calendarDays,
                       label: 'Created • ${_fmtDateTime(task.createdAt)}',
                       isDark: isDark,
                     ),
                     _MetaPill(
-                      icon: Icons.person_rounded,
+                      icon: LucideIcons.user,
                       label: 'By • ${task.createdBy}',
                       isDark: isDark,
                     ),
@@ -1237,7 +1234,7 @@ class _SendButton extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.send_rounded, size: 18, color: fg),
+                  Icon(LucideIcons.send, size: 18, color: fg),
                   const SizedBox(width: 8),
                   Text(
                     'Send',

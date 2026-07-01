@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'parent_info_form_page.dart';
 
@@ -30,10 +31,7 @@ class RegisterPage extends StatelessWidget {
                       shape: const CircleBorder(),
                       child: IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(
-                          Icons.arrow_back_ios_new_rounded,
-                          size: 18,
-                        ),
+                        icon: const Icon(LucideIcons.arrowLeft, size: 18),
                         color: _navy,
                         tooltip: 'Back',
                       ),
@@ -73,20 +71,20 @@ class RegisterPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 32),
                   const _BenefitRow(
-                    icon: Icons.sync_rounded,
+                    icon: LucideIcons.refreshCw,
                     title: 'Fast & Easy',
                     description: 'Fill in your information online 24/7',
                   ),
                   const _BenefitDivider(),
                   const _BenefitRow(
-                    icon: Icons.lock_outline_rounded,
+                    icon: LucideIcons.lock,
                     title: 'Secure',
                     description:
                         'Your data is protected\nwith highest security',
                   ),
                   const _BenefitDivider(),
                   const _BenefitRow(
-                    icon: Icons.history_rounded,
+                    icon: LucideIcons.history,
                     title: 'Track Your Status',
                     description: 'Check your application status\nat any time',
                   ),
@@ -119,27 +117,6 @@ class RegisterPage extends StatelessWidget {
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        'Already have an account? ',
-                        style: TextStyle(color: _muted, fontSize: 14),
-                      ),
-                      GestureDetector(
-                        onTap: () => Navigator.of(context).pop(),
-                        child: const Text(
-                          'Sign in',
-                          style: TextStyle(
-                            color: _blue,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                 ],
               ),

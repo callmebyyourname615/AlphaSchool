@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/global_alert_service.dart';
 import '../../data/parent_registration_service.dart';
 import '../../data/student_registration_service.dart';
+import 'student_pending_page.dart';
 
 class StudentInfoFormPage extends StatefulWidget {
   /// Combined-registration mode: include parent data + service so we POST
@@ -13,19 +16,32 @@ class StudentInfoFormPage extends StatefulWidget {
     required this.parentData,
     required this.parentService,
   }) : parentId = null,
-       addOnly = false;
+       addOnly = false,
+       resubmitStudentId = null;
 
   /// Add-student-only mode (from the Pending screen). Skips parent POST,
   /// only calls POST /students with [parentId].
   const StudentInfoFormPage.addOnly({super.key, required this.parentId})
     : parentData = const {},
       parentService = null,
-      addOnly = true;
+      addOnly = true,
+      resubmitStudentId = null;
+
+  /// Resubmit mode (from the Pending screen after admin rejected). Loads
+  /// existing data and PUTs /students/:id to clear the rejection.
+  const StudentInfoFormPage.resubmit({
+    super.key,
+    required this.resubmitStudentId,
+    required this.parentId,
+  }) : parentData = const {},
+       parentService = null,
+       addOnly = true;
 
   final Map<String, String> parentData;
   final ParentRegistrationService? parentService;
   final String? parentId;
   final bool addOnly;
+  final String? resubmitStudentId;
 
   @override
   State<StudentInfoFormPage> createState() => _StudentInfoFormPageState();
@@ -43,12 +59,12 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
   static const _rose500 = Color(0xFFE11D48);
 
   static const _steps = [
-    _StepMeta(1, 'Student', Icons.person_outline),
-    _StepMeta(2, 'Address', Icons.place_outlined),
-    _StepMeta(3, 'Education', Icons.school_outlined),
-    _StepMeta(4, 'Sibling', Icons.group_outlined),
-    _StepMeta(5, 'Live With', Icons.home_outlined),
-    _StepMeta(6, 'Emergency', Icons.warning_amber_rounded),
+    _StepMeta(1, 'Student', LucideIcons.user),
+    _StepMeta(2, 'Address', LucideIcons.mapPin),
+    _StepMeta(3, 'Education', LucideIcons.school),
+    _StepMeta(4, 'Sibling', LucideIcons.users),
+    _StepMeta(5, 'Live With', LucideIcons.house),
+    _StepMeta(6, 'Emergency', LucideIcons.hospital),
   ];
 
   static const _genders = ['male', 'female', 'other'];
@@ -81,7 +97,251 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
 
   int _step = 1;
   bool _submitting = false;
+  bool _prefilling = false;
   final Set<int> _livingExpanded = {};
+
+  List<_ProvinceOption> _provinces = const [];
+  bool _provincesLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProvinces();
+    if (widget.resubmitStudentId != null) {
+      _prefilling = true;
+      _prefillFromExisting(widget.resubmitStudentId!)
+          .whenComplete(() {
+        if (mounted) setState(() => _prefilling = false);
+      });
+    }
+  }
+
+  Future<void> _loadProvinces() async {
+    if (_provincesLoading) return;
+    setState(() => _provincesLoading = true);
+    try {
+      final res = await ApiClient().get('/locations/province');
+      final raw = res is List
+          ? res
+          : (res is Map && res['data'] is List ? res['data'] as List : const []);
+      final list = raw
+          .whereType<Map>()
+          .map((m) => _ProvinceOption.fromJson(Map<String, dynamic>.from(m)))
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _provinces = list;
+        _provincesLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _provincesLoading = false);
+    }
+  }
+
+  _ProvinceOption? _findProvince(String id) {
+    for (final p in _provinces) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
+
+  Future<void> _prefillFromExisting(String studentId) async {
+    // Prefer the local draft (preserves anything the parent had typed,
+    // including fields the backend may not echo back) and only hit the API
+    // when no draft exists yet.
+    final draft = await StudentDraftStore.load(studentId);
+    if (draft != null) {
+      if (!mounted) return;
+      setState(() {
+        _s
+          ..firstNameLao = draft.firstNameLao
+          ..firstNameEng = draft.firstNameEng
+          ..middleNameLao = draft.middleNameLao
+          ..middleNameEng = draft.middleNameEng
+          ..lastNameLao = draft.lastNameLao
+          ..lastNameEng = draft.lastNameEng
+          ..nickname = draft.nickname
+          ..dob = draft.dob
+          ..gender = draft.gender
+          ..nationality = draft.nationality
+          ..ethnicity = draft.ethnicity
+          ..religion = draft.religion
+          ..passportNo = draft.passportNo
+          ..villageBirth = draft.villageBirth
+          ..districtBirth = draft.districtBirth
+          ..provinceBirth = draft.provinceBirth
+          ..village = draft.village
+          ..district = draft.district
+          ..province = draft.province
+          ..districtId = draft.districtId
+          ..provinceId = draft.provinceId
+          ..districtName = draft.districtName
+          ..provinceName = draft.provinceName;
+        _s.kindergarten
+          ..academicYear = draft.kindergarten.academicYear
+          ..yearLevel = draft.kindergarten.yearLevel
+          ..school = draft.kindergarten.school;
+        _s.primary
+          ..academicYear = draft.primary.academicYear
+          ..yearLevel = draft.primary.yearLevel
+          ..school = draft.primary.school;
+        _s.siblings
+          ..clear()
+          ..addAll(draft.siblings);
+        _s.livingWith
+          ..clear()
+          ..addAll(draft.livingWith);
+        _s.emergencyContacts
+          ..clear()
+          ..addAll(draft.emergencyContacts);
+      });
+      return;
+    }
+    try {
+      final res = await ApiClient().get('/students/$studentId');
+      final record = res is Map<String, dynamic>
+          ? res
+          : (res is Map ? Map<String, dynamic>.from(res) : <String, dynamic>{});
+      if (!mounted) return;
+      _hydrate(record);
+    } catch (_) {
+      // Soft-fail — the user can still fill the form manually.
+    }
+  }
+
+  String _str(Map<String, dynamic> m, List<String> keys) {
+    for (final k in keys) {
+      final v = m[k];
+      if (v != null && v.toString().trim().isNotEmpty) return v.toString();
+    }
+    return '';
+  }
+
+  void _hydrate(Map<String, dynamic> r) {
+    _s
+      ..firstNameLao = _str(r, ['first_name_lao'])
+      ..firstNameEng = _str(r, ['first_name_eng'])
+      ..middleNameLao = _str(r, ['midle_name_lao', 'middle_name_lao'])
+      ..middleNameEng = _str(r, ['midle_name_eng', 'middle_name_eng'])
+      ..lastNameLao = _str(r, ['last_name_lao'])
+      ..lastNameEng = _str(r, ['last_name_eng'])
+      ..nickname = _str(r, ['nickname'])
+      ..dob = _str(r, ['dob']).split('T').first
+      ..gender = _str(r, ['gender'])
+      ..nationality = _str(r, ['nationality'])
+      ..ethnicity = _str(r, ['ethnicity'])
+      ..religion = _str(r, ['religion'])
+      ..passportNo = _str(r, ['passport_number', 'passport_no'])
+      ..villageBirth = _str(r, ['village_bd'])
+      ..village = _str(r, ['village']);
+    // dm_birth was joined as "village, district, province"
+    final dm = _str(r, ['dm_birth']).split(',').map((e) => e.trim()).toList();
+    if (dm.length >= 2) _s.districtBirth = dm[1];
+    if (dm.length >= 3) _s.provinceBirth = dm[2];
+    final district = r['district'];
+    if (district is Map) {
+      _s.districtId = (district['id'] ?? '').toString();
+      _s.districtName =
+          (district['nameEn'] ?? district['nameLa'] ?? '').toString();
+      _s.district = _s.districtName;
+    } else if (district is String) {
+      _s.district = district;
+    }
+    final province = r['province'];
+    if (province is Map) {
+      _s.provinceId = (province['id'] ?? '').toString();
+      _s.provinceName =
+          (province['nameEn'] ?? province['nameLa'] ?? '').toString();
+      _s.province = _s.provinceName;
+    } else if (province is String) {
+      _s.province = province;
+    }
+    final kg = (r['his_school_kindergarten'] as List?)?.cast<Map>().firstOrNull;
+    if (kg != null) {
+      _s.kindergarten
+        ..academicYear = (kg['academic_year'] ?? '').toString()
+        ..yearLevel = (kg['year_level'] ?? '').toString()
+        ..school = (kg['school'] ?? '').toString();
+    }
+    final pr = (r['his_school_primary'] as List?)?.cast<Map>().firstOrNull;
+    if (pr != null) {
+      _s.primary
+        ..academicYear = (pr['academic_year'] ?? '').toString()
+        ..yearLevel = (pr['year_level'] ?? '').toString()
+        ..school = (pr['school'] ?? '').toString();
+    }
+    _s.siblings
+      ..clear()
+      ..addAll((r['bos_info'] as List? ?? []).whereType<Map>().map((b) {
+        return SiblingEntry()
+          ..fullname = (b['fullname'] ?? '').toString()
+          ..nickname = (b['nickname'] ?? '').toString()
+          ..dob = (b['dob'] ?? '').toString().split('T').first
+          ..currentSchool = (b['current_school'] ?? '').toString()
+          ..phone1 = (b['phone1'] ?? '').toString()
+          ..phone2 = (b['phone2'] ?? '').toString()
+          ..village = (b['current_village'] ?? b['village'] ?? '').toString();
+      }));
+    _s.livingWith
+      ..clear()
+      ..addAll((r['live_with'] as List? ?? []).whereType<Map>().map((l) {
+        // Prefer the split name fields when present; fall back to splitting
+        // the joined "fullname" for older records.
+        final names = (l['fullname'] ?? '').toString().split(' ');
+        return LiveWithEntry()
+          ..firstNameLao = (l['first_name_lao'] ?? '').toString()
+          ..firstNameEng = (l['first_name_eng'] ??
+                  (names.isNotEmpty ? names.first : ''))
+              .toString()
+          ..middleNameLao = (l['midle_name_lao'] ?? '').toString()
+          ..middleNameEng = (l['midle_name_eng'] ??
+                  (names.length > 2
+                      ? names.sublist(1, names.length - 1).join(' ')
+                      : ''))
+              .toString()
+          ..lastNameLao = (l['last_name_lao'] ?? '').toString()
+          ..lastNameEng = (l['last_name_eng'] ??
+                  (names.length > 1 ? names.last : ''))
+              .toString()
+          ..occupation = (l['occupation'] ?? '').toString()
+          ..nickname = (l['nickname'] ?? '').toString()
+          ..dob = (l['dob'] ?? '').toString().split('T').first
+          ..idCardNo = (l['id_card'] ?? '').toString()
+          ..passportNo = (l['passport_no'] ?? '').toString()
+          ..familyBookNo = (l['family_book_no'] ?? '').toString()
+          ..nationality = (l['nationality'] ?? '').toString()
+          ..ethnicity = (l['ethnicity'] ?? '').toString()
+          ..religion = (l['religion'] ?? '').toString()
+          ..educationLevel = (l['education_level'] ?? '').toString()
+          ..workplace = (l['working_place'] ?? '').toString()
+          ..email = (l['email'] ?? '').toString()
+          ..phone1 = (l['phone_number_one'] ?? '').toString()
+          ..phone2 = (l['phone_number_two'] ?? '').toString()
+          ..homeNo = (l['home_no'] ?? '').toString()
+          ..homeUnit = (l['home_unit'] ?? '').toString()
+          ..village = (l['current_village'] ?? '').toString()
+          ..district = (l['current_district'] ?? '').toString()
+          ..province = (l['current_province'] ?? '').toString();
+      }));
+    _s.emergencyContacts
+      ..clear()
+      ..addAll((r['emergency_contacts'] as List? ?? []).whereType<Map>().map((e) {
+        return EmergencyContactEntry()
+          ..fullname = (e['fullname'] ?? '').toString()
+          ..occupation = (e['job'] ?? '').toString()
+          ..workplace = (e['working_place'] ?? '').toString()
+          ..phone1 = (e['phone1'] ?? '').toString()
+          ..phone2 = (e['phone2'] ?? '').toString()
+          ..hospital = (e['hospital'] ?? '').toString()
+          ..docName = (e['doc_name'] ?? '').toString()
+          ..docContact = (e['doc_contract'] ?? '').toString();
+      }));
+    if (_s.emergencyContacts.isEmpty) {
+      _s.emergencyContacts.add(EmergencyContactEntry());
+    }
+    setState(() {});
+  }
 
   @override
   void dispose() {
@@ -242,7 +502,10 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
   }
 
   void _onBack() {
-    if (_step <= 1) return;
+    if (_step <= 1) {
+      Navigator.of(context).pop();
+      return;
+    }
     setState(() => _step--);
     _pageController.animateToPage(
       _step - 1,
@@ -255,11 +518,26 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     if (!_validate() || _submitting) return;
     setState(() => _submitting = true);
     GlobalAlert.showLoading(
-      message: widget.addOnly
-          ? 'Adding student...'
-          : 'Submitting application...',
+      message: widget.resubmitStudentId != null
+          ? 'Resubmitting application...'
+          : widget.addOnly
+              ? 'Adding student...'
+              : 'Submitting application...',
     );
     try {
+      if (widget.resubmitStudentId != null) {
+        await _studentService.resubmit(
+          studentId: widget.resubmitStudentId!,
+          s: _s,
+        );
+        // Refresh the local draft with the latest edits so a future rejection
+        // still finds the most recent values.
+        await StudentDraftStore.save(widget.resubmitStudentId!, _s);
+        GlobalAlert.dismiss();
+        if (!mounted) return;
+        Navigator.of(context).pop<Object>('resubmitted');
+        return;
+      }
       String parentId;
       if (widget.addOnly) {
         parentId = widget.parentId!;
@@ -292,17 +570,50 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         );
       }
 
-      await _studentService.register(s: _s, parentId: parentId);
+      final studentRes = await _studentService.register(
+        s: _s,
+        parentId: parentId,
+      );
+
+      // Cache the submitted form keyed by the new student id so a later
+      // rejection can re-open the form with everything still filled in.
+      final newStudentId = (studentRes['id'] ?? studentRes['_id'])?.toString();
+      if (newStudentId != null && newStudentId.isNotEmpty) {
+        await StudentDraftStore.save(newStudentId, _s);
+      }
 
       GlobalAlert.dismiss();
       if (!mounted) return;
       if (widget.addOnly) {
-        GlobalAlert.showSuccess(
-          title: 'Student added',
-          message:
-              'The student has been added to your application. Admin will review all students together.',
+        final fullName = [
+          _s.firstNameEng,
+          _s.middleNameEng,
+          _s.lastNameEng,
+        ].map((e) => e.trim()).where((e) => e.isNotEmpty).join(' ');
+        final fallbackLao = [
+          _s.firstNameLao,
+          _s.lastNameLao,
+        ].map((e) => e.trim()).where((e) => e.isNotEmpty).join(' ');
+        final displayName = fullName.isNotEmpty
+            ? fullName
+            : (fallbackLao.isNotEmpty ? fallbackLao : 'your child');
+        final newId = (studentRes['id'] ?? studentRes['_id'])?.toString() ?? '';
+        final localId = (studentRes['student_id'] ?? '').toString();
+        // Keep this form route in the stack while the pending screen is open.
+        // Its result is forwarded to Choose Student, allowing the parent to
+        // start another application or simply finish the flow.
+        final pendingResult = await Navigator.of(context).push<Object?>(
+          MaterialPageRoute(
+            builder: (_) => StudentPendingPage(
+              studentId: newId,
+              studentName: displayName,
+              studentLocalId: localId.isEmpty ? null : localId,
+              nickname: _s.nickname.trim().isEmpty ? null : _s.nickname.trim(),
+            ),
+          ),
         );
-        Navigator.of(context).pop(true);
+        if (!mounted) return;
+        Navigator.of(context).pop<Object?>(pendingResult);
         return;
       }
       // Reload the pending we just saved and return it to the parent page,
@@ -321,6 +632,41 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_prefilling) {
+      // Defer building the form until the cached student data has been
+      // hydrated into [_s]. TextFormField's [initialValue] is only read on
+      // first build, so rendering before prefill completes would leave every
+      // input visually empty even though _s holds the real values.
+      return Scaffold(
+        backgroundColor: _blueSofter,
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(),
+              const Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(color: _blue),
+                      SizedBox(height: 16),
+                      Text(
+                        'Loading your previous answers...',
+                        style: TextStyle(
+                          color: _muted,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: _blueSofter,
       body: SafeArea(
@@ -361,11 +707,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         children: [
           IconButton(
             onPressed: _submitting ? null : () => Navigator.of(context).pop(),
-            icon: const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              size: 18,
-              color: _navy,
-            ),
+            icon: const Icon(LucideIcons.arrowLeft, size: 18, color: _navy),
           ),
           const SizedBox(width: 8),
           const Expanded(
@@ -506,7 +848,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         border: active ? Border.all(color: _blueSoft, width: 3) : null,
       ),
       child: Icon(
-        completed ? Icons.check_rounded : s.icon,
+        completed ? LucideIcons.check : s.icon,
         color: filled ? Colors.white : _slate400,
         size: 18,
       ),
@@ -533,7 +875,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                 height: 50,
                 child: OutlinedButton.icon(
                   onPressed: _submitting ? null : _onBack,
-                  icon: const Icon(Icons.chevron_left_rounded, size: 18),
+                  icon: const Icon(LucideIcons.chevronLeft, size: 18),
                   label: const Text('Back'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: _navy,
@@ -577,7 +919,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                           children: [
                             Text('Next'),
                             SizedBox(width: 6),
-                            Icon(Icons.chevron_right_rounded, size: 18),
+                            Icon(LucideIcons.chevronRight, size: 18),
                           ],
                         )
                       : const Text('Submit application'),
@@ -740,21 +1082,26 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
               required: true,
               placeholder: 'Enter village',
             ),
-            _input(
-              'District of Birth',
-              'District_Birth',
-              _s.districtBirth,
-              (v) => _s.districtBirth = v,
-              required: true,
-              placeholder: 'Enter district',
+            _provinceDropdown(
+              label: 'Province of Birth',
+              errorKey: 'Province_Birth',
+              currentLabel: _s.provinceBirth,
+              onPicked: (label) => setState(() {
+                _s.provinceBirth = label;
+                _s.districtBirth = '';
+                _errors.remove('Province_Birth');
+                _errors.remove('District_Birth');
+              }),
             ),
-            _input(
-              'Province of Birth',
-              'Province_Birth',
-              _s.provinceBirth,
-              (v) => _s.provinceBirth = v,
-              required: true,
-              placeholder: 'Enter province',
+            _districtDropdown(
+              label: 'District of Birth',
+              errorKey: 'District_Birth',
+              provinceLabel: _s.provinceBirth,
+              currentLabel: _s.districtBirth,
+              onPicked: (label) => setState(() {
+                _s.districtBirth = label;
+                _errors.remove('District_Birth');
+              }),
             ),
           ],
         ),
@@ -771,24 +1118,270 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
               required: true,
               placeholder: 'Enter village',
             ),
-            _input(
-              'District',
-              'District',
-              _s.district,
-              (v) => _s.district = v,
-              required: true,
-              placeholder: 'Enter district',
-            ),
-            _input(
-              'Province',
-              'Province',
-              _s.province,
-              (v) => _s.province = v,
-              required: true,
-              placeholder: 'Enter province',
-            ),
+            _provinceSelect(),
+            _districtSelect(),
           ],
         ),
+      ],
+    );
+  }
+
+  _ProvinceOption? _provinceByLabel(String label) {
+    if (label.trim().isEmpty) return null;
+    final lc = label.trim().toLowerCase();
+    for (final p in _provinces) {
+      if (p.label.toLowerCase() == lc) return p;
+    }
+    return null;
+  }
+
+  /// Label-only province dropdown (used where the backend stores the province
+  /// as a free-text string, e.g. Place of Birth and Living-With entries).
+  Widget _provinceDropdown({
+    required String label,
+    required String errorKey,
+    required String currentLabel,
+    required void Function(String label) onPicked,
+  }) {
+    final err = _errors[errorKey];
+    final selected = _provinceByLabel(currentLabel);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label(label, true),
+        DropdownButtonFormField<String>(
+          initialValue: selected?.id,
+          isExpanded: true,
+          icon: _provincesLoading
+              ? const SizedBox(
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: _muted,
+                  ),
+                )
+              : const Icon(LucideIcons.chevronDown, color: _muted),
+          hint: Text(
+            _provincesLoading ? 'Loading provinces...' : 'Select province',
+            style: const TextStyle(color: _slate400, fontSize: 14),
+          ),
+          style: const TextStyle(
+            fontSize: 16,
+            color: _navy,
+            fontWeight: FontWeight.w500,
+          ),
+          decoration: _decoration(null, err),
+          items: _provinces
+              .map((p) => DropdownMenuItem(value: p.id, child: Text(p.label)))
+              .toList(),
+          onChanged: _provinces.isEmpty
+              ? null
+              : (v) {
+                  if (v == null) return;
+                  final picked = _findProvince(v);
+                  if (picked != null) onPicked(picked.label);
+                },
+        ),
+        if (err != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              err,
+              style: const TextStyle(
+                fontSize: 13,
+                color: _rose500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _districtDropdown({
+    required String label,
+    required String errorKey,
+    required String provinceLabel,
+    required String currentLabel,
+    required void Function(String label) onPicked,
+  }) {
+    final err = _errors[errorKey];
+    final province = _provinceByLabel(provinceLabel);
+    final districts = province?.districts ?? const [];
+    final selected = districts.firstWhere(
+      (d) => d.label.toLowerCase() == currentLabel.trim().toLowerCase(),
+      orElse: () => const _DistrictOption(id: '', label: ''),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label(label, true),
+        DropdownButtonFormField<String>(
+          initialValue: selected.id.isEmpty ? null : selected.id,
+          isExpanded: true,
+          icon: const Icon(LucideIcons.chevronDown, color: _muted),
+          hint: Text(
+            province == null ? 'Select province first' : 'Select district',
+            style: const TextStyle(color: _slate400, fontSize: 14),
+          ),
+          style: const TextStyle(
+            fontSize: 16,
+            color: _navy,
+            fontWeight: FontWeight.w500,
+          ),
+          decoration: _decoration(null, err),
+          items: districts
+              .map((d) => DropdownMenuItem(value: d.id, child: Text(d.label)))
+              .toList(),
+          onChanged: districts.isEmpty
+              ? null
+              : (v) {
+                  if (v == null) return;
+                  final picked =
+                      districts.firstWhere((d) => d.id == v);
+                  onPicked(picked.label);
+                },
+        ),
+        if (err != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              err,
+              style: const TextStyle(
+                fontSize: 13,
+                color: _rose500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _provinceSelect() {
+    final err = _errors['Province'];
+    final value = _s.provinceId.isNotEmpty &&
+            _provinces.any((p) => p.id == _s.provinceId)
+        ? _s.provinceId
+        : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('Province', true),
+        DropdownButtonFormField<String>(
+          initialValue: value,
+          isExpanded: true,
+          icon: _provincesLoading
+              ? const SizedBox(
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: _muted,
+                  ),
+                )
+              : const Icon(LucideIcons.chevronDown, color: _muted),
+          hint: Text(
+            _provincesLoading ? 'Loading provinces...' : 'Select province',
+            style: const TextStyle(color: _slate400, fontSize: 14),
+          ),
+          style: const TextStyle(
+            fontSize: 16,
+            color: _navy,
+            fontWeight: FontWeight.w500,
+          ),
+          decoration: _decoration(null, err),
+          items: _provinces
+              .map((p) => DropdownMenuItem(value: p.id, child: Text(p.label)))
+              .toList(),
+          onChanged: _provinces.isEmpty
+              ? null
+              : (v) {
+                  if (v == null) return;
+                  final picked = _findProvince(v);
+                  setState(() {
+                    _s.provinceId = v;
+                    _s.provinceName = picked?.label ?? '';
+                    _s.province = picked?.label ?? '';
+                    _s.districtId = '';
+                    _s.districtName = '';
+                    _s.district = '';
+                    _errors.remove('Province');
+                    _errors.remove('District');
+                  });
+                },
+        ),
+        if (err != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              err,
+              style: const TextStyle(
+                fontSize: 13,
+                color: _rose500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _districtSelect() {
+    final err = _errors['District'];
+    final province = _findProvince(_s.provinceId);
+    final districts = province?.districts ?? const [];
+    final value = _s.districtId.isNotEmpty &&
+            districts.any((d) => d.id == _s.districtId)
+        ? _s.districtId
+        : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('District', true),
+        DropdownButtonFormField<String>(
+          initialValue: value,
+          isExpanded: true,
+          icon: const Icon(LucideIcons.chevronDown, color: _muted),
+          hint: Text(
+            province == null ? 'Select province first' : 'Select district',
+            style: const TextStyle(color: _slate400, fontSize: 14),
+          ),
+          style: const TextStyle(
+            fontSize: 16,
+            color: _navy,
+            fontWeight: FontWeight.w500,
+          ),
+          decoration: _decoration(null, err),
+          items: districts
+              .map((d) => DropdownMenuItem(value: d.id, child: Text(d.label)))
+              .toList(),
+          onChanged: districts.isEmpty
+              ? null
+              : (v) {
+                  if (v == null) return;
+                  final picked = districts.firstWhere((d) => d.id == v);
+                  setState(() {
+                    _s.districtId = v;
+                    _s.districtName = picked.label;
+                    _s.district = picked.label;
+                    _errors.remove('District');
+                  });
+                },
+        ),
+        if (err != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              err,
+              style: const TextStyle(
+                fontSize: 13,
+                color: _rose500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -883,7 +1476,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         if (_s.siblings.isEmpty) ...[
           const SizedBox(height: 14),
           _emptyHint(
-            icon: Icons.group_outlined,
+            icon: LucideIcons.users,
             title: missing
                 ? 'At least one sibling is required'
                 : 'No siblings added yet',
@@ -942,11 +1535,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
               IconButton(
                 tooltip: 'Remove',
                 onPressed: () => setState(() => _s.siblings.removeAt(i)),
-                icon: const Icon(
-                  Icons.delete_outline_rounded,
-                  color: _rose500,
-                  size: 20,
-                ),
+                icon: const Icon(LucideIcons.trash2, color: _rose500, size: 20),
                 visualDensity: VisualDensity.compact,
               ),
             ],
@@ -1043,7 +1632,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         if (_s.livingWith.isEmpty) ...[
           const SizedBox(height: 14),
           _emptyHint(
-            icon: Icons.home_outlined,
+            icon: LucideIcons.house,
             title: missing
                 ? 'At least one person is required'
                 : 'No one added yet',
@@ -1135,16 +1724,14 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                       _livingExpanded.remove(i);
                     }),
                     icon: const Icon(
-                      Icons.delete_outline_rounded,
+                      LucideIcons.trash2,
                       color: _rose500,
                       size: 20,
                     ),
                     visualDensity: VisualDensity.compact,
                   ),
                   Icon(
-                    expanded
-                        ? Icons.keyboard_arrow_up_rounded
-                        : Icons.keyboard_arrow_down_rounded,
+                    expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
                     color: _muted,
                   ),
                 ],
@@ -1367,22 +1954,27 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                     placeholder: 'Enter village',
                   ),
                   const SizedBox(height: 12),
-                  _input(
-                    'District',
-                    'L${i}_District',
-                    p.district,
-                    (v) => p.district = v,
-                    required: true,
-                    placeholder: 'Enter district',
+                  _provinceDropdown(
+                    label: 'Province',
+                    errorKey: 'L${i}_Province',
+                    currentLabel: p.province,
+                    onPicked: (label) => setState(() {
+                      p.province = label;
+                      p.district = '';
+                      _errors.remove('L${i}_Province');
+                      _errors.remove('L${i}_District');
+                    }),
                   ),
                   const SizedBox(height: 12),
-                  _input(
-                    'Province',
-                    'L${i}_Province',
-                    p.province,
-                    (v) => p.province = v,
-                    required: true,
-                    placeholder: 'Enter province',
+                  _districtDropdown(
+                    label: 'District',
+                    errorKey: 'L${i}_District',
+                    provinceLabel: p.province,
+                    currentLabel: p.district,
+                    onPicked: (label) => setState(() {
+                      p.district = label;
+                      _errors.remove('L${i}_District');
+                    }),
                   ),
                 ],
               ),
@@ -1415,7 +2007,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         if (_s.emergencyContacts.isEmpty) ...[
           const SizedBox(height: 14),
           _emptyHint(
-            icon: Icons.warning_amber_rounded,
+            icon: LucideIcons.triangleAlert,
             title: missing
                 ? 'At least one emergency contact is required'
                 : 'No emergency contact added yet',
@@ -1475,11 +2067,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                 tooltip: 'Remove',
                 onPressed: () =>
                     setState(() => _s.emergencyContacts.removeAt(i)),
-                icon: const Icon(
-                  Icons.delete_outline_rounded,
-                  color: _rose500,
-                  size: 20,
-                ),
+                icon: const Icon(LucideIcons.trash2, color: _rose500, size: 20),
                 visualDensity: VisualDensity.compact,
               ),
             ],
@@ -1654,7 +2242,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.add_rounded,
+                  LucideIcons.plus,
                   color: Colors.white,
                   size: 18,
                 ),
@@ -1704,7 +2292,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              error ? Icons.error_outline_rounded : icon,
+              error ? LucideIcons.circleAlert : icon,
               color: iconColor,
               size: 18,
             ),
@@ -1854,7 +2442,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         DropdownButtonFormField<String>(
           initialValue: options.contains(value) ? value : null,
           isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _muted),
+          icon: const Icon(LucideIcons.chevronDown, color: _muted),
           hint: Text(
             placeholder ?? 'Select...',
             style: const TextStyle(color: _slate400, fontSize: 14),
@@ -1944,7 +2532,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           child: InputDecorator(
             decoration: _decoration(null, err).copyWith(
               suffixIcon: const Icon(
-                Icons.calendar_today_rounded,
+                LucideIcons.calendarDays,
                 size: 16,
                 color: _muted,
               ),
@@ -1981,4 +2569,39 @@ class _StepMeta {
   final String title;
   final IconData icon;
   const _StepMeta(this.id, this.title, this.icon);
+}
+
+class _ProvinceOption {
+  final String id;
+  final String label;
+  final List<_DistrictOption> districts;
+
+  const _ProvinceOption({
+    required this.id,
+    required this.label,
+    required this.districts,
+  });
+
+  factory _ProvinceOption.fromJson(Map<String, dynamic> j) {
+    final raw = (j['districts'] as List?) ?? const [];
+    return _ProvinceOption(
+      id: (j['id'] ?? '').toString(),
+      label: (j['nameEn'] ?? j['nameLa'] ?? j['name'] ?? '').toString(),
+      districts: raw
+          .whereType<Map>()
+          .map((d) => _DistrictOption.fromJson(Map<String, dynamic>.from(d)))
+          .toList(),
+    );
+  }
+}
+
+class _DistrictOption {
+  final String id;
+  final String label;
+  const _DistrictOption({required this.id, required this.label});
+
+  factory _DistrictOption.fromJson(Map<String, dynamic> j) => _DistrictOption(
+        id: (j['id'] ?? '').toString(),
+        label: (j['nameEn'] ?? j['nameLa'] ?? j['name'] ?? '').toString(),
+      );
 }

@@ -2,8 +2,8 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 // ---- Helpers (avoid withOpacity deprecated) ----
 int _alpha(double o) => (o * 255).round().clamp(0, 255);
@@ -71,17 +71,17 @@ class ProfilePage extends StatelessWidget {
         items ??
         const [
           ProfileMenuItem(
-            icon: FontAwesomeIcons.gear,
+            icon: LucideIcons.circle,
             title: 'Profile Settings',
             subtitle: 'Update and modify your profile',
           ),
           ProfileMenuItem(
-            icon: FontAwesomeIcons.shieldHalved,
+            icon: LucideIcons.shieldCheck,
             title: 'Privacy',
             subtitle: 'Change your password',
           ),
           ProfileMenuItem(
-            icon: FontAwesomeIcons.bell,
+            icon: LucideIcons.bell,
             title: 'Notifications',
             subtitle: 'Change your notification settings',
           ),
@@ -290,7 +290,7 @@ class _CenteredTopBar extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: _PillIconButton(
-              icon: Icons.arrow_back_rounded,
+              icon: LucideIcons.arrowLeft,
               onTap: onBack,
               isDark: isDark,
             ),
@@ -298,7 +298,7 @@ class _CenteredTopBar extends StatelessWidget {
           Align(
             alignment: Alignment.centerRight,
             child: _PillIconButton(
-              icon: Icons.edit_rounded,
+              icon: LucideIcons.squarePen,
               onTap: onEdit,
               isDark: isDark,
             ),
@@ -426,7 +426,7 @@ class _ProfileCard extends StatelessWidget {
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Center(
                           child: Icon(
-                            Icons.person_rounded,
+                            LucideIcons.user,
                             size: 60,
                             color: _o(textMain, .85),
                           ),
@@ -472,7 +472,7 @@ class _ProfileCard extends StatelessWidget {
                           ),
                           child: const Center(
                             child: Icon(
-                              Icons.check_rounded,
+                              LucideIcons.check,
                               size: 16,
                               color: Colors.white,
                             ),
@@ -520,26 +520,26 @@ class _ProfileCard extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         _Badge(
-                          icon: FontAwesomeIcons.medal,
+                          icon: LucideIcons.medal,
                           bg: isDark
                               ? _o(const Color(0xFF10B981), .18)
                               : const Color(0xFFD1FAE5),
                           fg: const Color(0xFF10B981),
                         ),
                         _Badge(
-                          icon: FontAwesomeIcons.award,
+                          icon: LucideIcons.award,
                           bg: isDark
                               ? _o(const Color(0xFF7C3AED), .18)
                               : const Color(0xFFEDE9FE),
                           fg: const Color(0xFF7C3AED),
                         ),
                         _Badge(
-                          icon: FontAwesomeIcons.shield,
+                          icon: LucideIcons.shield,
                           bg: isDark ? _o(acc, .18) : _o(acc, .14),
                           fg: isDark ? Colors.white : acc,
                         ),
                         _Badge(
-                          icon: FontAwesomeIcons.sackDollar,
+                          icon: LucideIcons.walletCards,
                           bg: isDark
                               ? _o(const Color(0xFFF97316), .18)
                               : const Color(0xFFFFEDD5),
@@ -580,7 +580,7 @@ class _Badge extends StatelessWidget {
           color: isDark ? _o(Colors.white, .10) : Colors.black.withAlpha(10),
         ),
       ),
-      child: Center(child: FaIcon(icon, size: 22, color: fg)),
+      child: Center(child: Icon(icon, size: 22, color: fg)),
     ).animate().scale(
       begin: const Offset(0.96, 0.96),
       end: const Offset(1, 1),
@@ -656,9 +656,7 @@ class _MenuTile extends StatelessWidget {
                         ]
                       : [],
                 ),
-                child: Center(
-                  child: FaIcon(item.icon, size: 20, color: iconFg),
-                ),
+                child: Center(child: Icon(item.icon, size: 20, color: iconFg)),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -686,7 +684,7 @@ class _MenuTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Icon(Icons.chevron_right_rounded, color: _o(textMain, .55)),
+              Icon(LucideIcons.chevronRight, color: _o(textMain, .55)),
             ],
           ),
         ),

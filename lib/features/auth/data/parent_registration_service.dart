@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,6 +12,7 @@ class PendingApplication {
   final String email;
   final String? fullName;
   final String? password;
+  final Map<String, String> formData;
   final DateTime submittedAt;
   final bool approved;
 
@@ -20,23 +22,36 @@ class PendingApplication {
     required this.submittedAt,
     this.fullName,
     this.password,
+    this.formData = const {},
     this.approved = false,
   });
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'email': email,
-        'fullName': fullName,
-        'password': password,
-        'submittedAt': submittedAt.toIso8601String(),
-      };
+    'id': id,
+    'email': email,
+    'fullName': fullName,
+    'password': password,
+    'formData': formData,
+    'submittedAt': submittedAt.toIso8601String(),
+  };
 
-  factory PendingApplication.fromJson(Map<String, dynamic> j) => PendingApplication(
+  factory PendingApplication.fromJson(Map<String, dynamic> j) =>
+      PendingApplication(
         id: j['id']?.toString() ?? '',
         email: j['email']?.toString() ?? '',
         fullName: j['fullName']?.toString(),
         password: j['password']?.toString(),
-        submittedAt: DateTime.tryParse(j['submittedAt']?.toString() ?? '') ?? DateTime.now(),
+        formData: j['formData'] is Map
+            ? Map<String, String>.fromEntries(
+                (j['formData'] as Map).entries.map(
+                  (entry) =>
+                      MapEntry(entry.key.toString(), entry.value.toString()),
+                ),
+              )
+            : const {},
+        submittedAt:
+            DateTime.tryParse(j['submittedAt']?.toString() ?? '') ??
+            DateTime.now(),
       );
 }
 
@@ -54,9 +69,21 @@ class RegistrationResult {
   RegistrationResult({required this.data, required this.password});
 }
 
+class ParentAttachment {
+  const ParentAttachment({
+    required this.field,
+    required this.bytes,
+    required this.filename,
+  });
+
+  final String field;
+  final Uint8List bytes;
+  final String filename;
+}
+
 class ParentRegistrationService {
   ParentRegistrationService({ApiClient? client})
-      : _api = client ?? ApiClient(timeout: const Duration(seconds: 60));
+    : _api = client ?? ApiClient(timeout: const Duration(seconds: 60));
   final ApiClient _api;
 
   static const Map<String, String> _fieldMap = {
@@ -86,6 +113,7 @@ class ParentRegistrationService {
     'Village': 'village',
     'District': 'district',
     'Province': 'province',
+    'Branch': 'branch_id',
   };
 
   static const _requiredStringFields = [
@@ -98,7 +126,10 @@ class ParentRegistrationService {
     'gender',
   ];
 
-  Future<RegistrationResult> register(Map<String, String> data) async {
+  Future<RegistrationResult> register(
+    Map<String, String> data, {
+    List<ParentAttachment> attachments = const [],
+  }) async {
     final body = <String, dynamic>{};
     for (final e in data.entries) {
       final v = e.value.trim();
@@ -125,7 +156,21 @@ class ParentRegistrationService {
     }
 
     try {
-      final res = await _api.post('/parents', body: body);
+      final res = attachments.isEmpty
+          ? await _api.post('/parents', body: body)
+          : await _api.multipartPost(
+              '/parents',
+              fields: body.map((key, value) => MapEntry(key, value.toString())),
+              files: attachments
+                  .map(
+                    (file) => MultipartFilePart(
+                      field: file.field,
+                      bytes: file.bytes,
+                      filename: file.filename,
+                    ),
+                  )
+                  .toList(),
+            );
       return RegistrationResult(data: _asMap(res), password: password);
     } on ApiException catch (e) {
       if (e.statusCode != null && e.statusCode! >= 500) {
@@ -139,6 +184,34 @@ class ParentRegistrationService {
     }
   }
 
+  Future<RegistrationResult> resubmit(
+    String id,
+    Map<String, String> data, {
+    List<ParentAttachment> attachments = const [],
+  }) async {
+    final fields = <String, String>{
+      for (final entry in data.entries)
+        if (entry.value.trim().isNotEmpty)
+          (_fieldMap[entry.key] ?? entry.key): entry.value.trim(),
+      'is_active': 'false',
+      'approval_status': 'pending',
+      'reject_reason': '',
+    };
+    final files = attachments
+        .map(
+          (file) => MultipartFilePart(
+            field: file.field,
+            bytes: file.bytes,
+            filename: file.filename,
+          ),
+        )
+        .toList();
+    final response = attachments.isEmpty
+        ? await _api.put('/parents/$id', body: fields)
+        : await _api.multipartPut('/parents/$id', fields: fields, files: files);
+    return RegistrationResult(data: _asMap(response), password: '');
+  }
+
   Future<Map<String, dynamic>?> _findByEmail(String? email) async {
     if (email == null || email.isEmpty) return null;
     try {
@@ -148,7 +221,8 @@ class ParentRegistrationService {
           : (res is Map && res['data'] is List ? res['data'] as List : null);
       if (list == null) return null;
       for (final item in list.reversed) {
-        if (item is Map && (item['email']?.toString().toLowerCase() == email.toLowerCase())) {
+        if (item is Map &&
+            (item['email']?.toString().toLowerCase() == email.toLowerCase())) {
           return Map<String, dynamic>.from(item);
         }
       }
@@ -163,6 +237,7 @@ class ParentRegistrationService {
     required String email,
     String? fullName,
     String? password,
+    Map<String, String> formData = const {},
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final app = PendingApplication(
@@ -170,6 +245,7 @@ class ParentRegistrationService {
       email: email,
       fullName: fullName,
       password: password,
+      formData: Map<String, String>.from(formData),
       submittedAt: DateTime.now(),
     );
     await prefs.setString(_kStorageKey, jsonEncode(app.toJson()));
@@ -180,7 +256,9 @@ class ParentRegistrationService {
     final raw = prefs.getString(_kStorageKey);
     if (raw == null || raw.isEmpty) return null;
     try {
-      return PendingApplication.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      return PendingApplication.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      );
     } catch (_) {
       return null;
     }
@@ -210,11 +288,12 @@ class ParentRegistrationService {
             return const ApplicationStatus('approved');
           }
           if (approval == 'rejected') {
-            final reason = (item['reject_reason'] ??
-                    item['rejectReason'] ??
-                    item['rejection_reason'] ??
-                    item['rejectionReason'])
-                ?.toString();
+            final reason =
+                (item['reject_reason'] ??
+                        item['rejectReason'] ??
+                        item['rejection_reason'] ??
+                        item['rejectionReason'])
+                    ?.toString();
             return ApplicationStatus(
               'rejected',
               rejectReason: (reason == null || reason.trim().isEmpty)
@@ -238,14 +317,19 @@ class ParentRegistrationService {
   }
 
   String _deriveUsername(String email) {
-    final local = email.split('@').first.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final local = email
+        .split('@')
+        .first
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]'), '');
     final suffix = Random().nextInt(9000) + 1000;
     final base = local.isEmpty ? 'parent' : local;
     return '${base}_$suffix';
   }
 
   String _generatePassword() {
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const chars =
+        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final r = Random.secure();
     return List.generate(12, (_) => chars[r.nextInt(chars.length)]).join();
   }

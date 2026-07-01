@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -67,10 +68,7 @@ class _YearPickerPageState extends State<YearPickerPage> {
                       color: AppColors.blue300,
                       borderRadius: BorderRadius.circular(15),
                     ),
-                    child: const Icon(
-                      Icons.school_rounded,
-                      color: Colors.white,
-                    ),
+                    child: const Icon(LucideIcons.school, color: Colors.white),
                   ),
                   const SizedBox(height: 28),
                   Text(
@@ -159,7 +157,7 @@ class _YearOption extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                Icons.calendar_today_rounded,
+                LucideIcons.calendarDays,
                 size: 21,
                 color: selected ? AppColors.blue300 : AppColors.gray,
               ),
@@ -175,9 +173,7 @@ class _YearOption extends StatelessWidget {
                 ),
               ),
               Icon(
-                selected
-                    ? Icons.check_circle_rounded
-                    : Icons.arrow_forward_ios_rounded,
+                selected ? LucideIcons.circleCheck : LucideIcons.arrowRight,
                 size: selected ? 22 : 16,
                 color: selected ? AppColors.blue300 : AppColors.grayLight,
               ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../theme/app_colors.dart';
 
@@ -28,7 +28,7 @@ class AppBottomNav extends StatefulWidget {
     required this.onChanged,
     required this.items,
     this.onPlusPressed,
-    this.plusIcon = FontAwesomeIcons.qrcode,
+    this.plusIcon = LucideIcons.qrCode,
   }) : assert(items.length >= 2, "Need at least 2 menus.");
 
   @override
@@ -170,7 +170,7 @@ class _NavItemState extends State<_NavItem> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  FaIcon(widget.icon, size: widget.iconSize, color: iconC)
+                  Icon(widget.icon, size: widget.iconSize, color: iconC)
                       .animate(target: widget.active ? 1 : 0)
                       .scale(
                         begin: const Offset(1, 1),

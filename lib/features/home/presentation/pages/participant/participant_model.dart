@@ -34,8 +34,7 @@ class ScoreEntry {
   });
 
   factory ScoreEntry.fromJson(Map<String, dynamic> json) {
-    final rawDate =
-        json['date'] ?? json['scoredAt'] ?? json['createdAt'] ?? '';
+    final rawDate = json['date'] ?? json['scoredAt'] ?? json['createdAt'] ?? '';
     DateTime parsed;
     try {
       parsed = DateTime.parse(rawDate.toString()).toLocal();

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../../../core/widgets/app_page_template.dart';
@@ -115,7 +116,7 @@ class _DetailCard extends StatelessWidget {
                         ? Colors.white.withOpacity(.06)
                         : const Color(0xFFF3F4F6),
                     child: const Center(
-                      child: Icon(Icons.image_not_supported_rounded, size: 30),
+                      child: Icon(LucideIcons.imageOff, size: 30),
                     ),
                   ),
                 ),
@@ -188,21 +189,21 @@ class _DetailCard extends StatelessWidget {
 
                 // ✅ Meta rows
                 _MetaRow(
-                  icon: Icons.person_rounded,
+                  icon: LucideIcons.user,
                   label: 'Upload by',
                   value: item.uploadedBy,
                   isDark: isDark,
                 ),
                 const SizedBox(height: 10),
                 _MetaRow(
-                  icon: Icons.event_rounded,
+                  icon: LucideIcons.calendarDays,
                   label: 'Event',
                   value: galleryTagText(item.tag),
                   isDark: isDark,
                 ),
                 const SizedBox(height: 10),
                 _MetaRow(
-                  icon: Icons.schedule_rounded,
+                  icon: LucideIcons.clock3,
                   label: 'Upload at',
                   value: fmtDateTime(item.uploadedAt),
                   isDark: isDark,

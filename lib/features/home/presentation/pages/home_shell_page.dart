@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_bottom_nav.dart';
@@ -114,17 +114,17 @@ class _HomeShellPageState extends State<HomeShellPage>
                   ),
                   const SizedBox(height: 12),
                   _SheetAction(
-                    icon: Icons.add_task_rounded,
+                    icon: LucideIcons.listTodo,
                     title: "Create task",
                     onTap: () => Navigator.pop(ctx),
                   ),
                   _SheetAction(
-                    icon: Icons.payments_rounded,
+                    icon: LucideIcons.banknote,
                     title: "Quick payment",
                     onTap: () => Navigator.pop(ctx),
                   ),
                   _SheetAction(
-                    icon: Icons.event_available_rounded,
+                    icon: LucideIcons.calendarCheck,
                     title: "New appointment",
                     onTap: () => Navigator.pop(ctx),
                   ),
@@ -163,11 +163,14 @@ class _HomeShellPageState extends State<HomeShellPage>
     ];
 
     final navItems = const [
-      AppBottomNavItem(icon: FontAwesomeIcons.house, label: "ໜ້າຫຼັກ"),
-      AppBottomNavItem(icon: FontAwesomeIcons.chalkboardUser, label: "ຫ້ອງຮຽນ"),
-      AppBottomNavItem(icon: FontAwesomeIcons.chartLine, label: "ຜົນການຮຽນ"),
-      AppBottomNavItem(icon: FontAwesomeIcons.sackXmark, label: "ຄ່າທຳນຽມ"),
-      AppBottomNavItem(icon: FontAwesomeIcons.gear, label: "ຕັ້ງຄ່າ"),
+      AppBottomNavItem(icon: LucideIcons.house, label: "ໜ້າຫຼັກ"),
+      AppBottomNavItem(icon: LucideIcons.presentation, label: "ຫ້ອງຮຽນ"),
+      AppBottomNavItem(
+        icon: LucideIcons.chartNoAxesCombined,
+        label: "ຜົນການຮຽນ",
+      ),
+      AppBottomNavItem(icon: LucideIcons.walletMinimal, label: "ຄ່າທຳນຽມ"),
+      AppBottomNavItem(icon: LucideIcons.circle, label: "ຕັ້ງຄ່າ"),
     ];
 
     return WillPopScope(
@@ -245,7 +248,7 @@ class _SheetAction extends StatelessWidget {
               ),
             ),
             Icon(
-              Icons.chevron_right_rounded,
+              LucideIcons.chevronRight,
               color: _o(isDark ? Colors.white : Colors.black, .35),
             ),
           ],

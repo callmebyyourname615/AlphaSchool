@@ -2,8 +2,8 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'package:alpha_school/core/widgets/app_page_template.dart';
 import 'package:alpha_school/core/widgets/app_modern_count_tabbar.dart' as tabs;
@@ -101,17 +101,17 @@ class _StudyPlanPageState extends State<StudyPlanPage>
             items: const [
               tabs.AppTabItem(
                 label: "Evaluation",
-                icon: FontAwesomeIcons.clipboardCheck,
+                icon: LucideIcons.clipboardCheck,
                 count: null,
               ),
               tabs.AppTabItem(
                 label: "Exam scores",
-                icon: FontAwesomeIcons.penToSquare,
+                icon: LucideIcons.squarePen,
                 count: null,
               ),
               tabs.AppTabItem(
                 label: "Final score",
-                icon: FontAwesomeIcons.award,
+                icon: LucideIcons.award,
                 count: null,
               ),
             ],
@@ -300,7 +300,7 @@ class _SubjectCardGlass extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Icon(Icons.chevron_right_rounded, color: _o(textMain, .55)),
+              Icon(LucideIcons.chevronRight, color: _o(textMain, .55)),
             ],
           ),
         ),
@@ -583,17 +583,17 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
             items: const [
               tabs.AppTabItem(
                 label: "Evaluation",
-                icon: FontAwesomeIcons.clipboardCheck,
+                icon: LucideIcons.clipboardCheck,
                 count: null,
               ),
               tabs.AppTabItem(
                 label: "Exam scores",
-                icon: FontAwesomeIcons.penToSquare,
+                icon: LucideIcons.squarePen,
                 count: null,
               ),
               tabs.AppTabItem(
                 label: "Final score",
-                icon: FontAwesomeIcons.award,
+                icon: LucideIcons.award,
                 count: null,
               ),
             ],
