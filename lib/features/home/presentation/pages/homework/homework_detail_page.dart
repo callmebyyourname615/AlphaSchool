@@ -1,7 +1,7 @@
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../../../../core/theme/app_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
@@ -1375,6 +1375,10 @@ class _HomeworkQuestionImage extends StatelessWidget {
 
   Future<void> _saveImage() async {
     GlobalAlert.showLoading(message: 'Saving image...');
+    // GlobalAlert.dismiss() pops whatever's on top of the root navigator —
+    // if the loading dialog was already dismissed (to make way for the
+    // native save dialog below) calling it again pops the page itself.
+    var loadingDismissed = false;
     try {
       final response = await http.get(Uri.parse(imageUrl));
       if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -1396,6 +1400,7 @@ class _HomeworkQuestionImage extends StatelessWidget {
         if (!saved) throw Exception('The image could not be saved.');
       } else {
         GlobalAlert.dismiss();
+        loadingDismissed = true;
         final location = await getSaveLocation(
           suggestedName: fileName,
           acceptedTypeGroups: [
@@ -1411,7 +1416,7 @@ class _HomeworkQuestionImage extends StatelessWidget {
         ).saveTo(location.path);
       }
 
-      GlobalAlert.dismiss();
+      if (!loadingDismissed) GlobalAlert.dismiss();
       GlobalAlert.showSuccess(
         title: 'Image saved',
         message:
@@ -1421,7 +1426,7 @@ class _HomeworkQuestionImage extends StatelessWidget {
             : 'The homework image was saved successfully.',
       );
     } catch (error) {
-      GlobalAlert.dismiss();
+      if (!loadingDismissed) GlobalAlert.dismiss();
       GlobalAlert.showError(
         title: 'Could not save image',
         message: error.toString(),

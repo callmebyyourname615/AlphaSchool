@@ -26,7 +26,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
-import 'package:alpha_school/features/students/presentation/pages/choose_students.dart';
 import 'package:remixicon/remixicon.dart';
 
 import '../../../../../core/theme/app_colors.dart';
@@ -34,8 +33,15 @@ import '../../../../../shared/models/student_card_item.dart';
 
 class ExplorePage extends StatefulWidget {
   final StudentCardItem? selectedStudent;
+  final VoidCallback? onSwitchStudent;
+  final bool switchingStudent;
 
-  const ExplorePage({super.key, this.selectedStudent});
+  const ExplorePage({
+    super.key,
+    this.selectedStudent,
+    this.onSwitchStudent,
+    this.switchingStudent = false,
+  });
 
   static const _bgAsset = "assets/images/homepagewall/homepagewallpaper.jpg";
   static const _profileAvatarAsset = "assets/images/profile/me.jpg";
@@ -341,9 +347,11 @@ class _ExplorePageState extends State<ExplorePage> {
     }
 
     void openProfile() {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => const ProfilePage()));
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ProfilePage(student: widget.selectedStudent),
+        ),
+      );
     }
 
     return Scaffold(
@@ -619,15 +627,14 @@ class _ExplorePageState extends State<ExplorePage> {
                                   const SizedBox(width: 10),
 
                                   _TopIconButton(
-                                        icon: FontAwesomeIcons.arrowsRotate,
-                                        onTap: () {
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  const StudentsCardListPage(),
-                                            ),
-                                          );
-                                        },
+                                        icon: widget.switchingStudent
+                                            ? FontAwesomeIcons.circleNotch
+                                            : FontAwesomeIcons.arrowsRotate,
+                                        onTap:
+                                            widget.switchingStudent ||
+                                                widget.onSwitchStudent == null
+                                            ? null
+                                            : widget.onSwitchStudent,
                                         size: topBtnSize,
                                         iconSize: topBtnIcon,
                                       )
@@ -2226,7 +2233,7 @@ class _PercentBar extends StatelessWidget {
 
 class _TopIconButton extends StatelessWidget {
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final double size;
   final double iconSize;
 
@@ -2254,7 +2261,7 @@ class _TopIconButton extends StatelessWidget {
         child: Center(
           child: FaIcon(
             icon,
-            color: Colors.white.withOpacity(.92),
+            color: Colors.white.withOpacity(onTap == null ? .48 : .92),
             size: iconSize,
           ),
         ),

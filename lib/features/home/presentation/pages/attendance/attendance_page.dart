@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../../../../core/theme/app_icons.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../../shared/models/student_card_item.dart';

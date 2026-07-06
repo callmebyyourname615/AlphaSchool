@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../../../core/theme/app_icons.dart';
 
+import '../../../../core/services/session_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_bottom_nav.dart';
 import '../../../../shared/models/student_card_item.dart';
+import '../../../students/data/student_service.dart';
+import '../../../students/presentation/pages/choose_students.dart';
 
 // Tab pages list at homepage
 import 'tabs/mainhomepage.dart';
@@ -33,6 +36,8 @@ class _HomeShellPageState extends State<HomeShellPage>
 
   int _index = 0;
   bool _didInitFromArgs = false;
+  bool _loadingStudents = false;
+  late StudentCardItem? _selectedStudent = widget.selectedStudent;
 
   late final AnimationController _ctrl = AnimationController(
     vsync: this,
@@ -138,6 +143,49 @@ class _HomeShellPageState extends State<HomeShellPage>
     );
   }
 
+  Future<void> _openStudentSwitcher() async {
+    if (_loadingStudents) return;
+    setState(() => _loadingStudents = true);
+
+    try {
+      final session = await SessionService().load();
+      if (!mounted) return;
+      final parentId = session?.id.trim() ?? '';
+      if (parentId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not load parent session.')),
+        );
+        return;
+      }
+
+      final students = await StudentService().fetchStudentsForParent(parentId);
+      if (!mounted) return;
+      final approved = students.where((student) => student.isApproved).toList();
+      if (approved.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No approved students found.')),
+        );
+      }
+
+      final selected = await Navigator.of(context).push<StudentCardItem?>(
+        MaterialPageRoute(
+          builder: (_) =>
+              StudentsCardListPage(students: students, onSelect: (student) {}),
+        ),
+      );
+
+      if (!mounted || selected == null) return;
+      setState(() => _selectedStudent = selected);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not load students: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _loadingStudents = false);
+    }
+  }
+
   // ✅ Android back / iOS gesture:
   // - ถ้าไม่ได้อยู่แท็บ Explore -> สลับกลับ Explore ก่อน
   // - ถ้าอยู่ Explore แล้ว -> ให้ระบบทำงานปกติ
@@ -155,11 +203,15 @@ class _HomeShellPageState extends State<HomeShellPage>
     final bg = isDark ? AppColors.dark : Colors.white;
 
     final pages = <Widget>[
-      ExplorePage(selectedStudent: widget.selectedStudent),
-      ClassroomPage(selectedStudent: widget.selectedStudent),
+      ExplorePage(
+        selectedStudent: _selectedStudent,
+        onSwitchStudent: _openStudentSwitcher,
+        switchingStudent: _loadingStudents,
+      ),
+      ClassroomPage(selectedStudent: _selectedStudent),
       const StudyPlanPage(),
       const FeePage(),
-      const SettingsPage(),
+      SettingsPage(selectedStudent: _selectedStudent),
     ];
 
     final navItems = const [
@@ -170,7 +222,7 @@ class _HomeShellPageState extends State<HomeShellPage>
         label: "ຜົນການຮຽນ",
       ),
       AppBottomNavItem(icon: LucideIcons.walletMinimal, label: "ຄ່າທຳນຽມ"),
-      AppBottomNavItem(icon: LucideIcons.circle, label: "ຕັ້ງຄ່າ"),
+      AppBottomNavItem(icon: LucideIcons.gear, label: "ຕັ້ງຄ່າ"),
     ];
 
     return WillPopScope(

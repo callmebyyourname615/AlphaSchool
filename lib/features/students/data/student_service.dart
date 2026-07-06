@@ -17,11 +17,16 @@ class StudentService {
     final responses = await Future.wait([
       _apiClient.get('/students'),
       _apiClient.get('/classes'),
+      _apiClient.get(
+        '/student-link-requests/parent/$parentId',
+        queryParameters: {'status': 'pending'},
+      ),
     ]);
     final studentRecords = _extractRecords(responses[0], 'students');
     final classNamesById = _classNamesById(
       _extractRecords(responses[1], 'classes'),
     );
+    final linkRequests = _extractRecords(responses[2], 'student_link_requests');
 
     final items = <StudentCardItem>[];
     for (final record in studentRecords) {
@@ -30,6 +35,13 @@ class StudentService {
 
       items.add(_toCardItem(record, classNamesById));
     }
+    final linkedStudentIds = items.map((item) => item.id).whereType<String>().toSet();
+    for (final request in linkRequests) {
+      final item = _linkRequestToCardItem(request, classNamesById);
+      if (item == null) continue;
+      if (linkedStudentIds.contains(item.id)) continue;
+      items.add(item);
+    }
 
     // Approved first, pending after — easier to scan.
     items.sort((a, b) {
@@ -37,6 +49,46 @@ class StudentService {
       return a.isApproved ? -1 : 1;
     });
     return items;
+  }
+
+  StudentCardItem? _linkRequestToCardItem(
+    Map<String, dynamic> request,
+    Map<String, String> classNamesById,
+  ) {
+    final student = request['student'];
+    if (student is! Map) return null;
+    final record = Map<String, dynamic>.from(student);
+    final studentId = _readString(record, const ['student_id']);
+    final firstName = _readString(record, const [
+      'first_name_lao',
+      'firstNameLao',
+      'first_name',
+      'first_name_eng',
+      'firstNameEng',
+    ]);
+    final lastName = _readString(record, const [
+      'last_name_lao',
+      'lastNameLao',
+      'last_name',
+      'last_name_eng',
+      'lastNameEng',
+    ]);
+    final classId = _readStudentClassId(record);
+    final name = [firstName, lastName]
+        .where((part) => part.isNotEmpty)
+        .join(' ');
+    return StudentCardItem(
+      id: _readString(record, const ['id']),
+      studentId: studentId,
+      name: name.isEmpty ? studentId : name,
+      photoUrl: _photoUrl(_readString(record, const ['profile_image_path'])),
+      className: classNamesById[classId],
+      branchId: _readStudentBranchId(record),
+      classId: classId.isEmpty ? null : classId,
+      isApproved: false,
+      approvalStatus: 'pending',
+      linkRequestId: _readString(request, const ['id']),
+    );
   }
 
   bool _linkedToParent(Map<String, dynamic> record, String parentId) {

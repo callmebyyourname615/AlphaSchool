@@ -1,33 +1,39 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import '../../theme/app_icons.dart';
+import '../../../../core/theme/app_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
-import '../../network/api_client.dart';
-import '../../network/api_exception.dart';
+import '../../../../core/services/session_service.dart';
+import '../../data/student_link_request_service.dart';
 
-// ── Palette ───────────────────────────────────────────────────────────────────
+// ── Palette (matches core/widgets/scanqrcode/scan_qr_code_page.dart) ──────────
 const _kNavy = Color(0xFF1E2D5B);
 const _kBlue = Color(0xFF3B82F6);
 const _kGreen = Color(0xFF22C55E);
-const _kOrange = Color(0xFFF59E0B);
+const _kAmber = Color(0xFFF59E0B);
+const _kRed = Color(0xFFEF4444);
 const _kBg = Color(0xFFF5F7FA);
 const _kBorder = Color(0xFFE8ECF0);
 const _kMuted = Color(0xFF9CA3AF);
 const _kText = Color(0xFF1F2937);
 
-class ScanQrCodePage extends StatefulWidget {
-  const ScanQrCodePage({super.key});
+/// Scans an existing student's profile QR code (see
+/// features/home/presentation/pages/profile/profile.dart) and submits a
+/// request to link the current parent to that student. The request needs
+/// admin approval before it takes effect — this screen only reports whether
+/// the request was *submitted*, not whether it was approved.
+class ScanStudentLinkQrPage extends StatefulWidget {
+  const ScanStudentLinkQrPage({super.key});
 
   @override
-  State<ScanQrCodePage> createState() => _ScanQrCodePageState();
+  State<ScanStudentLinkQrPage> createState() => _ScanStudentLinkQrPageState();
 }
 
-class _ScanQrCodePageState extends State<ScanQrCodePage>
+class _ScanStudentLinkQrPageState extends State<ScanStudentLinkQrPage>
     with SingleTickerProviderStateMixin {
-  final _api = ApiClient();
+  final _service = StudentLinkRequestService();
 
   final MobileScannerController _scanner = MobileScannerController(
     detectionSpeed: DetectionSpeed.noDuplicates,
@@ -43,17 +49,15 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
   )..repeat(reverse: true);
 
   bool _processing = false;
-  _ScanResult? _result;
+  _LinkScanResult? _result;
 
   @override
   void dispose() {
     _scanLine.dispose();
     _scanner.dispose();
-    _api.close();
     super.dispose();
   }
 
-  // ── QR detected ────────────────────────────────────────────────────────────
   Future<void> _onDetect(BarcodeCapture capture) async {
     if (_processing) return;
     final raw = capture.barcodes.first.rawValue;
@@ -63,122 +67,49 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
     _scanner.stop();
 
     final studentId = _extractStudentId(raw);
-
-    // Validate UUID before hitting API
     if (!_isValidUuid(studentId)) {
       setState(() {
-        _result = _ScanResult(
-          studentId: raw.length > 20 ? '${raw.substring(0, 20)}...' : raw,
-          studentName: '',
-          checkIn: '',
-          type: 'ERROR',
-          remark:
-              'This QR code is not a valid student card. Please scan again.',
-          isSuccess: false,
+        _result = _LinkScanResult.error(
+          "This doesn't look like a valid student QR code.",
         );
         _processing = false;
       });
       return;
     }
 
-    String studentName = studentId.length > 8
-        ? '${studentId.substring(0, 8).toUpperCase()}...'
-        : studentId;
-
-    try {
-      final now = TimeOfDay.now();
-      final today = _todayString();
-      final timeStr = '${_two(now.hour)}:${_two(now.minute)}';
-
-      final response = await _api.post(
-        '/attendances/scan',
-        body: {
-          'studentId': studentId,
-          'attendanceDate': today,
-          'deviceTime': timeStr,
-        },
-      );
-
-      // Try to get student name
-      try {
-        final s = await _api.get('/students/$studentId');
-        if (s is Map) {
-          final fn = s['first_name']?.toString() ?? '';
-          final ln = s['last_name']?.toString() ?? '';
-          final full = '$fn $ln'.trim();
-          if (full.isNotEmpty) studentName = full;
-        }
-      } catch (_) {}
-
-      final type =
-          (response is Map ? response['type'] : null)?.toString() ?? 'PRESENT';
-      final remark =
-          (response is Map ? response['remark'] : null)?.toString() ?? '';
-      final checkIn =
-          (response is Map ? response['check_in'] : null)?.toString() ??
-          timeStr;
-
+    final session = await SessionService().load();
+    final parentId = session?.id.trim() ?? '';
+    if (parentId.isEmpty) {
       if (!mounted) return;
       setState(() {
-        _result = _ScanResult(
-          studentId: studentId,
-          studentName: studentName,
-          checkIn: checkIn,
-          type: type,
-          remark: remark,
-          isSuccess: true,
+        _result = _LinkScanResult.error(
+          'Your session is missing. Please sign in again.',
         );
         _processing = false;
       });
-    } on ApiException catch (e) {
+      return;
+    }
+
+    try {
+      final request = await _service.create(
+        studentId: studentId,
+        parentId: parentId,
+      );
       if (!mounted) return;
-      // 409 Conflict = already checked in today
-      if (e.statusCode == 409) {
-        final body = e.body;
-        final existingCheckIn =
-            (body is Map ? body['check_in'] : null)?.toString() ?? '';
-        final existingType =
-            (body is Map ? body['type'] : null)?.toString() ?? 'PRESENT';
-        final existingRemark =
-            (body is Map ? body['remark'] : null)?.toString() ?? '';
-        setState(() {
-          _result = _ScanResult(
-            studentId: studentId,
-            studentName: studentName,
-            checkIn: existingCheckIn.length >= 5
-                ? existingCheckIn.substring(0, 5)
-                : existingCheckIn,
-            type: existingType,
-            remark: existingRemark,
-            isSuccess: false,
-            isDuplicate: true,
-          );
-          _processing = false;
-        });
-      } else {
-        setState(() {
-          _result = _ScanResult(
-            studentId: studentId,
-            studentName: '',
-            checkIn: '',
-            type: 'ERROR',
-            remark: e.message,
-            isSuccess: false,
-          );
-          _processing = false;
-        });
-      }
+      setState(() {
+        _result = _LinkScanResult.submitted(request.studentName);
+        _processing = false;
+      });
+    } on StudentLinkRequestException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _result = _LinkScanResult.conflict(e.message);
+        _processing = false;
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _result = _ScanResult(
-          studentId: studentId,
-          studentName: '',
-          checkIn: '',
-          type: 'ERROR',
-          remark: 'Unable to connect. Please try again.',
-          isSuccess: false,
-        );
+        _result = _LinkScanResult.error('Unable to connect. Please try again.');
         _processing = false;
       });
     }
@@ -192,15 +123,12 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
     _scanner.start();
   }
 
-  // ── Helpers ─────────────────────────────────────────────────────────────────
   String _extractStudentId(String raw) {
-    // If raw looks like a UUID, use directly
     final uuidRe = RegExp(
       r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}',
     );
     final m = uuidRe.firstMatch(raw);
     if (m != null) return m.group(0)!;
-    // Try JSON
     try {
       final j = jsonDecode(raw);
       if (j is Map) return (j['student_id'] ?? j['id'] ?? raw).toString();
@@ -212,14 +140,6 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
     r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
   ).hasMatch(s);
 
-  static String _todayString() {
-    final d = DateTime.now();
-    return '${d.year}-${_two(d.month)}-${_two(d.day)}';
-  }
-
-  static String _two(int n) => n.toString().padLeft(2, '0');
-
-  // ── Build ────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     const scanSize = 272.0;
@@ -229,7 +149,6 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Camera
           MobileScanner(
             controller: _scanner,
             onDetect: _onDetect,
@@ -240,8 +159,6 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
               ),
             ),
           ),
-
-          // Dark overlay gradient
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -255,8 +172,6 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
               ),
             ),
           ),
-
-          // Scrim with hole
           const CustomPaint(
             painter: _ScannerOverlayPainter(
               scanSize: scanSize,
@@ -264,13 +179,11 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
               scrimColor: Color(0x99040A12),
             ),
           ),
-
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(18, 10, 18, 22),
               child: Column(
                 children: [
-                  // Top bar
                   Row(
                     children: [
                       _RoundIconButton(
@@ -289,10 +202,7 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
                       ),
                     ],
                   ),
-
                   const Spacer(flex: 2),
-
-                  // Scan frame
                   SizedBox(
                     width: scanSize,
                     height: scanSize,
@@ -301,7 +211,7 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
                         Positioned.fill(
                           child: CustomPaint(
                             painter: _ScanFramePainter(
-                              color: const Color(0xFF3B82F6),
+                              color: _kBlue,
                               dimColor: Colors.white.withValues(alpha: .28),
                             ),
                           ),
@@ -329,7 +239,7 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
                                 ),
                               ),
                               child: const Icon(
-                                LucideIcons.scanQrCode,
+                                LucideIcons.userPlus,
                                 size: 32,
                                 color: Colors.white,
                               ),
@@ -343,21 +253,18 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
                               height: 36,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2.5,
-                                color: Color(0xFF3B82F6),
+                                color: _kBlue,
                               ),
                             ),
                           ),
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 28),
-
-                  // Labels
                   Text(
                     _processing
-                        ? 'Processing...'
-                        : 'Align student QR code inside the frame',
+                        ? 'Submitting request...'
+                        : "Align the student's QR code inside the frame",
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Color(0xFFF4F8FB),
@@ -367,7 +274,7 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
                   ),
                   const SizedBox(height: 6),
                   const Text(
-                    'The scanner reads automatically on detection.',
+                    'Ask the student\'s other guardian to show their QR code from the Profile page.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Color(0xB0F4F8FB),
@@ -375,10 +282,7 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-
                   const Spacer(flex: 3),
-
-                  // Bottom pill
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 14,
@@ -395,13 +299,13 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          LucideIcons.focus,
+                          LucideIcons.userPlus,
                           size: 16,
                           color: Colors.white.withValues(alpha: .80),
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Attendance • QR Check-in',
+                          'Add student • QR link request',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: .80),
                             fontSize: 12,
@@ -415,13 +319,12 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
               ),
             ),
           ),
-
-          // Result overlay
           if (_result != null)
-            _ScanResultOverlay(
+            _LinkResultOverlay(
               result: _result!,
               onScanAgain: _reset,
-              onClose: () => Navigator.of(context).maybePop(_result!.isSuccess),
+              onClose: () =>
+                  Navigator.of(context).maybePop(_result!.isSubmitted),
             ).animate().fadeIn(duration: 220.ms).slideY(begin: .04, end: 0),
         ],
       ),
@@ -429,36 +332,35 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
   }
 }
 
-// ── Scan Result Model ──────────────────────────────────────────────────────────
+// ── Result model ────────────────────────────────────────────────────────────
 
-class _ScanResult {
-  final String studentId;
+enum _LinkScanOutcome { submitted, conflict, error }
+
+class _LinkScanResult {
+  final _LinkScanOutcome outcome;
+  final String message;
   final String studentName;
-  final String checkIn;
-  final String type;
-  final String remark;
-  final bool isSuccess;
-  final bool isDuplicate;
 
-  const _ScanResult({
-    required this.studentId,
-    required this.studentName,
-    required this.checkIn,
-    required this.type,
-    required this.remark,
-    required this.isSuccess,
-    this.isDuplicate = false,
-  });
+  const _LinkScanResult._(this.outcome, this.message, this.studentName);
+
+  factory _LinkScanResult.submitted(String studentName) =>
+      _LinkScanResult._(_LinkScanOutcome.submitted, '', studentName);
+
+  factory _LinkScanResult.conflict(String message) =>
+      _LinkScanResult._(_LinkScanOutcome.conflict, message, '');
+
+  factory _LinkScanResult.error(String message) =>
+      _LinkScanResult._(_LinkScanOutcome.error, message, '');
+
+  bool get isSubmitted => outcome == _LinkScanOutcome.submitted;
 }
 
-// ── Scan Result Overlay ────────────────────────────────────────────────────────
-
-class _ScanResultOverlay extends StatelessWidget {
-  final _ScanResult result;
+class _LinkResultOverlay extends StatelessWidget {
+  final _LinkScanResult result;
   final VoidCallback onScanAgain;
   final VoidCallback onClose;
 
-  const _ScanResultOverlay({
+  const _LinkResultOverlay({
     required this.result,
     required this.onScanAgain,
     required this.onClose,
@@ -470,64 +372,37 @@ class _ScanResultOverlay extends StatelessWidget {
       color: Colors.black.withValues(alpha: .72),
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: result.isDuplicate
-          ? _DuplicateCard(result: result, onScanAgain: onScanAgain)
-          : result.isSuccess
-          ? _SuccessCard(
-              result: result,
-              onScanAgain: onScanAgain,
-              onClose: onClose,
-            )
-          : _ErrorCard(result: result, onScanAgain: onScanAgain),
+      child: switch (result.outcome) {
+        _LinkScanOutcome.submitted => _SubmittedCard(
+          studentName: result.studentName,
+          onClose: onClose,
+        ),
+        _LinkScanOutcome.conflict => _MessageCard(
+          icon: LucideIcons.circleAlert,
+          color: _kAmber,
+          title: "Can't send this request",
+          message: result.message,
+          buttonLabel: 'Scan Again',
+          onTap: onScanAgain,
+        ),
+        _LinkScanOutcome.error => _MessageCard(
+          icon: LucideIcons.circleX,
+          color: _kRed,
+          title: 'Something went wrong',
+          message: result.message,
+          buttonLabel: 'Try Again',
+          onTap: onScanAgain,
+        ),
+      },
     );
   }
 }
 
-// ── Success Card ───────────────────────────────────────────────────────────────
-
-class _SuccessCard extends StatelessWidget {
-  final _ScanResult result;
-  final VoidCallback onScanAgain;
+class _SubmittedCard extends StatelessWidget {
+  final String studentName;
   final VoidCallback onClose;
 
-  const _SuccessCard({
-    required this.result,
-    required this.onScanAgain,
-    required this.onClose,
-  });
-
-  Color get _statusColor {
-    switch (result.type.toUpperCase()) {
-      case 'LATE':
-        return _kOrange;
-      default:
-        return _kGreen;
-    }
-  }
-
-  String get _statusLabel {
-    switch (result.type.toUpperCase()) {
-      case 'LATE':
-        return 'Late';
-      case 'PRESENT':
-        return result.remark == 'EARLY' ? 'Early' : 'Present';
-      default:
-        return result.type;
-    }
-  }
-
-  String get _remarkLabel {
-    switch (result.remark.toUpperCase()) {
-      case 'EARLY':
-        return 'Arrived early';
-      case 'ON_TIME':
-        return 'On time';
-      case 'LATE':
-        return 'Arrived late';
-      default:
-        return result.remark.isNotEmpty ? result.remark : 'Recorded';
-    }
-  }
+  const _SubmittedCard({required this.studentName, required this.onClose});
 
   @override
   Widget build(BuildContext context) {
@@ -548,53 +423,42 @@ class _SuccessCard extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Icon circle
           Container(
             width: 72,
             height: 72,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _statusColor.withValues(alpha: .10),
+              color: _kGreen.withValues(alpha: .10),
               border: Border.all(
-                color: _statusColor.withValues(alpha: .22),
+                color: _kGreen.withValues(alpha: .22),
                 width: 1.5,
               ),
             ),
-            child: Center(
-              child: Icon(
-                result.type.toUpperCase() == 'LATE'
-                    ? LucideIcons.history
-                    : LucideIcons.circleCheck,
-                color: _statusColor,
-                size: 30,
-              ),
+            child: const Center(
+              child: Icon(LucideIcons.circleCheck, color: _kGreen, size: 30),
             ),
           ),
           const SizedBox(height: 18),
-
-          // Status badge
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
             decoration: BoxDecoration(
-              color: _statusColor.withValues(alpha: .10),
+              color: _kGreen.withValues(alpha: .10),
               borderRadius: BorderRadius.circular(99),
-              border: Border.all(color: _statusColor.withValues(alpha: .25)),
+              border: Border.all(color: _kGreen.withValues(alpha: .25)),
             ),
-            child: Text(
-              _statusLabel.toUpperCase(),
+            child: const Text(
+              'REQUEST SENT',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w900,
-                color: _statusColor,
+                color: _kGreen,
                 letterSpacing: .8,
               ),
             ),
           ),
           const SizedBox(height: 14),
-
-          // Student name
           Text(
-            result.studentName.isNotEmpty ? result.studentName : 'Student',
+            studentName.isNotEmpty ? studentName : 'Student',
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 20,
@@ -603,25 +467,7 @@ class _SuccessCard extends StatelessWidget {
               letterSpacing: -.3,
             ),
           ),
-
-          if (result.studentName.isEmpty ||
-              result.studentName.contains('...')) ...[
-            const SizedBox(height: 4),
-            Text(
-              result.studentId.length > 12
-                  ? result.studentId.substring(0, 12).toUpperCase()
-                  : result.studentId,
-              style: const TextStyle(
-                fontSize: 12,
-                color: _kMuted,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-
-          const SizedBox(height: 18),
-
-          // Info row: check-in time + remark
+          const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
@@ -629,67 +475,23 @@ class _SuccessCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: _kBorder),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _InfoCell(
-                    icon: LucideIcons.clock,
-                    label: 'Check-in',
-                    value: result.checkIn.length > 5
-                        ? result.checkIn.substring(0, 5)
-                        : result.checkIn,
-                    valueColor: _kNavy,
-                  ),
-                ),
-                Container(width: 1, height: 40, color: _kBorder),
-                Expanded(
-                  child: _InfoCell(
-                    icon: LucideIcons.tag,
-                    label: 'Status',
-                    value: _remarkLabel,
-                    valueColor: _statusColor,
-                  ),
-                ),
-              ],
+            child: const Text(
+              "An admin will review your request. Once approved, this student "
+              "will show up in your account.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: _kText,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+              ),
             ),
           ),
-
-          const SizedBox(height: 8),
-
-          // Scan method pill
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(LucideIcons.qrCode, size: 11, color: _kMuted),
-              const SizedBox(width: 5),
-              const Text(
-                'Scanned via QR code',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  color: _kMuted,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-
           const SizedBox(height: 22),
-
-          // Buttons
-          Row(
-            children: [
-              Expanded(
-                child: _CardBtn(
-                  label: 'Scan Again',
-                  filled: false,
-                  onTap: onScanAgain,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _CardBtn(label: 'Done', filled: true, onTap: onClose),
-              ),
-            ],
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: _CardBtn(label: 'Done', filled: true, onTap: onClose),
           ),
         ],
       ),
@@ -697,30 +499,25 @@ class _SuccessCard extends StatelessWidget {
   }
 }
 
-// ── Duplicate Card ────────────────────────────────────────────────────────────
+class _MessageCard extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String message;
+  final String buttonLabel;
+  final VoidCallback onTap;
 
-class _DuplicateCard extends StatelessWidget {
-  final _ScanResult result;
-  final VoidCallback onScanAgain;
-
-  const _DuplicateCard({required this.result, required this.onScanAgain});
-
-  String get _remarkLabel {
-    switch (result.remark.toUpperCase()) {
-      case 'EARLY':
-        return 'Arrived early';
-      case 'ON_TIME':
-        return 'On time';
-      case 'LATE':
-        return 'Arrived late';
-      default:
-        return result.remark.isNotEmpty ? result.remark : '';
-    }
-  }
+  const _MessageCard({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.message,
+    required this.buttonLabel,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    const amber = Color(0xFFF59E0B);
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -738,158 +535,23 @@ class _DuplicateCard extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Icon
           Container(
             width: 72,
             height: 72,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: amber.withValues(alpha: .10),
+              color: color.withValues(alpha: .10),
               border: Border.all(
-                color: amber.withValues(alpha: .25),
+                color: color.withValues(alpha: .22),
                 width: 1.5,
               ),
             ),
-            child: const Center(
-              child: Icon(LucideIcons.history, color: amber, size: 28),
-            ),
+            child: Center(child: Icon(icon, color: color, size: 30)),
           ),
-          const SizedBox(height: 14),
-
-          // Badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            decoration: BoxDecoration(
-              color: amber.withValues(alpha: .10),
-              borderRadius: BorderRadius.circular(99),
-              border: Border.all(color: amber.withValues(alpha: .25)),
-            ),
-            child: const Text(
-              'ALREADY CHECKED IN',
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w900,
-                color: amber,
-                letterSpacing: .8,
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          // Student name
+          const SizedBox(height: 16),
           Text(
-            result.studentName.isNotEmpty ? result.studentName : 'Student',
-            textAlign: TextAlign.center,
+            title,
             style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              color: _kNavy,
-              letterSpacing: -.3,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Check-in info
-          if (result.checkIn.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: _kBg,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: _kBorder),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _InfoCell(
-                      icon: LucideIcons.clock,
-                      label: 'Checked in at',
-                      value: result.checkIn,
-                      valueColor: _kNavy,
-                    ),
-                  ),
-                  if (_remarkLabel.isNotEmpty) ...[
-                    Container(width: 1, height: 40, color: _kBorder),
-                    Expanded(
-                      child: _InfoCell(
-                        icon: LucideIcons.tag,
-                        label: 'Status',
-                        value: _remarkLabel,
-                        valueColor: amber,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          const SizedBox(height: 12),
-
-          Text(
-            'This QR code has already been scanned today.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12.5,
-              color: _kMuted,
-              fontWeight: FontWeight.w500,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 20),
-          _CardBtn(
-            label: 'Scan Next Student',
-            filled: true,
-            onTap: onScanAgain,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Error Card ─────────────────────────────────────────────────────────────────
-
-class _ErrorCard extends StatelessWidget {
-  final _ScanResult result;
-  final VoidCallback onScanAgain;
-
-  const _ErrorCard({required this.result, required this.onScanAgain});
-
-  @override
-  Widget build(BuildContext context) {
-    const red = Color(0xFFEF4444);
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: _kBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: .22),
-            blurRadius: 40,
-            offset: const Offset(0, 16),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: red.withValues(alpha: .10),
-              border: Border.all(color: red.withValues(alpha: .22), width: 1.5),
-            ),
-            child: const Center(
-              child: Icon(LucideIcons.circleX, color: red, size: 30),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Check-in Failed',
-            style: TextStyle(
               fontSize: 19,
               fontWeight: FontWeight.w900,
               color: _kNavy,
@@ -898,7 +560,7 @@ class _ErrorCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            result.remark.isNotEmpty ? result.remark : 'Something went wrong.',
+            message,
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 13.5,
@@ -908,52 +570,9 @@ class _ErrorCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 22),
-          _CardBtn(label: 'Try Again', filled: true, onTap: onScanAgain),
+          _CardBtn(label: buttonLabel, filled: true, onTap: onTap),
         ],
       ),
-    );
-  }
-}
-
-// ── Sub-widgets ────────────────────────────────────────────────────────────────
-
-class _InfoCell extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color valueColor;
-
-  const _InfoCell({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.valueColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(icon, size: 14, color: _kMuted),
-        const SizedBox(height: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 10.5,
-            color: _kMuted,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w900,
-            color: valueColor,
-          ),
-        ),
-      ],
     );
   }
 }

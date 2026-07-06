@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../../../core/theme/app_icons.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -10,7 +10,14 @@ import '../../../../core/services/session_service.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 import '../../../auth/presentation/pages/student_info_form_page.dart';
 import '../../../auth/presentation/pages/student_pending_page.dart';
+import '../../data/student_service.dart';
 import '../../../home/presentation/pages/home_shell_page.dart';
+import 'scan_student_link_qr_page.dart';
+
+/// Two ways a parent can add a student — filling in the full form, or
+/// (once the linking logic is defined) scanning a QR code the school gives
+/// them.
+enum _AddStudentMethod { form, qr }
 
 class StudentsCardListPage extends StatefulWidget {
   final List<StudentCardItem>? students;
@@ -56,7 +63,20 @@ class _StudentsCardListPageState extends State<StudentsCardListPage>
     end: Offset.zero,
   ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
 
-  List<StudentCardItem> get _items => widget.students ?? _demoStudents;
+  final StudentService _studentService = StudentService();
+  late List<StudentCardItem> _students = List<StudentCardItem>.from(
+    widget.students ?? _demoStudents,
+  );
+
+  List<StudentCardItem> get _items => _students;
+
+  @override
+  void didUpdateWidget(covariant StudentsCardListPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(widget.students, oldWidget.students)) {
+      _students = List<StudentCardItem>.from(widget.students ?? _demoStudents);
+    }
+  }
 
   @override
   void dispose() {
@@ -107,7 +127,51 @@ class _StudentsCardListPageState extends State<StudentsCardListPage>
     ).pushReplacement(_smoothRoute(HomeShellPage(selectedStudent: student)));
   }
 
+  Future<void> _reloadStudents() async {
+    widget.onReload?.call();
+    final session = await SessionService().load();
+    if (!mounted) return;
+    final parentId = session?.id.trim() ?? '';
+    if (parentId.isEmpty) return;
+    try {
+      final fresh = await _studentService.fetchStudentsForParent(parentId);
+      if (!mounted) return;
+      setState(() => _students = fresh);
+    } catch (_) {
+      // Keep the current cards if refresh fails; the user can retry manually.
+    }
+  }
+
   Future<void> _openPendingStudent(StudentCardItem item) async {
+    if (item.isQrLinkRequest) {
+      final result = await Navigator.of(context).push<Object?>(
+        _smoothRoute<Object?>(
+          StudentPendingPage(
+            studentId: item.id?.trim() ?? '',
+            studentName: item.name,
+            studentLocalId: item.studentId,
+            initialApprovalStatus: item.approvalStatus,
+            initialRejectReason: item.rejectReason,
+            qrLinkRequestId: item.linkRequestId,
+          ),
+        ),
+      );
+      if (!mounted) return;
+      if (result == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${item.name} has been linked to your account.'),
+            backgroundColor: const Color(0xFF059669),
+          ),
+        );
+        await _reloadStudents();
+        return;
+      }
+      if (result == 'add_another') {
+        await _goAddStudent();
+      }
+      return;
+    }
     final uuid = item.id?.trim() ?? '';
     if (uuid.isEmpty) {
       // No backend id (e.g. demo data) — nothing to poll. Fall back to a hint.
@@ -139,7 +203,7 @@ class _StudentsCardListPageState extends State<StudentsCardListPage>
           backgroundColor: const Color(0xFF059669),
         ),
       );
-      widget.onReload?.call();
+      await _reloadStudents();
       return;
     }
 
@@ -150,16 +214,17 @@ class _StudentsCardListPageState extends State<StudentsCardListPage>
       return;
     }
 
-    if (result == 'resubmit') {
-      await _goResubmit(uuid);
+    final resubmitId = _resubmitStudentIdFrom(result) ?? uuid;
+    if (_isResubmitAction(result)) {
+      await _goResubmit(resubmitId);
       return;
     }
 
     if (result == 'deleted') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Application deleted.')),
-      );
-      widget.onReload?.call();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Application deleted.')));
+      await _reloadStudents();
     }
   }
 
@@ -187,11 +252,39 @@ class _StudentsCardListPageState extends State<StudentsCardListPage>
     );
     if (!mounted) return;
     if (result == 'resubmitted') {
-      widget.onReload?.call();
+      await _reloadStudents();
+      return;
+    }
+    if (_isPendingAction(result)) {
+      await _reloadStudents();
+      await _openPendingResult(result);
     }
   }
 
+  /// Entry point both the empty-state CTA and the list's trailing tile call.
+  /// Shows the two-option picker, then dispatches to whichever path the
+  /// parent chose.
   Future<void> _goAddStudent() async {
+    final method = await _showAddStudentOptionsSheet();
+    if (method == null || !mounted) return;
+    if (method == _AddStudentMethod.form) {
+      await _goAddStudentByForm();
+    } else {
+      await _goAddStudentByQr();
+    }
+  }
+
+  Future<_AddStudentMethod?> _showAddStudentOptionsSheet() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return showModalBottomSheet<_AddStudentMethod>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _AddStudentOptionsSheet(isDark: isDark),
+    );
+  }
+
+  Future<void> _goAddStudentByForm() async {
     final session = await SessionService().load();
     if (!mounted) return;
     final parentId = session?.id.trim() ?? '';
@@ -210,14 +303,92 @@ class _StudentsCardListPageState extends State<StudentsCardListPage>
     );
     if (!mounted) return;
     // Reload the student list so any newly-submitted student (pending) shows.
-    final reload = widget.onReload;
-    if (reload != null) reload();
+    await _reloadStudents();
+    if (!mounted) return;
     // The pending screen lets the parent jump straight into another student
     // form — honor that without making them dig through the menu again.
     if (result == 'add_another') {
       await Future<void>.delayed(const Duration(milliseconds: 60));
       if (!mounted) return;
+      await _goAddStudentByForm();
+      return;
+    }
+    if (_isResubmitAction(result)) {
+      final studentId = _resubmitStudentIdFrom(result);
+      if (studentId == null || studentId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open resubmit form. Student ID missing.'),
+          ),
+        );
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      if (!mounted) return;
+      await _goResubmit(studentId);
+    }
+  }
+
+  // Scans another guardian's student QR (from the Profile page) and submits
+  // a link request. The student won't actually appear in this list until an
+  // admin approves it, so there's nothing to reload immediately — the scan
+  // screen itself already confirms submission before returning.
+  Future<void> _goAddStudentByQr() async {
+    final submitted = await Navigator.of(
+      context,
+    ).push<bool>(_smoothRoute<bool>(const ScanStudentLinkQrPage()));
+    if (!mounted) return;
+    if (submitted == true) {
+      await _reloadStudents();
+    }
+  }
+
+  bool _isResubmitAction(Object? result) {
+    if (result == 'resubmit') return true;
+    if (result is Map) return result['action']?.toString() == 'resubmit';
+    return false;
+  }
+
+  String? _resubmitStudentIdFrom(Object? result) {
+    if (result is Map) {
+      final id = result['studentId']?.toString().trim();
+      return id == null || id.isEmpty ? null : id;
+    }
+    return null;
+  }
+
+  bool _isPendingAction(Object? result) {
+    if (result is Map) return result['action']?.toString() == 'pending';
+    return false;
+  }
+
+  Future<void> _openPendingResult(Object? result) async {
+    if (result is! Map) return;
+    final studentId = result['studentId']?.toString().trim() ?? '';
+    if (studentId.isEmpty) return;
+    final pendingResult = await Navigator.of(context).push<Object?>(
+      _smoothRoute<Object?>(
+        StudentPendingPage(
+          studentId: studentId,
+          studentName:
+              result['studentName']?.toString().trim().isNotEmpty == true
+              ? result['studentName'].toString().trim()
+              : 'your child',
+          nickname: result['nickname']?.toString().trim().isNotEmpty == true
+              ? result['nickname'].toString().trim()
+              : null,
+          initialApprovalStatus: 'pending',
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (_isResubmitAction(pendingResult)) {
+      final id = _resubmitStudentIdFrom(pendingResult) ?? studentId;
+      await _goResubmit(id);
+    } else if (pendingResult == 'add_another') {
       await _goAddStudent();
+    } else if (pendingResult == true) {
+      await _reloadStudents();
     }
   }
 
@@ -474,11 +645,21 @@ class _StudentsCardListPageState extends State<StudentsCardListPage>
                                                             onTap:
                                                                 item.isApproved
                                                                 ? () {
-                                                                    widget
-                                                                        .onSelect
-                                                                        ?.call(
-                                                                          item,
-                                                                        );
+                                                                    final onSelect =
+                                                                        widget
+                                                                            .onSelect;
+                                                                    if (onSelect !=
+                                                                        null) {
+                                                                      onSelect(
+                                                                        item,
+                                                                      );
+                                                                      Navigator.of(
+                                                                        context,
+                                                                      ).pop<
+                                                                        StudentCardItem
+                                                                      >(item);
+                                                                      return;
+                                                                    }
                                                                     _goHome(
                                                                       item,
                                                                     );
@@ -808,6 +989,8 @@ class _StudentCard extends StatelessWidget {
                               Text(
                                 item.isRejected
                                     ? 'Rejected'
+                                    : item.isQrLinkRequest
+                                    ? 'QR Link Pending'
                                     : 'Pending Approval',
                                 style: TextStyle(
                                   fontSize: 10,
@@ -860,6 +1043,186 @@ class _StudentCard extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bottom sheet offering the two ways to add a student. Pops the chosen
+/// [_AddStudentMethod], or null if dismissed without a choice.
+class _AddStudentOptionsSheet extends StatelessWidget {
+  final bool isDark;
+
+  const _AddStudentOptionsSheet({required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = isDark ? AppColors.dark : Colors.white;
+    final titleColor = isDark ? Colors.white : AppColors.blue500;
+    final muted = isDark
+        ? AppColors.grayUltraLight.withOpacity(.70)
+        : AppColors.gray;
+    final handleColor = isDark
+        ? Colors.white.withOpacity(.24)
+        : AppColors.slate.withOpacity(.24);
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? .45 : .12),
+              blurRadius: 30,
+              offset: const Offset(0, 14),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: handleColor,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+            ),
+            Text(
+              'Add a student',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: titleColor,
+                letterSpacing: -.2,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "Choose how you'd like to add your child.",
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: muted,
+              ),
+            ),
+            const SizedBox(height: 18),
+            _AddOptionRow(
+              isDark: isDark,
+              icon: LucideIcons.fileText,
+              title: 'Fill in a form',
+              subtitle: "Enter your child's information yourself.",
+              onTap: () => Navigator.of(context).pop(_AddStudentMethod.form),
+            ),
+            const SizedBox(height: 12),
+            _AddOptionRow(
+              isDark: isDark,
+              icon: LucideIcons.qrCode,
+              title: 'Scan QR code',
+              subtitle: 'Add a student using a QR code from the school.',
+              onTap: () => Navigator.of(context).pop(_AddStudentMethod.qr),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AddOptionRow extends StatelessWidget {
+  final bool isDark;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _AddOptionRow({
+    required this.isDark,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = isDark ? AppColors.blue100 : AppColors.blue500;
+    final tintFg = isDark ? Colors.white.withOpacity(.92) : AppColors.blue500;
+    final titleColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final muted = isDark
+        ? AppColors.grayUltraLight.withOpacity(.70)
+        : AppColors.gray;
+    final border = isDark
+        ? Colors.white.withOpacity(.12)
+        : AppColors.slate.withOpacity(.14);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: border, width: 1.4),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  color: accent.withOpacity(isDark ? .22 : .10),
+                  border: Border.all(
+                    color: accent.withOpacity(isDark ? .35 : .22),
+                  ),
+                ),
+                child: Center(child: Icon(icon, size: 20, color: tintFg)),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: titleColor,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: muted,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(LucideIcons.chevronRight, size: 18, color: muted),
+            ],
           ),
         ),
       ),

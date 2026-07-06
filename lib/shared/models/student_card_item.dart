@@ -19,6 +19,7 @@ class StudentCardItem {
   final bool isApproved;
   final String approvalStatus;
   final String? rejectReason;
+  final String? linkRequestId;
 
   const StudentCardItem({
     required this.studentId,
@@ -31,7 +32,9 @@ class StudentCardItem {
     this.isApproved = true,
     this.approvalStatus = 'approved',
     this.rejectReason,
+    this.linkRequestId,
   });
 
   bool get isRejected => approvalStatus == 'rejected';
+  bool get isQrLinkRequest => linkRequestId != null && linkRequestId!.isNotEmpty;
 }

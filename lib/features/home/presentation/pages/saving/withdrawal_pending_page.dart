@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../../../../core/theme/app_icons.dart';
 
 import 'saving_service.dart';
 
@@ -208,11 +208,7 @@ class _WithdrawalPendingPageState extends State<WithdrawalPendingPage> {
           const SizedBox(height: 6),
           Text(
             config.subtitle,
-            style: const TextStyle(
-              fontSize: 13,
-              color: _muted,
-              height: 1.45,
-            ),
+            style: const TextStyle(fontSize: 13, color: _muted, height: 1.45),
             textAlign: TextAlign.center,
           ),
         ],
@@ -434,8 +430,8 @@ class _WithdrawalPendingPageState extends State<WithdrawalPendingPage> {
               ? _StepState.done
               : i == reachedIdx
               ? (_isTerminal && !_isRejected
-                  ? _StepState.done
-                  : _StepState.active)
+                    ? _StepState.done
+                    : _StepState.active)
               : _StepState.upcoming,
         ),
       if (_isRejected)
@@ -532,7 +528,10 @@ class _WithdrawalPendingPageState extends State<WithdrawalPendingPage> {
                   color: circleBg,
                   shape: BoxShape.circle,
                   border: step.state == _StepState.active
-                      ? Border.all(color: circleFg.withValues(alpha: .35), width: 2)
+                      ? Border.all(
+                          color: circleFg.withValues(alpha: .35),
+                          width: 2,
+                        )
                       : null,
                 ),
                 alignment: Alignment.center,
@@ -551,10 +550,7 @@ class _WithdrawalPendingPageState extends State<WithdrawalPendingPage> {
           const SizedBox(width: 14),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(
-                top: 4,
-                bottom: isLast ? 0 : 18,
-              ),
+              padding: EdgeInsets.only(top: 4, bottom: isLast ? 0 : 18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

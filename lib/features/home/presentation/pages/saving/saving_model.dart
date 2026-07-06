@@ -34,10 +34,7 @@ class SavingTransaction {
     );
   }
 
-  SavingTransaction copyWith({
-    String? payReceiveId,
-    String? payReceiveStatus,
-  }) {
+  SavingTransaction copyWith({String? payReceiveId, String? payReceiveStatus}) {
     return SavingTransaction(
       id: id,
       ownerType: ownerType,
@@ -59,12 +56,16 @@ class SavingData {
   final List<SavingTransaction> classTransactions;
   final double personalBalance;
   final double classBalance;
+  final double personalAvailableBalance;
+  final double personalNonAvailableBalance;
 
   const SavingData({
     required this.personal,
     required this.classTransactions,
     required this.personalBalance,
     required this.classBalance,
+    required this.personalAvailableBalance,
+    required this.personalNonAvailableBalance,
   });
 }
 

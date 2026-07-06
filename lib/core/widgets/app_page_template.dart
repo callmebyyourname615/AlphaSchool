@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../theme/app_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class AppPageTemplate extends StatelessWidget {

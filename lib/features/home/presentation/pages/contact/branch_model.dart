@@ -8,6 +8,7 @@ class BranchInfo {
   final String address;
   final String mapUrl;
   final String facebookUrl;
+  final String whatsappUrl;
   final String websiteUrl;
   final String? profilePicPath;
 
@@ -21,6 +22,7 @@ class BranchInfo {
     required this.address,
     required this.mapUrl,
     required this.facebookUrl,
+    required this.whatsappUrl,
     required this.websiteUrl,
     this.profilePicPath,
   });
@@ -38,6 +40,19 @@ class BranchInfo {
       facebookUrl: (json['branch_fb'] ?? json['facebook'] ?? '')
           .toString()
           .trim(),
+      whatsappUrl:
+          (json['branch_whatsapp'] ??
+                  json['whatsapp'] ??
+                  json['whatapp'] ??
+                  json['whatsapp_url'] ??
+                  json['whatapp_url'] ??
+                  json['whatsapp_number'] ??
+                  json['whatapp_number'] ??
+                  json['branch_wa'] ??
+                  json['branch_whatapp'] ??
+                  '')
+              .toString()
+              .trim(),
       websiteUrl: (json['branch_website'] ?? json['website'] ?? '')
           .toString()
           .trim(),

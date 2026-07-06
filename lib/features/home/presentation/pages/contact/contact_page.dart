@@ -1,24 +1,32 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../../../../core/theme/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../../../../core/theme/app_theme.dart';
-import '../../../../../core/widgets/app_page_template.dart';
 import '../../../../../shared/models/student_card_item.dart';
 import 'branch_model.dart';
 import 'branch_service.dart';
 
+// Same palette as the (already DESIGN.md-aligned) Saving/Appointment pages —
+// light surface, royal-blue accent, no gradients/glass/dark backgrounds.
+const _kNavy = Color(0xFF082653);
+const _kBlue = Color(0xFF0756D1);
+const _kBlueSoft = Color(0xFFEAF1FF);
+const _kBlueSoftBorder = Color(0xFFD6E4FF);
+const _kGreen = Color(0xFF22C55E);
+const _kRed = Color(0xFFEF4444);
+const _kFbBlue = Color(0xFF1877F2);
+const _kBg = Color(0xFFF5F8FE);
+const _kCardBg = Colors.white;
+const _kBorder = Color(0xFFE3E9F2);
+const _kMuted = Color(0xFF647594);
+const _kMutedSoft = Color(0xFF8A98B0);
+
 class ContactPage extends StatefulWidget {
   final StudentCardItem? selectedStudent;
-  final String backgroundAsset;
 
-  const ContactPage({
-    super.key,
-    this.selectedStudent,
-    this.backgroundAsset = 'assets/images/homepagewall/mainbg.jpeg',
-  });
+  const ContactPage({super.key, this.selectedStudent});
 
   @override
   State<ContactPage> createState() => _ContactPageState();
@@ -47,30 +55,25 @@ class _ContactPageState extends State<ContactPage> {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: AppTheme.mode,
-      builder: (context, mode, _) {
-        final locale = Localizations.localeOf(context);
-        final base = (mode == ThemeMode.dark)
-            ? AppTheme.darkTheme(locale)
-            : AppTheme.lightTheme(locale);
-
-        return AnimatedTheme(
-          data: base,
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          child: AppPageTemplate(
-            title: 'ຕິດຕໍ່ໂຮງຮຽນ',
-            backgroundAsset: widget.backgroundAsset,
-            animate: true,
-            showBack: true,
-            scrollable: true,
-            contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
-            premiumDark: true,
-            child: _body(context),
-          ),
-        );
-      },
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    return Scaffold(
+      backgroundColor: _kBg,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _ContactHeader(onBack: () => Navigator.maybePop(context)),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(16, 4, 16, 18 + bottomInset),
+                child: _body(context),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -98,6 +101,46 @@ class _ContactPageState extends State<ContactPage> {
   }
 }
 
+class _ContactHeader extends StatelessWidget {
+  final VoidCallback onBack;
+
+  const _ContactHeader({required this.onBack});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Row(
+        children: [
+          Material(
+            color: Colors.white,
+            shape: const CircleBorder(side: BorderSide(color: _kBorder)),
+            child: InkWell(
+              onTap: onBack,
+              customBorder: const CircleBorder(),
+              child: const SizedBox(
+                width: 36,
+                height: 36,
+                child: Icon(LucideIcons.arrowLeft, color: _kNavy, size: 17),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Text(
+            'ຕິດຕໍ່ໂຮງຮຽນ',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: _kNavy,
+              letterSpacing: -.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Content extends StatelessWidget {
   final BranchInfo branch;
 
@@ -105,60 +148,58 @@ class _Content extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = isDark
-        ? Colors.white.withValues(alpha: .06)
-        : Colors.white;
-    final border = isDark
-        ? Colors.white.withValues(alpha: .10)
-        : Colors.black.withValues(alpha: .06);
-    final shadow = Colors.black.withValues(alpha: isDark ? .45 : .10);
-
-    final items = <_ContactItem>[
+    // "Get in touch" — direct lines to the branch.
+    final reachItems = <_ContactItem>[
       _ContactItem(
         'Phone #1',
         branch.phone,
-        LucideIcons.circle,
-        iconColor: const Color(0xFF22C55E),
+        LucideIcons.whatsapp,
+        iconColor: _kGreen,
       ),
       _ContactItem(
         'Phone #2',
         branch.contact,
-        LucideIcons.circle,
-        iconColor: const Color(0xFF22C55E),
+        LucideIcons.whatsapp,
+        iconColor: _kGreen,
       ),
       _ContactItem(
         'Branch Code',
         branch.code,
-        LucideIcons.circle,
-        iconColor: const Color(0xFF6366F1),
+        LucideIcons.hashtag,
+        iconColor: _kBlue,
       ),
       _ContactItem(
         'Governance Branch ID',
         branch.branchNo,
         LucideIcons.building,
-        iconColor: const Color(0xFF0EA5E9),
+        iconColor: _kBlue,
       ),
       _ContactItem(
         'Location',
         branch.address,
         LucideIcons.mapPin,
-        iconColor: const Color(0xFFF59E0B),
+        iconColor: _kBlue,
         maxLines: 3,
       ),
+    ];
+
+    // "Find us online" — external links, kept in their recognizable brand
+    // colors since that's meaningful here (identifies which service each
+    // row opens), not decoration.
+    final onlineItems = <_ContactItem>[
       _ContactItem(
         'Google Maps',
         branch.mapUrl,
         LucideIcons.mapPinned,
-        iconColor: const Color(0xFFEA4335),
+        iconColor: _kRed,
         isLink: true,
         maxLines: 2,
       ),
       _ContactItem(
         'Facebook',
         branch.facebookUrl,
-        LucideIcons.circle,
-        iconColor: const Color(0xFF1877F2),
+        LucideIcons.facebook,
+        iconColor: _kFbBlue,
         isLink: true,
         maxLines: 2,
       ),
@@ -166,7 +207,7 @@ class _Content extends StatelessWidget {
         'Website',
         branch.websiteUrl,
         LucideIcons.globe,
-        iconColor: const Color(0xFF14B8A6),
+        iconColor: _kBlue,
         isLink: true,
         maxLines: 2,
       ),
@@ -175,7 +216,7 @@ class _Content extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _HeaderCard(branch: branch, shadow: shadow)
+        _HeaderCard(branch: branch)
             .animate()
             .fadeIn(duration: 180.ms)
             .slideY(
@@ -184,15 +225,24 @@ class _Content extends StatelessWidget {
               duration: 220.ms,
               curve: Curves.easeOut,
             ),
-        const SizedBox(height: 14),
-        _ContactCard(
-              items: items,
-              cardColor: cardColor,
-              border: border,
-              shadow: shadow,
-            )
+        const SizedBox(height: 20),
+        const _SectionLabel('Get in touch'),
+        const SizedBox(height: 8),
+        _ContactCard(items: reachItems)
             .animate()
             .fadeIn(delay: 60.ms, duration: 220.ms)
+            .slideY(
+              begin: .04,
+              end: 0,
+              duration: 240.ms,
+              curve: Curves.easeOut,
+            ),
+        const SizedBox(height: 18),
+        const _SectionLabel('Find us online'),
+        const SizedBox(height: 8),
+        _ContactCard(items: onlineItems)
+            .animate()
+            .fadeIn(delay: 100.ms, duration: 220.ms)
             .slideY(
               begin: .04,
               end: 0,
@@ -204,32 +254,44 @@ class _Content extends StatelessWidget {
   }
 }
 
-class _HeaderCard extends StatelessWidget {
-  final BranchInfo branch;
-  final Color shadow;
+class _SectionLabel extends StatelessWidget {
+  final String text;
 
-  const _HeaderCard({required this.branch, required this.shadow});
+  const _SectionLabel(this.text);
 
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context);
-    final logoUrl = BranchService.resolveImageUrl(branch.profilePicPath);
-
-    const headerGradient = LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Color(0xFF071A33), Color(0xFF0B2B5B), Color(0xFF123B7A)],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Text(
+        text.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: _kMutedSoft,
+          letterSpacing: .4,
+        ),
+      ),
     );
+  }
+}
+
+class _HeaderCard extends StatelessWidget {
+  final BranchInfo branch;
+
+  const _HeaderCard({required this.branch});
+
+  @override
+  Widget build(BuildContext context) {
+    final logoUrl = BranchService.resolveImageUrl(branch.profilePicPath);
+    final subtitle = branch.code.isEmpty ? 'School branch' : branch.code;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
       decoration: BoxDecoration(
-        gradient: headerGradient,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: .10)),
-        boxShadow: [
-          BoxShadow(blurRadius: 18, offset: const Offset(0, 10), color: shadow),
-        ],
+        color: _kCardBg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _kBorder),
       ),
       child: Column(
         children: [
@@ -238,33 +300,21 @@ class _HeaderCard extends StatelessWidget {
           Text(
             branch.name.isEmpty ? '—' : branch.name,
             textAlign: TextAlign.center,
-            style: t.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
+            style: const TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+              color: _kNavy,
               letterSpacing: -.2,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
-            'Phone • Location • Maps • Social',
+            subtitle,
             textAlign: TextAlign.center,
-            style: t.textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: .78),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            height: 4,
-            width: 130,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(99),
-              gradient: LinearGradient(
-                colors: [
-                  Colors.white.withValues(alpha: .85),
-                  Colors.white.withValues(alpha: .35),
-                ],
-              ),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: _kMuted,
             ),
           ),
         ],
@@ -280,42 +330,26 @@ class _LogoAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final fallback = Center(
-      child: Icon(LucideIcons.school, size: 44, color: cs.primary),
+    const fallback = Center(
+      child: Icon(LucideIcons.school, size: 32, color: _kBlue),
     );
 
     return Container(
-      width: 104,
-      height: 104,
+      width: 76,
+      height: 76,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white.withValues(alpha: .10),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: .22),
-          width: 1.6,
-        ),
-        boxShadow: [
-          BoxShadow(
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-            color: Colors.black.withValues(alpha: .22),
-          ),
-        ],
+        color: _kBlueSoft,
+        border: Border.all(color: _kBlueSoftBorder),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: ClipOval(
-          child: imageUrl == null
-              ? fallback
-              : Image.network(
-                  imageUrl!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => fallback,
-                ),
-        ),
-      ),
+      child: imageUrl == null
+          ? fallback
+          : Image.network(
+              imageUrl!,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => fallback,
+            ),
     );
   }
 }
@@ -340,32 +374,16 @@ class _ContactItem {
 
 class _ContactCard extends StatelessWidget {
   final List<_ContactItem> items;
-  final Color cardColor;
-  final Color border;
-  final Color shadow;
 
-  const _ContactCard({
-    required this.items,
-    required this.cardColor,
-    required this.border,
-    required this.shadow,
-  });
+  const _ContactCard({required this.items});
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final dividerColor = isDark
-        ? Colors.white.withValues(alpha: .10)
-        : Colors.black.withValues(alpha: .06);
-
     return Container(
       decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: border),
-        boxShadow: [
-          BoxShadow(blurRadius: 18, offset: const Offset(0, 10), color: shadow),
-        ],
+        color: _kCardBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _kBorder),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -378,7 +396,7 @@ class _ContactCard extends StatelessWidget {
                   : _copy(context, items[i].value),
             ),
             if (i != items.length - 1)
-              Divider(height: 1, thickness: 1, color: dividerColor),
+              const Divider(height: 1, thickness: 1, color: _kBorder),
           ],
         ],
       ),
@@ -404,9 +422,7 @@ class _ContactCard extends StatelessWidget {
   static Future<void> _openLink(BuildContext context, String value) async {
     final raw = value.trim();
     if (raw.isEmpty) return;
-    final normalized = raw.startsWith('http://') || raw.startsWith('https://')
-        ? raw
-        : 'https://$raw';
+    final normalized = _normalizeLink(raw);
     final uri = Uri.tryParse(normalized);
     final opened =
         uri != null &&
@@ -415,6 +431,19 @@ class _ContactCard extends StatelessWidget {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Could not open this link')));
+  }
+
+  static String _normalizeLink(String raw) {
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+    if (raw.startsWith('wa.me/') || raw.startsWith('api.whatsapp.com/')) {
+      return 'https://$raw';
+    }
+    final digits = raw.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (digits.isNotEmpty && digits.length >= 8 && !raw.contains('.')) {
+      final clean = digits.replaceFirst(RegExp(r'^\+'), '');
+      return 'https://wa.me/$clean';
+    }
+    return 'https://$raw';
   }
 }
 
@@ -426,35 +455,23 @@ class _ContactRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context);
-    final cs = t.colorScheme;
-    final isDark = t.brightness == Brightness.dark;
-    final labelColor = cs.onSurface.withValues(alpha: .62);
-    final valueColor = cs.onSurface;
     final hasValue = item.value.trim().isNotEmpty;
-    final bubbleBg = isDark
-        ? Colors.white.withValues(alpha: .10)
-        : const Color(0xFFF3F4F6);
-    final bubbleBorder = isDark
-        ? Colors.white.withValues(alpha: .12)
-        : Colors.black.withValues(alpha: .06);
 
     return InkWell(
       onTap: hasValue ? onTap : null,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         child: Row(
           crossAxisAlignment: item.maxLines > 1
               ? CrossAxisAlignment.start
               : CrossAxisAlignment.center,
           children: [
             Container(
-              width: 42,
-              height: 42,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: bubbleBg,
-                border: Border.all(color: bubbleBorder),
+                color: item.iconColor.withValues(alpha: .12),
               ),
               child: Center(
                 child: Icon(item.icon, color: item.iconColor, size: 18),
@@ -467,21 +484,25 @@ class _ContactRow extends StatelessWidget {
                 children: [
                   Text(
                     item.label,
-                    style: t.textTheme.labelLarge?.copyWith(
-                      color: labelColor,
-                      fontWeight: FontWeight.w800,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: _kMuted,
+                      fontWeight: FontWeight.w700,
                       letterSpacing: .2,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Text(
                     hasValue ? item.value : '-',
                     maxLines: item.maxLines,
                     overflow: TextOverflow.ellipsis,
-                    style: t.textTheme.bodyLarge?.copyWith(
-                      color: hasValue ? valueColor : labelColor,
-                      fontWeight: FontWeight.w800,
-                      height: 1.25,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      color: hasValue
+                          ? (item.isLink ? _kBlue : _kNavy)
+                          : _kMuted,
+                      fontWeight: FontWeight.w700,
+                      height: 1.3,
                     ),
                   ),
                 ],
@@ -490,12 +511,8 @@ class _ContactRow extends StatelessWidget {
             const SizedBox(width: 10),
             Icon(
               item.isLink ? LucideIcons.externalLink : LucideIcons.copy,
-              size: 18,
-              color: hasValue
-                  ? (isDark
-                        ? Colors.white.withValues(alpha: .70)
-                        : Colors.black.withValues(alpha: .45))
-                  : cs.onSurface.withValues(alpha: .25),
+              size: 16,
+              color: hasValue ? _kMutedSoft : _kBorder,
             ),
           ],
         ),

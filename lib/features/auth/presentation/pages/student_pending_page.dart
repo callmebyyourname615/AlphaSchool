@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../../../core/theme/app_icons.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/services/global_alert_service.dart';
@@ -14,6 +14,7 @@ class StudentPendingPage extends StatefulWidget {
     this.nickname,
     this.initialApprovalStatus,
     this.initialRejectReason,
+    this.qrLinkRequestId,
   });
 
   /// Backend UUID — used for polling /students/:id.
@@ -28,6 +29,7 @@ class StudentPendingPage extends StatefulWidget {
   final String? nickname;
   final String? initialApprovalStatus;
   final String? initialRejectReason;
+  final String? qrLinkRequestId;
 
   @override
   State<StudentPendingPage> createState() => _StudentPendingPageState();
@@ -56,9 +58,11 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
 
   final ApiClient _api = ApiClient();
   bool _checking = false;
-  bool _deleting = false;
   bool _rejected = false;
   String _rejectReason = '';
+
+  bool get _isQrLinkRequest =>
+      widget.qrLinkRequestId != null && widget.qrLinkRequestId!.isNotEmpty;
 
   @override
   void initState() {
@@ -88,6 +92,10 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
 
   Future<void> _checkStatus() async {
     if (_checking) return;
+    if (_isQrLinkRequest) {
+      await _checkQrLinkStatus();
+      return;
+    }
     setState(() => _checking = true);
     try {
       final res = await _api.get('/students/${widget.studentId}');
@@ -131,11 +139,49 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
     setState(() => _checking = false);
   }
 
+  Future<void> _checkQrLinkStatus() async {
+    if (_checking) return;
+    setState(() => _checking = true);
+    try {
+      final res = await _api.get(
+        '/student-link-requests/${widget.qrLinkRequestId}',
+      );
+      if (!mounted) return;
+      final record = _linkRequestRecord(res);
+      final status = _readString(record, const ['status']).toLowerCase();
+      if (status == 'approved') {
+        Navigator.of(context).pop(true);
+        return;
+      }
+      if (status == 'rejected') {
+        final reason = _readString(record, const [
+          'rejectionReason',
+          'rejection_reason',
+          'rejectReason',
+          'reject_reason',
+        ]);
+        setState(() {
+          _rejected = true;
+          _rejectReason = reason;
+          _checking = false;
+        });
+        _showRejectedAlert(reason);
+        return;
+      }
+    } catch (_) {
+      // Stay silent on transient errors — the parent can retry.
+    }
+    if (!mounted) return;
+    setState(() => _checking = false);
+  }
+
   void _showRejectedAlert(String reason) {
     GlobalAlert.showError(
-      title: 'Student rejected',
+      title: _isQrLinkRequest ? 'Link request rejected' : 'Student rejected',
       message: reason.trim().isEmpty
-          ? 'Admin rejected ${widget.studentName}. Please review the student information and submit again.'
+          ? _isQrLinkRequest
+                ? 'Admin rejected the request to link ${widget.studentName} to your account.'
+                : 'Admin rejected ${widget.studentName}. Please review the student information and submit again.'
           : reason.trim(),
     );
   }
@@ -146,6 +192,17 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
       if (data is Map<String, dynamic>) return data;
       final student = response['student'];
       if (student is Map<String, dynamic>) return student;
+      return response;
+    }
+    return const {};
+  }
+
+  Map<String, dynamic> _linkRequestRecord(dynamic response) {
+    if (response is Map<String, dynamic>) {
+      final data = response['data'];
+      if (data is Map<String, dynamic>) return data;
+      final request = response['request'];
+      if (request is Map<String, dynamic>) return request;
       return response;
     }
     return const {};
@@ -195,7 +252,7 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
                   const SizedBox(height: 10),
                   _secondary(),
                   const SizedBox(height: 6),
-                  _doneLink(),
+                  _backLink(),
                 ],
               ),
             ),
@@ -269,7 +326,13 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
           ),
           const SizedBox(height: 14),
           Text(
-            _rejected ? 'Student Rejected' : 'Student Submitted',
+            _rejected
+                ? (_isQrLinkRequest
+                      ? 'Link Request Rejected'
+                      : 'Student Rejected')
+                : (_isQrLinkRequest
+                      ? 'Link Request Submitted'
+                      : 'Student Submitted'),
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 24,
@@ -292,7 +355,11 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
                 ),
                 TextSpan(
                   text: _rejected
-                      ? '. Admin reviewed this application and requested changes.'
+                      ? _isQrLinkRequest
+                            ? '. Admin reviewed this link request and rejected it.'
+                            : '. Admin reviewed this application and requested changes.'
+                      : _isQrLinkRequest
+                      ? '. Your request to link this student is waiting for admin approval.'
                       : '. Your application has been received and is now waiting for admin approval.',
                 ),
               ],
@@ -440,26 +507,34 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
 
   Widget _timeline() {
     final steps = [
-      const _TimelineStep(
+      _TimelineStep(
         'Submitted',
-        'Application received',
+        _isQrLinkRequest ? 'QR link request received' : 'Application received',
         LucideIcons.circleCheck,
         _blue,
         true,
       ),
       _TimelineStep(
         _rejected ? 'Rejected' : 'Pending Review',
-        _rejected ? 'Admin requested changes' : 'Waiting for admin approval',
+        _rejected
+            ? (_isQrLinkRequest
+                  ? 'Admin rejected the request'
+                  : 'Admin requested changes')
+            : 'Waiting for admin approval',
         _rejected ? LucideIcons.circleX : LucideIcons.hourglass,
         _rejected ? _rose : _amber,
         true,
       ),
       _TimelineStep(
-        _rejected ? 'Resubmit' : 'Approved',
-        _rejected
+        _rejected ? (_isQrLinkRequest ? 'Closed' : 'Resubmit') : 'Approved',
+        _rejected && !_isQrLinkRequest
             ? 'Update details and send again'
+            : _isQrLinkRequest
+            ? 'Student will appear after approval'
             : "You'll be notified once approved",
-        _rejected ? LucideIcons.filePenLine : LucideIcons.badgeCheck,
+        _rejected && !_isQrLinkRequest
+            ? LucideIcons.filePenLine
+            : LucideIcons.badgeCheck,
         _slate400,
         false,
       ),
@@ -538,7 +613,7 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
   }
 
   Widget _primary() {
-    final isResubmit = _rejected && !_checking;
+    final isResubmit = _rejected && !_checking && !_isQrLinkRequest;
     return SizedBox(
       width: double.infinity,
       height: 52,
@@ -546,8 +621,10 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
         onPressed: _checking
             ? null
             : isResubmit
-                ? () => Navigator.of(context).pop('resubmit')
-                : _checkStatus,
+            ? () => Navigator.of(
+                context,
+              ).pop({'action': 'resubmit', 'studentId': widget.studentId})
+            : _checkStatus,
         icon: _checking
             ? const SizedBox(
                 width: 18,
@@ -603,60 +680,23 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
     );
   }
 
-  Widget _doneLink() {
+  Widget _backLink() {
     return TextButton.icon(
-      onPressed: _deleting ? null : _confirmDelete,
-      icon: _deleting
-          ? const SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2, color: _rose),
-            )
-          : const Icon(LucideIcons.trash2, size: 16, color: _rose),
-      label: Text(
-        _deleting ? 'Deleting...' : 'Delete',
-        style: const TextStyle(
+      onPressed: () => Navigator.of(context).pop(),
+      icon: const Icon(LucideIcons.arrowLeft, size: 16, color: _muted),
+      label: const Text(
+        'Back to students',
+        style: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w700,
-          color: _rose,
+          color: _muted,
         ),
       ),
       style: TextButton.styleFrom(
-        foregroundColor: _rose,
+        foregroundColor: _muted,
         minimumSize: const Size.fromHeight(40),
       ),
     );
-  }
-
-  Future<void> _confirmDelete() async {
-    final confirmed = await GlobalAlert.showConfirmation(
-      title: 'Delete application?',
-      message:
-          'This will remove ${widget.studentName}’s application. This cannot be undone.',
-    );
-    if (confirmed != true || !mounted) return;
-    setState(() => _deleting = true);
-    GlobalAlert.showLoading(message: 'Deleting application...');
-    try {
-      await _api.delete('/students/${widget.studentId}');
-      await StudentDraftStore.clear(widget.studentId);
-      GlobalAlert.dismiss();
-      if (!mounted) return;
-      // Pop the page first — showing another GlobalAlert here would land on
-      // top of the navigator stack and the next Navigator.pop would pop the
-      // dialog instead of this page, leaving the user stuck on "Deleting...".
-      // The caller (choose_students) reloads the list which is enough
-      // feedback that the card has been removed.
-      Navigator.of(context).pop('deleted');
-    } catch (error) {
-      GlobalAlert.dismiss();
-      if (!mounted) return;
-      setState(() => _deleting = false);
-      GlobalAlert.showError(
-        title: 'Could not delete',
-        message: error is Exception ? error.toString() : 'Please try again.',
-      );
-    }
   }
 }
 

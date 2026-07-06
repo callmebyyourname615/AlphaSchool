@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/theme/app_icons.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/global_alert_service.dart';
+import '../../../home/presentation/pages/contact/branch_model.dart';
+import '../../../home/presentation/pages/contact/branch_service.dart';
 import '../../data/parent_registration_service.dart';
 import '../../data/student_registration_service.dart';
 import 'student_pending_page.dart';
+
+/// Marker thrown when the parent declines to proceed past a possible-
+/// duplicate warning — lets the outer catch skip showing an error alert.
+class _SubmitCancelled implements Exception {}
 
 class StudentInfoFormPage extends StatefulWidget {
   /// Combined-registration mode: include parent data + service so we POST
@@ -67,7 +74,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     _StepMeta(6, 'Emergency', LucideIcons.hospital),
   ];
 
-  static const _genders = ['male', 'female', 'other'];
+  static const _genders = ['Male', 'Female', 'Other'];
   static const _yearLevels = [
     'K1',
     'K2',
@@ -103,17 +110,56 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
   List<_ProvinceOption> _provinces = const [];
   bool _provincesLoading = false;
 
+  // Same prefs key StudentRegistrationService._resolveBranchId() reads when
+  // building the /students POST body, so picking a branch here still lands
+  // in the submission exactly as before — just chosen from this form now.
+  static const String _kSelectedBranchIdKey = 'selected_branch_id';
+  final BranchService _branchService = BranchService();
+  List<BranchInfo> _branches = const [];
+  bool _branchesLoading = false;
+  String? _branchId;
+
   @override
   void initState() {
     super.initState();
     _loadProvinces();
+    _loadBranches();
+    _prefillSavedBranch();
     if (widget.resubmitStudentId != null) {
       _prefilling = true;
-      _prefillFromExisting(widget.resubmitStudentId!)
-          .whenComplete(() {
+      _prefillFromExisting(widget.resubmitStudentId!).whenComplete(() {
         if (mounted) setState(() => _prefilling = false);
       });
     }
+  }
+
+  Future<void> _prefillSavedBranch() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_kSelectedBranchIdKey);
+    if (saved == null || saved.isEmpty) return;
+    if (!mounted) return;
+    setState(() => _branchId = saved);
+  }
+
+  Future<void> _loadBranches() async {
+    if (_branchesLoading) return;
+    setState(() => _branchesLoading = true);
+    try {
+      final list = await _branchService.fetchBranches();
+      if (!mounted) return;
+      setState(() {
+        _branches = list;
+        _branchesLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _branchesLoading = false);
+    }
+  }
+
+  Future<void> _saveBranchSelection(String branchId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kSelectedBranchIdKey, branchId);
   }
 
   Future<void> _loadProvinces() async {
@@ -123,7 +169,9 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
       final res = await ApiClient().get('/locations/province');
       final raw = res is List
           ? res
-          : (res is Map && res['data'] is List ? res['data'] as List : const []);
+          : (res is Map && res['data'] is List
+                ? res['data'] as List
+                : const []);
       final list = raw
           .whereType<Map>()
           .map((m) => _ProvinceOption.fromJson(Map<String, dynamic>.from(m)))
@@ -242,8 +290,8 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     final district = r['district'];
     if (district is Map) {
       _s.districtId = (district['id'] ?? '').toString();
-      _s.districtName =
-          (district['nameEn'] ?? district['nameLa'] ?? '').toString();
+      _s.districtName = (district['nameEn'] ?? district['nameLa'] ?? '')
+          .toString();
       _s.district = _s.districtName;
     } else if (district is String) {
       _s.district = district;
@@ -251,8 +299,8 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     final province = r['province'];
     if (province is Map) {
       _s.provinceId = (province['id'] ?? '').toString();
-      _s.provinceName =
-          (province['nameEn'] ?? province['nameLa'] ?? '').toString();
+      _s.provinceName = (province['nameEn'] ?? province['nameLa'] ?? '')
+          .toString();
       _s.province = _s.provinceName;
     } else if (province is String) {
       _s.province = province;
@@ -273,70 +321,83 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     }
     _s.siblings
       ..clear()
-      ..addAll((r['bos_info'] as List? ?? []).whereType<Map>().map((b) {
-        return SiblingEntry()
-          ..fullname = (b['fullname'] ?? '').toString()
-          ..nickname = (b['nickname'] ?? '').toString()
-          ..dob = (b['dob'] ?? '').toString().split('T').first
-          ..currentSchool = (b['current_school'] ?? '').toString()
-          ..phone1 = (b['phone1'] ?? '').toString()
-          ..phone2 = (b['phone2'] ?? '').toString()
-          ..village = (b['current_village'] ?? b['village'] ?? '').toString();
-      }));
+      ..addAll(
+        (r['bos_info'] as List? ?? []).whereType<Map>().map((b) {
+          return SiblingEntry()
+            ..fullname = (b['fullname'] ?? '').toString()
+            ..nickname = (b['nickname'] ?? '').toString()
+            ..dob = (b['dob'] ?? '').toString().split('T').first
+            ..currentSchool = (b['current_school'] ?? '').toString()
+            ..phone1 = (b['phone1'] ?? '').toString()
+            ..phone2 = (b['phone2'] ?? '').toString()
+            ..village = (b['current_village'] ?? b['village'] ?? '').toString();
+        }),
+      );
     _s.livingWith
       ..clear()
-      ..addAll((r['live_with'] as List? ?? []).whereType<Map>().map((l) {
-        // Prefer the split name fields when present; fall back to splitting
-        // the joined "fullname" for older records.
-        final names = (l['fullname'] ?? '').toString().split(' ');
-        return LiveWithEntry()
-          ..firstNameLao = (l['first_name_lao'] ?? '').toString()
-          ..firstNameEng = (l['first_name_eng'] ??
-                  (names.isNotEmpty ? names.first : ''))
-              .toString()
-          ..middleNameLao = (l['midle_name_lao'] ?? '').toString()
-          ..middleNameEng = (l['midle_name_eng'] ??
-                  (names.length > 2
-                      ? names.sublist(1, names.length - 1).join(' ')
-                      : ''))
-              .toString()
-          ..lastNameLao = (l['last_name_lao'] ?? '').toString()
-          ..lastNameEng = (l['last_name_eng'] ??
-                  (names.length > 1 ? names.last : ''))
-              .toString()
-          ..occupation = (l['occupation'] ?? '').toString()
-          ..nickname = (l['nickname'] ?? '').toString()
-          ..dob = (l['dob'] ?? '').toString().split('T').first
-          ..idCardNo = (l['id_card'] ?? '').toString()
-          ..passportNo = (l['passport_no'] ?? '').toString()
-          ..familyBookNo = (l['family_book_no'] ?? '').toString()
-          ..nationality = (l['nationality'] ?? '').toString()
-          ..ethnicity = (l['ethnicity'] ?? '').toString()
-          ..religion = (l['religion'] ?? '').toString()
-          ..educationLevel = (l['education_level'] ?? '').toString()
-          ..workplace = (l['working_place'] ?? '').toString()
-          ..email = (l['email'] ?? '').toString()
-          ..phone1 = (l['phone_number_one'] ?? '').toString()
-          ..phone2 = (l['phone_number_two'] ?? '').toString()
-          ..homeNo = (l['home_no'] ?? '').toString()
-          ..homeUnit = (l['home_unit'] ?? '').toString()
-          ..village = (l['current_village'] ?? '').toString()
-          ..district = (l['current_district'] ?? '').toString()
-          ..province = (l['current_province'] ?? '').toString();
-      }));
+      ..addAll(
+        (r['live_with'] as List? ?? []).whereType<Map>().map((l) {
+          // Prefer the split name fields when present; fall back to splitting
+          // the joined "fullname" for older records.
+          final names = (l['fullname'] ?? '').toString().split(' ');
+          return LiveWithEntry()
+            ..firstNameLao = (l['first_name_lao'] ?? '').toString()
+            ..firstNameEng =
+                (l['first_name_eng'] ?? (names.isNotEmpty ? names.first : ''))
+                    .toString()
+            ..middleNameLao = (l['midle_name_lao'] ?? '').toString()
+            ..middleNameEng =
+                (l['midle_name_eng'] ??
+                        (names.length > 2
+                            ? names.sublist(1, names.length - 1).join(' ')
+                            : ''))
+                    .toString()
+            ..lastNameLao = (l['last_name_lao'] ?? '').toString()
+            ..lastNameEng =
+                (l['last_name_eng'] ?? (names.length > 1 ? names.last : ''))
+                    .toString()
+            ..occupation = (l['occupation'] ?? '').toString()
+            ..nickname = (l['nickname'] ?? '').toString()
+            ..dob = (l['dob'] ?? '').toString().split('T').first
+            ..idCardNo = (l['id_card'] ?? '').toString()
+            ..passportNo = (l['passport_no'] ?? '').toString()
+            ..familyBookNo = (l['family_book_no'] ?? '').toString()
+            ..nationality = (l['nationality'] ?? '').toString()
+            ..ethnicity = (l['ethnicity'] ?? '').toString()
+            ..religion = (l['religion'] ?? '').toString()
+            ..educationLevel = (l['education_level'] ?? '').toString()
+            ..workplace = (l['working_place'] ?? '').toString()
+            ..email = (l['email'] ?? '').toString()
+            ..phone1 = (l['phone_number_one'] ?? '').toString()
+            ..phone2 = (l['phone_number_two'] ?? '').toString()
+            ..homeNo = (l['home_no'] ?? '').toString()
+            ..homeUnit = (l['home_unit'] ?? '').toString()
+            ..village = (l['current_village'] ?? '').toString()
+            ..district = (l['current_district'] ?? '').toString()
+            ..province = (l['current_province'] ?? '').toString();
+        }),
+      );
     _s.emergencyContacts
       ..clear()
-      ..addAll((r['emergency_contacts'] as List? ?? []).whereType<Map>().map((e) {
-        return EmergencyContactEntry()
-          ..fullname = (e['fullname'] ?? '').toString()
-          ..occupation = (e['job'] ?? '').toString()
-          ..workplace = (e['working_place'] ?? '').toString()
-          ..phone1 = (e['phone1'] ?? '').toString()
-          ..phone2 = (e['phone2'] ?? '').toString()
-          ..hospital = (e['hospital'] ?? '').toString()
-          ..docName = (e['doc_name'] ?? '').toString()
-          ..docContact = (e['doc_contract'] ?? '').toString();
-      }));
+      ..addAll(
+        (r['emergency_contacts'] as List? ?? []).whereType<Map>().map((e) {
+          return EmergencyContactEntry()
+            ..fullname = (e['fullname'] ?? '').toString()
+            ..relationshipToStudent =
+                (e['relationship_to_student'] ??
+                        e['relationship'] ??
+                        e['relation'] ??
+                        '')
+                    .toString()
+            ..occupation = (e['job'] ?? '').toString()
+            ..workplace = (e['working_place'] ?? '').toString()
+            ..phone1 = (e['phone1'] ?? '').toString()
+            ..phone2 = (e['phone2'] ?? '').toString()
+            ..hospital = (e['hospital'] ?? '').toString()
+            ..docName = (e['doc_name'] ?? '').toString()
+            ..docContact = (e['doc_contract'] ?? '').toString();
+        }),
+      );
     if (_s.emergencyContacts.isEmpty) {
       _s.emergencyContacts.add(EmergencyContactEntry());
     }
@@ -361,6 +422,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     _errors.clear();
     switch (_step) {
       case 1:
+        if ((_branchId ?? '').trim().isEmpty) _err('Branch', 'Required');
         if (_s.firstNameLao.trim().isEmpty) _err('Firstname_Lao', 'Required');
         if (_s.firstNameEng.trim().isEmpty) _err('Firstname_Eng', 'Required');
         if (_s.middleNameLao.trim().isEmpty) _err('Midlename_Lao', 'Required');
@@ -396,9 +458,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         if (_s.primary.school.trim().isEmpty) _err('School2', 'Required');
         break;
       case 4:
-        if (_s.siblings.isEmpty) {
-          _err('Bos_Required', 'Add at least one sibling before continuing');
-        } else {
+        if (_s.siblings.isNotEmpty) {
           for (var i = 0; i < _s.siblings.length; i++) {
             final sib = _s.siblings[i];
             if (sib.fullname.trim().isEmpty) _err('S${i}_Fullname', 'Required');
@@ -474,6 +534,8 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           for (var i = 0; i < _s.emergencyContacts.length; i++) {
             final e = _s.emergencyContacts[i];
             if (e.fullname.trim().isEmpty) _err('E${i}_Fullname', 'Required');
+            if (e.relationshipToStudent.trim().isEmpty)
+              _err('E${i}_Relationship', 'Required');
             if (e.occupation.trim().isEmpty) _err('E${i}_Job', 'Required');
             if (e.workplace.trim().isEmpty)
               _err('E${i}_Working_place', 'Required');
@@ -521,8 +583,8 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
       message: widget.resubmitStudentId != null
           ? 'Resubmitting application...'
           : widget.addOnly
-              ? 'Adding student...'
-              : 'Submitting application...',
+          ? 'Adding student...'
+          : 'Submitting application...',
     );
     try {
       if (widget.resubmitStudentId != null) {
@@ -535,7 +597,23 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         await StudentDraftStore.save(widget.resubmitStudentId!, _s);
         GlobalAlert.dismiss();
         if (!mounted) return;
-        Navigator.of(context).pop<Object>('resubmitted');
+        final fullName = [
+          _s.firstNameEng,
+          _s.middleNameEng,
+          _s.lastNameEng,
+        ].map((e) => e.trim()).where((e) => e.isNotEmpty).join(' ');
+        final fallbackLao = [
+          _s.firstNameLao,
+          _s.lastNameLao,
+        ].map((e) => e.trim()).where((e) => e.isNotEmpty).join(' ');
+        Navigator.of(context).pop<Object>({
+          'action': 'pending',
+          'studentId': widget.resubmitStudentId!,
+          'studentName': fullName.isNotEmpty
+              ? fullName
+              : (fallbackLao.isNotEmpty ? fallbackLao : 'your child'),
+          'nickname': _s.nickname.trim(),
+        });
         return;
       }
       String parentId;
@@ -570,10 +648,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         );
       }
 
-      final studentRes = await _studentService.register(
-        s: _s,
-        parentId: parentId,
-      );
+      final studentRes = await _registerStudent(parentId);
 
       // Cache the submitted form keyed by the new student id so a later
       // rejection can re-open the form with everything still filled in.
@@ -625,8 +700,40 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
       GlobalAlert.dismiss();
       if (!mounted) return;
       setState(() => _submitting = false);
+      if (e is _SubmitCancelled) return;
       final msg = e is ApiException ? e.message : e.toString();
       GlobalAlert.showError(title: 'Submission failed', message: msg);
+    }
+  }
+
+  /// Registers the student, pausing to confirm with the parent if the
+  /// backend flags a likely duplicate (same parent, matching name + dob).
+  Future<Map<String, dynamic>> _registerStudent(String parentId) async {
+    try {
+      return await _studentService.register(s: _s, parentId: parentId);
+    } on StudentDuplicateException catch (e) {
+      GlobalAlert.dismiss();
+      final names = e.matches.map((m) => '${m.name} (${m.dob})').join(', ');
+      final confirmed = await GlobalAlert.showConfirmation(
+        title: 'Possible duplicate',
+        message:
+            'A student named $names is already registered under this '
+            'account. Add this student anyway?',
+        confirmText: 'Add anyway',
+        cancelText: 'Cancel',
+      );
+      if (confirmed != true) throw _SubmitCancelled();
+      if (!mounted) throw _SubmitCancelled();
+      GlobalAlert.showLoading(
+        message: widget.addOnly
+            ? 'Adding student...'
+            : 'Submitting application...',
+      );
+      return _studentService.register(
+        s: _s,
+        parentId: parentId,
+        confirmDuplicate: true,
+      );
     }
   }
 
@@ -860,6 +967,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
   // ──────────────────────────────────────────────────────────────────
 
   Widget _buildBottomNav() {
+    final canSkipSiblings = _step == 4 && _s.siblings.isEmpty;
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -914,12 +1022,12 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                     ),
                   ),
                   child: _step < 6
-                      ? const Row(
+                      ? Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text('Next'),
-                            SizedBox(width: 6),
-                            Icon(LucideIcons.chevronRight, size: 18),
+                            Text(canSkipSiblings ? 'Skip' : 'Next'),
+                            const SizedBox(width: 6),
+                            const Icon(LucideIcons.chevronRight, size: 18),
                           ],
                         )
                       : const Text('Submit application'),
@@ -959,6 +1067,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
       1,
       'Student Information',
       children: [
+        _branchSelect(),
         _input(
           'First Name (Lao)',
           'Firstname_Lao',
@@ -1238,8 +1347,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
               ? null
               : (v) {
                   if (v == null) return;
-                  final picked =
-                      districts.firstWhere((d) => d.id == v);
+                  final picked = districts.firstWhere((d) => d.id == v);
                   onPicked(picked.label);
                 },
         ),
@@ -1261,8 +1369,8 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
 
   Widget _provinceSelect() {
     final err = _errors['Province'];
-    final value = _s.provinceId.isNotEmpty &&
-            _provinces.any((p) => p.id == _s.provinceId)
+    final value =
+        _s.provinceId.isNotEmpty && _provinces.any((p) => p.id == _s.provinceId)
         ? _s.provinceId
         : null;
     return Column(
@@ -1332,8 +1440,8 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     final err = _errors['District'];
     final province = _findProvince(_s.provinceId);
     final districts = province?.districts ?? const [];
-    final value = _s.districtId.isNotEmpty &&
-            districts.any((d) => d.id == _s.districtId)
+    final value =
+        _s.districtId.isNotEmpty && districts.any((d) => d.id == _s.districtId)
         ? _s.districtId
         : null;
     return Column(
@@ -1457,7 +1565,6 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
   }
 
   Widget _stepSiblings() {
-    final missing = _errors.containsKey('Bos_Required');
     return Column(
       children: [
         for (var i = 0; i < _s.siblings.length; i++) ...[
@@ -1477,12 +1584,9 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           const SizedBox(height: 14),
           _emptyHint(
             icon: LucideIcons.users,
-            title: missing
-                ? 'At least one sibling is required'
-                : 'No siblings added yet',
+            title: 'No siblings added yet',
             body:
-                'Add brothers or sisters who are direct relatives of the student.',
-            error: missing,
+                'Add brothers or sisters who are direct relatives of the student, or skip this step.',
           ),
         ],
       ],
@@ -2083,6 +2187,15 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           ),
           const SizedBox(height: 12),
           _input(
+            'Relationship to Student',
+            'E${i}_Relationship',
+            e.relationshipToStudent,
+            (v) => e.relationshipToStudent = v,
+            required: true,
+            placeholder: 'Enter relationship',
+          ),
+          const SizedBox(height: 12),
+          _input(
             'Occupation',
             'E${i}_Job',
             e.occupation,
@@ -2378,6 +2491,75 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     );
   }
 
+  Widget _branchSelect() {
+    final err = _errors['Branch'];
+    final value = _branchId;
+    final hasValue = value != null && _branches.any((b) => b.id == value);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('Branch', true),
+        DropdownButtonFormField<String>(
+          initialValue: hasValue ? value : null,
+          isExpanded: true,
+          icon: _branchesLoading
+              ? const SizedBox(
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: _muted,
+                  ),
+                )
+              : const Icon(LucideIcons.chevronDown, color: _muted),
+          hint: Text(
+            _branchesLoading ? 'Loading branches...' : 'Select branch',
+            style: const TextStyle(color: _slate400, fontSize: 14),
+          ),
+          style: const TextStyle(
+            fontSize: 16,
+            color: _navy,
+            fontWeight: FontWeight.w500,
+          ),
+          decoration: _decoration(null, err),
+          items: _branches
+              .map(
+                (b) => DropdownMenuItem(
+                  value: b.id,
+                  child: Text(
+                    b.name.isEmpty ? b.code : b.name,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: _branches.isEmpty
+              ? null
+              : (v) {
+                  if (v == null) return;
+                  setState(() {
+                    _branchId = v;
+                    _errors.remove('Branch');
+                  });
+                  _saveBranchSelection(v);
+                },
+        ),
+        if (err != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              err,
+              style: const TextStyle(
+                fontSize: 13,
+                color: _rose500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _input(
     String label,
     String key,
@@ -2601,7 +2783,7 @@ class _DistrictOption {
   const _DistrictOption({required this.id, required this.label});
 
   factory _DistrictOption.fromJson(Map<String, dynamic> j) => _DistrictOption(
-        id: (j['id'] ?? '').toString(),
-        label: (j['nameEn'] ?? j['nameLa'] ?? j['name'] ?? '').toString(),
-      );
+    id: (j['id'] ?? '').toString(),
+    label: (j['nameEn'] ?? j['nameLa'] ?? j['name'] ?? '').toString(),
+  );
 }

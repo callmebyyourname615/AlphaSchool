@@ -1,13 +1,13 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/theme/app_icons.dart';
+import 'package:pdf/widgets.dart' as pw;
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/global_alert_service.dart';
-import '../../../home/presentation/pages/contact/branch_model.dart';
-import '../../../home/presentation/pages/contact/branch_service.dart';
 import '../../data/parent_registration_service.dart';
 import 'login_page.dart';
 
@@ -36,11 +36,11 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     _StepMeta(4, 'Address', LucideIcons.mapPin),
   ];
 
-  static const String _kSelectedBranchIdKey = 'selected_branch_id';
-
   static const Map<int, List<String>> _required = {
     1: [
-      'Branch',
+      'Email',
+      'Password',
+      'ConfirmPassword',
       'Firstname_Lao',
       'Firstname_Eng',
       'Midlename_Lao',
@@ -51,14 +51,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       'DateofBirth',
       'Gender',
     ],
-    2: [
-      'Educatio_Level',
-      'Job',
-      'Workplace',
-      'Email',
-      'Phone_No1',
-      'Phone_No2',
-    ],
+    2: ['Educatio_Level', 'Job', 'Workplace', 'Phone_No1', 'Phone_No2'],
     3: [
       'IDCard_no',
       'Passport_no',
@@ -78,12 +71,14 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     "Master's Degree",
     'Doctorate',
   ];
-  static const _genders = ['male', 'female', 'other'];
+  static const _genders = ['Male', 'Female', 'Other'];
 
   int _step = 1;
   final Map<String, String> _data = {};
   final Map<String, String> _errors = {};
-  final Map<String, XFile> _attachments = {};
+  final Map<String, _ParentAttachmentDraft> _attachments = {};
+  final List<_FamilyBookImageDraft> _familyBookImages = [];
+  bool _processingFamilyBook = false;
   bool _submitted = false;
   bool _submitting = false;
   bool _bootstrapping = true;
@@ -93,14 +88,13 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   String? _pendingPassword;
   String? _pendingFullName;
   bool _passwordVisible = false;
+  bool _formPasswordVisible = false;
+  bool _confirmPasswordVisible = false;
   bool _rejected = false;
   bool _approved = false;
   String? _rejectReason;
   final PageController _pageController = PageController();
   final ParentRegistrationService _service = ParentRegistrationService();
-  final BranchService _branchService = BranchService();
-  List<BranchInfo> _branches = const [];
-  bool _branchesLoading = false;
   List<_ParentProvinceOption> _provinces = const [];
   bool _provincesLoading = false;
 
@@ -111,13 +105,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   }
 
   Future<void> _bootstrap() async {
-    _loadBranches();
     _loadProvinces();
-    final prefs = await SharedPreferences.getInstance();
-    final savedBranch = prefs.getString(_kSelectedBranchIdKey);
-    if (savedBranch != null && savedBranch.isNotEmpty) {
-      _data['Branch'] = savedBranch;
-    }
     final pending = await _service.loadPending();
     if (!mounted) return;
     if (pending != null) {
@@ -145,13 +133,13 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       final res = await ApiClient().get('/locations/province');
       final raw = res is List
           ? res
-          : (res is Map && res['data'] is List ? res['data'] as List : const []);
+          : (res is Map && res['data'] is List
+                ? res['data'] as List
+                : const []);
       final list = raw
           .whereType<Map>()
           .map(
-            (m) => _ParentProvinceOption.fromJson(
-              Map<String, dynamic>.from(m),
-            ),
+            (m) => _ParentProvinceOption.fromJson(Map<String, dynamic>.from(m)),
           )
           .toList();
       if (!mounted) return;
@@ -172,27 +160,6 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       if (p.label.toLowerCase() == lc) return p;
     }
     return null;
-  }
-
-  Future<void> _loadBranches() async {
-    if (_branchesLoading) return;
-    setState(() => _branchesLoading = true);
-    try {
-      final list = await _branchService.fetchBranches();
-      if (!mounted) return;
-      setState(() {
-        _branches = list;
-        _branchesLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _branchesLoading = false);
-    }
-  }
-
-  Future<void> _saveBranchSelection(String branchId) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kSelectedBranchIdKey, branchId);
   }
 
   Future<void> _refreshStatus({bool silent = false}) async {
@@ -238,18 +205,13 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   }
 
   Future<void> _resubmitApplication() async {
-    await _service.clearPending();
     if (!mounted) return;
     setState(() {
       _submitted = false;
-      _referenceId = null;
-      _pendingEmail = null;
-      _pendingPassword = null;
-      _pendingFullName = null;
       _passwordVisible = false;
-      _rejected = false;
+      _formPasswordVisible = false;
+      _confirmPasswordVisible = false;
       _approved = false;
-      _rejectReason = null;
       _errors.clear();
       _step = 1;
     });
@@ -282,11 +244,23 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     for (final f in _required[_step] ?? const <String>[]) {
       if ((_data[f] ?? '').trim().isEmpty) next[f] = 'This field is required';
     }
-    if (_step == 2) {
+    if (_step == 1 || _step == 2) {
       final email = _data['Email'] ?? '';
       if (email.isNotEmpty &&
           !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
         next['Email'] = 'Enter a valid email';
+      }
+    }
+    if (_step == 1) {
+      final password = _data['Password'] ?? '';
+      final confirmPassword = _data['ConfirmPassword'] ?? '';
+      if (password.isNotEmpty && password.length < 6) {
+        next['Password'] = 'Password must be at least 6 characters';
+      }
+      if (password.isNotEmpty &&
+          confirmPassword.isNotEmpty &&
+          password != confirmPassword) {
+        next['ConfirmPassword'] = 'Passwords do not match';
       }
     }
     if (_step == 3) {
@@ -323,15 +297,15 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     setState(() => _submitting = true);
     GlobalAlert.showLoading(message: 'Submitting your application...');
     try {
-      final attachments = await Future.wait(
-        _attachments.entries.map(
-          (entry) async => ParentAttachment(
-            field: entry.key,
-            bytes: await entry.value.readAsBytes(),
-            filename: entry.value.name,
-          ),
-        ),
-      );
+      if (_familyBookImages.isNotEmpty) {
+        GlobalAlert.showLoading(
+          message: _familyBookImages.length == 1
+              ? 'Converting Family Book image to PDF...'
+              : 'Converting ${_familyBookImages.length} Family Book images to PDF...',
+        );
+      }
+      final attachments = await _buildSubmitAttachments();
+      GlobalAlert.showLoading(message: 'Submitting your application...');
       final isResubmission = _rejected && _referenceId != null;
       final result = isResubmission
           ? await _service.resubmit(
@@ -353,11 +327,16 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         _data['Midlename_Eng'],
         _data['Lastname_Eng'],
       ].where((value) => value != null && value.isNotEmpty).join(' ');
+      final submittedPassword = isResubmission
+          ? ((_data['Password'] ?? '').trim().isNotEmpty
+                ? _data['Password']!.trim()
+                : _pendingPassword)
+          : result.password;
       await _service.savePending(
         id: id,
         email: _data['Email'] ?? '',
         fullName: fullName.isEmpty ? null : fullName,
-        password: isResubmission ? _pendingPassword : result.password,
+        password: submittedPassword,
         formData: _data,
       );
       GlobalAlert.dismiss();
@@ -366,7 +345,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         _submitted = true;
         _referenceId = id;
         _pendingEmail = _data['Email'];
-        _pendingPassword = isResubmission ? _pendingPassword : result.password;
+        _pendingPassword = submittedPassword;
         _pendingFullName = fullName.isEmpty ? null : fullName;
         _passwordVisible = false;
         _rejected = false;
@@ -600,59 +579,114 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   Widget _buildStepBodyFor(int step) {
     switch (step) {
       case 1:
-        return _sectionCard(1, 'Personal Information', [
-          _branchSelect(),
-          _input(
-            'First Name (Lao)',
-            'Firstname_Lao',
-            required: true,
-            placeholder: 'Enter (Lao)',
-          ),
-          _input(
-            'First Name (English)',
-            'Firstname_Eng',
-            required: true,
-            placeholder: 'Enter (English)',
-          ),
-          _input(
-            'Middle Name (Lao)',
-            'Midlename_Lao',
-            required: true,
-            placeholder: 'Enter (Lao)',
-          ),
-          _input(
-            'Middle Name (English)',
-            'Midlename_Eng',
-            required: true,
-            placeholder: 'Enter (English)',
-          ),
-          _input(
-            'Last Name (Lao)',
-            'Lastname_Lao',
-            required: true,
-            placeholder: 'Enter (Lao)',
-          ),
-          _input(
-            'Last Name (English)',
-            'Lastname_Eng',
-            required: true,
-            placeholder: 'Enter (English)',
-          ),
-          _input(
-            'Nickname',
-            'Nickname',
-            required: true,
-            placeholder: 'Enter nickname',
-          ),
-          _dateInput('Date of Birth', 'DateofBirth', required: true),
-          _select(
-            'Gender',
-            'Gender',
-            _genders,
-            required: true,
-            placeholder: 'Select gender',
-          ),
-        ]);
+        return Column(
+          children: [
+            _sectionCard(1, 'Create Login Account', [
+              _input(
+                'Email',
+                'Email',
+                required: true,
+                placeholder: 'Enter email',
+                keyboard: TextInputType.emailAddress,
+              ),
+              _input(
+                'Password',
+                'Password',
+                required: true,
+                placeholder: 'Create password',
+                obscureText: !_formPasswordVisible,
+                suffixIcon: IconButton(
+                  onPressed: () {
+                    setState(
+                      () => _formPasswordVisible = !_formPasswordVisible,
+                    );
+                  },
+                  icon: Icon(
+                    _formPasswordVisible ? LucideIcons.eyeOff : LucideIcons.eye,
+                    size: 18,
+                    color: _muted,
+                  ),
+                  tooltip: _formPasswordVisible ? 'Hide' : 'Show',
+                ),
+              ),
+              _input(
+                'Confirm Password',
+                'ConfirmPassword',
+                required: true,
+                placeholder: 'Confirm password',
+                obscureText: !_confirmPasswordVisible,
+                suffixIcon: IconButton(
+                  onPressed: () {
+                    setState(
+                      () => _confirmPasswordVisible = !_confirmPasswordVisible,
+                    );
+                  },
+                  icon: Icon(
+                    _confirmPasswordVisible
+                        ? LucideIcons.eyeOff
+                        : LucideIcons.eye,
+                    size: 18,
+                    color: _muted,
+                  ),
+                  tooltip: _confirmPasswordVisible ? 'Hide' : 'Show',
+                ),
+              ),
+            ]),
+            const SizedBox(height: 16),
+            _sectionCard(1, 'Personal Information', [
+              _input(
+                'First Name (Lao)',
+                'Firstname_Lao',
+                required: true,
+                placeholder: 'Enter (Lao)',
+              ),
+              _input(
+                'First Name (English)',
+                'Firstname_Eng',
+                required: true,
+                placeholder: 'Enter (English)',
+              ),
+              _input(
+                'Middle Name (Lao)',
+                'Midlename_Lao',
+                required: true,
+                placeholder: 'Enter (Lao)',
+              ),
+              _input(
+                'Middle Name (English)',
+                'Midlename_Eng',
+                required: true,
+                placeholder: 'Enter (English)',
+              ),
+              _input(
+                'Last Name (Lao)',
+                'Lastname_Lao',
+                required: true,
+                placeholder: 'Enter (Lao)',
+              ),
+              _input(
+                'Last Name (English)',
+                'Lastname_Eng',
+                required: true,
+                placeholder: 'Enter (English)',
+              ),
+              _input(
+                'Nickname',
+                'Nickname',
+                required: true,
+                placeholder: 'Enter nickname',
+              ),
+              _dateInput('Date of Birth', 'DateofBirth', required: true),
+              _select(
+                'Gender',
+                'Gender',
+                _genders,
+                required: true,
+                placeholder: 'Select gender',
+              ),
+            ]),
+          ],
+        );
       case 2:
         return _sectionCard(2, 'Education & Contact', [
           _select(
@@ -723,7 +757,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
             pdfOnly: false,
           ),
           _fileUpload(
-            'Family book',
+            'Family Book (Upload PDF or Image)',
             'family_book',
             required: true,
             pdfOnly: true,
@@ -794,6 +828,8 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   }) {
     final selected = _attachments[field];
     final error = _errors[field];
+    final isFamilyBook = field == 'family_book';
+    final isProcessing = isFamilyBook && _processingFamilyBook;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -819,29 +855,47 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
           ),
           const SizedBox(height: 7),
           OutlinedButton.icon(
-            onPressed: () async {
-              final file = await openFile(
-                acceptedTypeGroups: [
-                  XTypeGroup(
-                    label: pdfOnly ? 'PDF' : 'Image',
-                    extensions: pdfOnly
-                        ? const ['pdf']
-                        : const ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-                  ),
-                ],
-              );
-              if (file == null || !mounted) return;
-              setState(() {
-                _attachments[field] = file;
-                _errors.remove(field);
-              });
-            },
+            onPressed: isProcessing
+                ? null
+                : () async {
+                    if (isFamilyBook) {
+                      setState(() => _processingFamilyBook = true);
+                    }
+                    try {
+                      final attachment = isFamilyBook
+                          ? await _pickFamilyBookAttachment()
+                          : await _pickSingleAttachment(
+                              field,
+                              pdfOnly: pdfOnly,
+                            );
+                      if (attachment == null || !mounted) return;
+                      setState(() {
+                        _attachments[field] = attachment;
+                        _errors.remove(field);
+                      });
+                    } catch (error) {
+                      if (!mounted) return;
+                      setState(() {
+                        _errors[field] = error is Exception
+                            ? error.toString().replaceFirst('Exception: ', '')
+                            : 'Could not read this file';
+                      });
+                    } finally {
+                      if (mounted && isFamilyBook) {
+                        setState(() => _processingFamilyBook = false);
+                      }
+                    }
+                  },
             icon: Icon(
               selected == null ? LucideIcons.upload : LucideIcons.circleCheck,
               size: 18,
             ),
             label: Text(
-              selected?.name ?? 'Choose ${pdfOnly ? 'PDF' : 'image'}',
+              selected == null
+                  ? 'Choose ${isFamilyBook ? 'PDF or images' : (pdfOnly ? 'PDF' : 'image')}'
+                  : (isFamilyBook && _familyBookImages.isNotEmpty
+                        ? '${selected.displayName} (tap to add more)'
+                        : selected.displayName),
             ),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(48),
@@ -866,6 +920,160 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         ],
       ),
     );
+  }
+
+  Future<_ParentAttachmentDraft?> _pickSingleAttachment(
+    String field, {
+    required bool pdfOnly,
+  }) async {
+    final file = await openFile(
+      acceptedTypeGroups: [
+        XTypeGroup(
+          label: pdfOnly ? 'PDF' : 'Image',
+          extensions: pdfOnly
+              ? const ['pdf']
+              : const ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+        ),
+      ],
+    );
+    if (file == null) return null;
+    return _prepareAttachment(field, file);
+  }
+
+  Future<List<ParentAttachment>> _buildSubmitAttachments() async {
+    final attachments = <ParentAttachment>[];
+    for (final entry in _attachments.entries) {
+      final draft = entry.value;
+      if (entry.key == 'family_book' &&
+          draft.deferUntilSubmit &&
+          _familyBookImages.isNotEmpty) {
+        final pdfBytes = await _imagesToPdf(
+          _familyBookImages.map((image) => image.bytes).toList(),
+        );
+        attachments.add(
+          ParentAttachment(
+            field: entry.key,
+            bytes: pdfBytes,
+            filename: draft.filename,
+          ),
+        );
+        continue;
+      }
+      attachments.add(
+        ParentAttachment(
+          field: entry.key,
+          bytes: draft.bytes,
+          filename: draft.filename,
+        ),
+      );
+    }
+    return attachments;
+  }
+
+  Future<_ParentAttachmentDraft?> _pickFamilyBookAttachment() async {
+    final files = await openFiles(
+      acceptedTypeGroups: const [
+        XTypeGroup(
+          label: 'PDF or images',
+          extensions: ['pdf', 'jpg', 'jpeg', 'png'],
+        ),
+      ],
+    );
+    if (files.isEmpty) return null;
+
+    final pdfFiles = files
+        .where((file) => _extensionOf(file.name) == 'pdf')
+        .toList();
+    final imageFiles = files
+        .where((file) => _imageExtensions.contains(_extensionOf(file.name)))
+        .toList();
+
+    if (pdfFiles.isNotEmpty && imageFiles.isNotEmpty) {
+      throw Exception('Please choose either PDF or images, not both.');
+    }
+    if (pdfFiles.length > 1) {
+      throw Exception('Please choose only one PDF file.');
+    }
+    if (pdfFiles.length == 1) {
+      final pdf = pdfFiles.first;
+      _familyBookImages.clear();
+      return _ParentAttachmentDraft(
+        bytes: await pdf.readAsBytes(),
+        filename: pdf.name,
+        displayName: pdf.name,
+      );
+    }
+    if (imageFiles.isEmpty) {
+      throw Exception('Please choose PDF, JPG, JPEG, or PNG files.');
+    }
+
+    for (final file in imageFiles) {
+      _familyBookImages.add(
+        _FamilyBookImageDraft(name: file.name, bytes: await file.readAsBytes()),
+      );
+    }
+    final imageCount = _familyBookImages.length;
+    final baseName = imageCount == 1
+        ? _basenameWithoutExtension(_familyBookImages.first.name)
+        : 'family_book_${imageCount}_images';
+    return _ParentAttachmentDraft(
+      bytes: Uint8List(0),
+      filename: '$baseName.pdf',
+      displayName: imageCount == 1
+          ? '${_familyBookImages.first.name} -> PDF'
+          : '$imageCount images -> PDF',
+      deferUntilSubmit: true,
+    );
+  }
+
+  Future<_ParentAttachmentDraft> _prepareAttachment(
+    String field,
+    XFile file,
+  ) async {
+    final bytes = await file.readAsBytes();
+    final extension = _extensionOf(file.name);
+    if (field == 'family_book' && _imageExtensions.contains(extension)) {
+      final pdfBytes = await _imagesToPdf([bytes]);
+      return _ParentAttachmentDraft(
+        bytes: pdfBytes,
+        filename: '${_basenameWithoutExtension(file.name)}.pdf',
+        displayName: '${file.name} -> PDF',
+      );
+    }
+    return _ParentAttachmentDraft(
+      bytes: bytes,
+      filename: file.name,
+      displayName: file.name,
+    );
+  }
+
+  Future<Uint8List> _imagesToPdf(List<Uint8List> imageBytesList) async {
+    final doc = pw.Document();
+    for (final imageBytes in imageBytesList) {
+      final image = pw.MemoryImage(imageBytes);
+      doc.addPage(
+        pw.Page(
+          margin: const pw.EdgeInsets.all(24),
+          build: (_) =>
+              pw.Center(child: pw.Image(image, fit: pw.BoxFit.contain)),
+        ),
+      );
+    }
+    return doc.save();
+  }
+
+  static const _imageExtensions = {'jpg', 'jpeg', 'png'};
+
+  String _extensionOf(String filename) {
+    final index = filename.lastIndexOf('.');
+    if (index < 0 || index == filename.length - 1) return '';
+    return filename.substring(index + 1).toLowerCase();
+  }
+
+  String _basenameWithoutExtension(String filename) {
+    final index = filename.lastIndexOf('.');
+    if (index <= 0) return filename.isEmpty ? 'family_book' : filename;
+    return filename.substring(0, index);
   }
 
   Widget _sectionCard(int num, String label, List<Widget> children) {
@@ -981,6 +1189,8 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     String? placeholder,
     bool required = false,
     TextInputType? keyboard,
+    bool obscureText = false,
+    Widget? suffixIcon,
   }) {
     final err = _errors[name];
     return Column(
@@ -992,12 +1202,16 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
           initialValue: _data[name],
           onChanged: (v) => _set(name, v),
           keyboardType: keyboard,
+          obscureText: obscureText,
           style: const TextStyle(
             fontSize: 16,
             color: _navy,
             fontWeight: FontWeight.w500,
           ),
-          decoration: _decoration(placeholder, err),
+          decoration: _decoration(
+            placeholder,
+            err,
+          ).copyWith(suffixIcon: suffixIcon),
         ),
         if (err != null)
           Padding(
@@ -1120,73 +1334,6 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                     _data[name] = picked.label;
                     _errors.remove(name);
                   });
-                },
-        ),
-        if (err != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              err,
-              style: const TextStyle(
-                fontSize: 13,
-                color: _rose500,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _branchSelect() {
-    const name = 'Branch';
-    final err = _errors[name];
-    final value = _data[name];
-    final hasValue = value != null && _branches.any((b) => b.id == value);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _label('Branch', true),
-        DropdownButtonFormField<String>(
-          initialValue: hasValue ? value : null,
-          isExpanded: true,
-          icon: _branchesLoading
-              ? const SizedBox(
-                  height: 16,
-                  width: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: _muted,
-                  ),
-                )
-              : const Icon(LucideIcons.chevronDown, color: _muted),
-          hint: Text(
-            _branchesLoading ? 'Loading branches...' : 'Select branch',
-            style: const TextStyle(color: _slate400, fontSize: 14),
-          ),
-          style: const TextStyle(
-            fontSize: 16,
-            color: _navy,
-            fontWeight: FontWeight.w500,
-          ),
-          decoration: _decoration(null, err),
-          items: _branches
-              .map(
-                (b) => DropdownMenuItem(
-                  value: b.id,
-                  child: Text(
-                    b.name.isEmpty ? b.code : b.name,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              )
-              .toList(),
-          onChanged: _branches.isEmpty
-              ? null
-              : (v) {
-                  if (v == null) return;
-                  _set(name, v);
-                  _saveBranchSelection(v);
                 },
         ),
         if (err != null)
@@ -1625,8 +1772,12 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
               _pendingPassword = null;
               _pendingFullName = null;
               _passwordVisible = false;
+              _formPasswordVisible = false;
+              _confirmPasswordVisible = false;
               _data.clear();
               _errors.clear();
+              _attachments.clear();
+              _familyBookImages.clear();
               _step = 1;
             });
             _pageController.jumpToPage(0);
@@ -2432,13 +2583,32 @@ class _ParentProvinceOption {
       districts: raw
           .whereType<Map>()
           .map(
-            (d) => _ParentDistrictOption.fromJson(
-              Map<String, dynamic>.from(d),
-            ),
+            (d) => _ParentDistrictOption.fromJson(Map<String, dynamic>.from(d)),
           )
           .toList(),
     );
   }
+}
+
+class _ParentAttachmentDraft {
+  const _ParentAttachmentDraft({
+    required this.bytes,
+    required this.filename,
+    required this.displayName,
+    this.deferUntilSubmit = false,
+  });
+
+  final Uint8List bytes;
+  final String filename;
+  final String displayName;
+  final bool deferUntilSubmit;
+}
+
+class _FamilyBookImageDraft {
+  const _FamilyBookImageDraft({required this.name, required this.bytes});
+
+  final String name;
+  final Uint8List bytes;
 }
 
 class _ParentDistrictOption {

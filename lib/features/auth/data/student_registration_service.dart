@@ -150,10 +150,8 @@ class LiveWithEntry {
     'fullname': _fullname(),
     if (firstNameLao.trim().isNotEmpty) 'first_name_lao': firstNameLao.trim(),
     if (firstNameEng.trim().isNotEmpty) 'first_name_eng': firstNameEng.trim(),
-    if (middleNameLao.trim().isNotEmpty)
-      'midle_name_lao': middleNameLao.trim(),
-    if (middleNameEng.trim().isNotEmpty)
-      'midle_name_eng': middleNameEng.trim(),
+    if (middleNameLao.trim().isNotEmpty) 'midle_name_lao': middleNameLao.trim(),
+    if (middleNameEng.trim().isNotEmpty) 'midle_name_eng': middleNameEng.trim(),
     if (lastNameLao.trim().isNotEmpty) 'last_name_lao': lastNameLao.trim(),
     if (lastNameEng.trim().isNotEmpty) 'last_name_eng': lastNameEng.trim(),
     'nickname': nickname.trim(),
@@ -181,6 +179,7 @@ class LiveWithEntry {
 
 class EmergencyContactEntry {
   String fullname = '';
+  String relationshipToStudent = '';
   String occupation = '';
   String workplace = '';
   String phone1 = '';
@@ -191,6 +190,7 @@ class EmergencyContactEntry {
 
   Map<String, dynamic> toDraft() => {
     'fullname': fullname,
+    'relationshipToStudent': relationshipToStudent,
     'occupation': occupation,
     'workplace': workplace,
     'phone1': phone1,
@@ -203,6 +203,13 @@ class EmergencyContactEntry {
   static EmergencyContactEntry fromDraft(Map<String, dynamic> j) =>
       EmergencyContactEntry()
         ..fullname = (j['fullname'] ?? '').toString()
+        ..relationshipToStudent =
+            (j['relationshipToStudent'] ??
+                    j['relationship_to_student'] ??
+                    j['relationship'] ??
+                    j['relation'] ??
+                    '')
+                .toString()
         ..occupation = (j['occupation'] ?? '').toString()
         ..workplace = (j['workplace'] ?? '').toString()
         ..phone1 = (j['phone1'] ?? '').toString()
@@ -213,6 +220,8 @@ class EmergencyContactEntry {
 
   Map<String, dynamic> toJson() => {
     'fullname': fullname.trim(),
+    if (relationshipToStudent.trim().isNotEmpty)
+      'relationship_to_student': relationshipToStudent.trim(),
     if (occupation.trim().isNotEmpty) 'job': occupation.trim(),
     if (workplace.trim().isNotEmpty) 'working_place': workplace.trim(),
     if (phone1.trim().isNotEmpty) 'phone1': phone1.trim(),
@@ -359,27 +368,36 @@ class StudentSubmission {
     districtName = (j['districtName'] ?? '').toString();
     provinceName = (j['provinceName'] ?? '').toString();
     if (j['kindergarten'] is Map) {
-      kindergarten.fillFromDraft(Map<String, dynamic>.from(j['kindergarten'] as Map));
+      kindergarten.fillFromDraft(
+        Map<String, dynamic>.from(j['kindergarten'] as Map),
+      );
     }
     if (j['primary'] is Map) {
       primary.fillFromDraft(Map<String, dynamic>.from(j['primary'] as Map));
     }
     siblings
       ..clear()
-      ..addAll(((j['siblings'] as List?) ?? [])
-          .whereType<Map>()
-          .map((m) => SiblingEntry.fromDraft(Map<String, dynamic>.from(m))));
+      ..addAll(
+        ((j['siblings'] as List?) ?? []).whereType<Map>().map(
+          (m) => SiblingEntry.fromDraft(Map<String, dynamic>.from(m)),
+        ),
+      );
     livingWith
       ..clear()
-      ..addAll(((j['livingWith'] as List?) ?? [])
-          .whereType<Map>()
-          .map((m) => LiveWithEntry.fromDraft(Map<String, dynamic>.from(m))));
+      ..addAll(
+        ((j['livingWith'] as List?) ?? []).whereType<Map>().map(
+          (m) => LiveWithEntry.fromDraft(Map<String, dynamic>.from(m)),
+        ),
+      );
     emergencyContacts
       ..clear()
-      ..addAll(((j['emergencyContacts'] as List?) ?? [])
-          .whereType<Map>()
-          .map((m) => EmergencyContactEntry.fromDraft(Map<String, dynamic>.from(m))));
-    if (emergencyContacts.isEmpty) emergencyContacts.add(EmergencyContactEntry());
+      ..addAll(
+        ((j['emergencyContacts'] as List?) ?? []).whereType<Map>().map(
+          (m) => EmergencyContactEntry.fromDraft(Map<String, dynamic>.from(m)),
+        ),
+      );
+    if (emergencyContacts.isEmpty)
+      emergencyContacts.add(EmergencyContactEntry());
   }
 }
 
@@ -420,6 +438,38 @@ class StudentDraftStore {
   }
 }
 
+/// A pre-existing student the backend flagged as a likely duplicate of the
+/// one being submitted (same parent, matching name + date of birth).
+class DuplicateStudentMatch {
+  final String id;
+  final String name;
+  final String dob;
+
+  const DuplicateStudentMatch({
+    required this.id,
+    required this.name,
+    required this.dob,
+  });
+
+  factory DuplicateStudentMatch.fromJson(Map<String, dynamic> json) {
+    return DuplicateStudentMatch(
+      id: (json['id'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      dob: (json['dob'] ?? '').toString(),
+    );
+  }
+}
+
+/// Thrown when the backend rejects a student submission (409) because a
+/// matching student already exists under the same parent. Callers should
+/// confirm with the parent, then retry `register(... confirmDuplicate: true)`.
+class StudentDuplicateException extends ApiException {
+  final List<DuplicateStudentMatch> matches;
+
+  StudentDuplicateException(String message, {required this.matches})
+    : super(message, statusCode: 409);
+}
+
 class StudentRegistrationService {
   StudentRegistrationService({ApiClient? client})
     : _api = client ?? ApiClient(timeout: const Duration(seconds: 60));
@@ -455,6 +505,7 @@ class StudentRegistrationService {
   Future<Map<String, dynamic>> register({
     required StudentSubmission s,
     required String parentId,
+    bool confirmDuplicate = false,
   }) async {
     final branchId = await _resolveBranchId();
     if (branchId == null) {
@@ -464,6 +515,7 @@ class StudentRegistrationService {
     final body = <String, dynamic>{
       'branchId': branchId,
       'student_id': _generateStudentId(),
+      'confirmDuplicate': confirmDuplicate,
       if (s.firstNameLao.trim().isNotEmpty)
         'first_name_lao': s.firstNameLao.trim(),
       if (s.firstNameEng.trim().isNotEmpty)
@@ -513,10 +565,34 @@ class StudentRegistrationService {
       'parentIds': [parentId],
     };
 
-    final res = await _api.post('/students', body: body);
-    if (res is Map<String, dynamic>) return res;
-    if (res is Map) return Map<String, dynamic>.from(res);
-    return {'data': res};
+    try {
+      final res = await _api.post('/students', body: body);
+      if (res is Map<String, dynamic>) return res;
+      if (res is Map) return Map<String, dynamic>.from(res);
+      return {'data': res};
+    } on ApiException catch (e) {
+      final duplicate = _asDuplicateException(e);
+      if (duplicate != null) throw duplicate;
+      rethrow;
+    }
+  }
+
+  /// Recognizes the createStudent() 409 shape ({ possibleDuplicates: [...] })
+  /// and converts it into a typed exception; returns null for any other error
+  /// so the original ApiException keeps propagating unchanged.
+  StudentDuplicateException? _asDuplicateException(ApiException e) {
+    if (e.statusCode != 409) return null;
+    final body = e.body;
+    final rawMatches = body is Map ? body['possibleDuplicates'] : null;
+    if (rawMatches is! List || rawMatches.isEmpty) return null;
+    final matches = rawMatches
+        .whereType<Map>()
+        .map(
+          (m) => DuplicateStudentMatch.fromJson(Map<String, dynamic>.from(m)),
+        )
+        .toList();
+    if (matches.isEmpty) return null;
+    return StudentDuplicateException(e.message, matches: matches);
   }
 
   /// Re-send a previously rejected application. Clears the approval/reject
@@ -565,7 +641,8 @@ class StudentRegistrationService {
       if (s.nationality.trim().isNotEmpty) 'nationality': s.nationality.trim(),
       if (s.ethnicity.trim().isNotEmpty) 'ethnicity': s.ethnicity.trim(),
       if (s.religion.trim().isNotEmpty) 'religion': s.religion.trim(),
-      if (s.passportNo.trim().isNotEmpty) 'passport_number': s.passportNo.trim(),
+      if (s.passportNo.trim().isNotEmpty)
+        'passport_number': s.passportNo.trim(),
       if (s.village.trim().isNotEmpty) 'village': s.village.trim(),
       if (s.districtId.trim().isNotEmpty) 'districtId': s.districtId.trim(),
       if (s.provinceId.trim().isNotEmpty) 'provinceId': s.provinceId.trim(),

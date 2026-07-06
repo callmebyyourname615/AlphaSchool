@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -94,6 +93,7 @@ class ParentRegistrationService {
     'Lastname_Lao': 'last_name_lao',
     'Lastname_Eng': 'last_name_eng',
     'Nickname': 'nickname',
+    'Password': 'password',
     'DateofBirth': 'dob',
     'Gender': 'gender',
     'Educatio_Level': 'education_level',
@@ -113,7 +113,6 @@ class ParentRegistrationService {
     'Village': 'village',
     'District': 'district',
     'Province': 'province',
-    'Branch': 'branch_id',
   };
 
   static const _requiredStringFields = [
@@ -132,6 +131,7 @@ class ParentRegistrationService {
   }) async {
     final body = <String, dynamic>{};
     for (final e in data.entries) {
+      if (e.key == 'ConfirmPassword') continue;
       final v = e.value.trim();
       if (v.isEmpty) continue;
       final key = _fieldMap[e.key] ?? e.key;
@@ -140,12 +140,12 @@ class ParentRegistrationService {
     for (final f in _requiredStringFields) {
       body[f] ??= '';
     }
-    final password = _generatePassword();
-    body['username'] = _deriveUsername(data['Email'] ?? '');
+    final password = (data['Password'] ?? '').trim();
+    final email = body['email']?.toString().trim() ?? '';
+    body['username'] = email;
     body['password'] = password;
     body['is_active'] = false;
 
-    final email = body['email']?.toString();
     final existing = await _findByEmail(email);
     if (existing != null) {
       throw ApiException(
@@ -191,8 +191,9 @@ class ParentRegistrationService {
   }) async {
     final fields = <String, String>{
       for (final entry in data.entries)
-        if (entry.value.trim().isNotEmpty)
+        if (entry.key != 'ConfirmPassword' && entry.value.trim().isNotEmpty)
           (_fieldMap[entry.key] ?? entry.key): entry.value.trim(),
+      'username': (data['Email'] ?? '').trim(),
       'is_active': 'false',
       'approval_status': 'pending',
       'reject_reason': '',
@@ -314,23 +315,5 @@ class ParentRegistrationService {
     if (res is Map<String, dynamic>) return res;
     if (res is Map) return Map<String, dynamic>.from(res);
     return {'data': res};
-  }
-
-  String _deriveUsername(String email) {
-    final local = email
-        .split('@')
-        .first
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]'), '');
-    final suffix = Random().nextInt(9000) + 1000;
-    final base = local.isEmpty ? 'parent' : local;
-    return '${base}_$suffix';
-  }
-
-  String _generatePassword() {
-    const chars =
-        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    final r = Random.secure();
-    return List.generate(12, (_) => chars[r.nextInt(chars.length)]).join();
   }
 }

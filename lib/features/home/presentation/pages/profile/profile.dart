@@ -1,9 +1,18 @@
 // profile_page.dart
-import 'dart:ui' show ImageFilter;
+import 'dart:ui' show ImageFilter, ImageByteFormat;
 
+import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter/rendering.dart';
+import '../../../../../core/theme/app_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+
+import '../../../../../core/services/global_alert_service.dart';
+import '../../../../../core/services/session_service.dart';
+import '../../../../../shared/models/student_card_item.dart';
 
 // ---- Helpers (avoid withOpacity deprecated) ----
 int _alpha(double o) => (o * 255).round().clamp(0, 255);
@@ -35,7 +44,7 @@ Color _accentStrong(BuildContext context, bool isDark) =>
 /// - Light: clean white cards
 /// - Verified check stays GREEN
 /// - flutter_animate animations
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({
     super.key,
     this.title = 'Profile',
@@ -48,6 +57,7 @@ class ProfilePage extends StatelessWidget {
     ),
     this.onEdit,
     this.items,
+    this.student,
   });
 
   final String title;
@@ -60,6 +70,31 @@ class ProfilePage extends StatelessWidget {
   final VoidCallback? onEdit;
   final List<ProfileMenuItem>? items;
 
+  /// The currently-selected child. When present (and it has an id), a QR
+  /// code card is shown that staff can scan for attendance — see
+  /// core/widgets/scanqrcode/scan_qr_code_page.dart, which already accepts a
+  /// bare student UUID.
+  final StudentCardItem? student;
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  SessionData? _session;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSession();
+  }
+
+  Future<void> _loadSession() async {
+    final session = await SessionService().load();
+    if (!mounted) return;
+    setState(() => _session = session);
+  }
+
   @override
   Widget build(BuildContext context) {
     final safeTop = MediaQuery.of(context).padding.top;
@@ -67,8 +102,15 @@ class ProfilePage extends StatelessWidget {
     // ✅ Follow current theme mode
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final displayName = (_session?.username ?? '').trim().isNotEmpty
+        ? _session!.username
+        : widget.name;
+    final displayEmail = (_session?.email ?? '').trim().isNotEmpty
+        ? _session!.email
+        : widget.email;
+
     final menu =
-        items ??
+        widget.items ??
         const [
           ProfileMenuItem(
             icon: LucideIcons.circle,
@@ -106,7 +148,7 @@ class ProfilePage extends StatelessWidget {
                 Positioned.fill(
                   child:
                       Image(
-                            image: headerImage,
+                            image: widget.headerImage,
                             fit: BoxFit.cover,
                             filterQuality: FilterQuality.high,
                             errorBuilder: (_, __, ___) => Container(
@@ -184,7 +226,11 @@ class ProfilePage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _CenteredTopBar(title: title, onBack: goBack, onEdit: onEdit)
+                  _CenteredTopBar(
+                        title: widget.title,
+                        onBack: goBack,
+                        onEdit: widget.onEdit,
+                      )
                       .animate()
                       .fadeIn(duration: 280.ms)
                       .slideY(begin: -0.06, end: 0, duration: 320.ms),
@@ -192,10 +238,10 @@ class ProfilePage extends StatelessWidget {
                   const SizedBox(height: 18),
 
                   _ProfileCard(
-                        avatarImage: avatarImage,
-                        name: name,
-                        email: email,
-                        verified: verified,
+                        avatarImage: widget.avatarImage,
+                        name: displayName,
+                        email: displayEmail,
+                        verified: widget.verified,
                       )
                       .animate()
                       .fadeIn(duration: 320.ms, delay: 80.ms)
@@ -207,6 +253,14 @@ class ProfilePage extends StatelessWidget {
                         curve: Curves.easeOutBack,
                         delay: 80.ms,
                       ),
+
+                  if ((widget.student?.id ?? '').trim().isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    _StudentQrCard(student: widget.student!)
+                        .animate()
+                        .fadeIn(duration: 320.ms, delay: 120.ms)
+                        .slideY(begin: 0.08, end: 0, duration: 380.ms),
+                  ],
 
                   const SizedBox(height: 26),
 
@@ -586,6 +640,240 @@ class _Badge extends StatelessWidget {
       end: const Offset(1, 1),
       duration: 280.ms,
       curve: Curves.easeOutBack,
+    );
+  }
+}
+
+/// Per-student QR code — encodes the student's internal UUID, the same
+/// format core/widgets/scanqrcode/scan_qr_code_page.dart already reads (it
+/// accepts a bare UUID string) and POSTs to /attendances/scan.
+class _StudentQrCard extends StatefulWidget {
+  const _StudentQrCard({required this.student});
+
+  final StudentCardItem student;
+
+  @override
+  State<_StudentQrCard> createState() => _StudentQrCardState();
+}
+
+class _StudentQrCardState extends State<_StudentQrCard> {
+  final GlobalKey _qrBoundaryKey = GlobalKey();
+  bool _saving = false;
+
+  String get _fileBaseName {
+    final code = widget.student.studentId.trim();
+    return 'qr_${code.isNotEmpty ? code : widget.student.id}';
+  }
+
+  Future<void> _saveQr() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    GlobalAlert.showLoading(message: 'Saving QR code...');
+    // GlobalAlert.dismiss() pops whatever's on top of the root navigator —
+    // if the loading dialog was already dismissed (to make way for the
+    // native save dialog below) calling it again pops the page itself
+    // instead, which is what was sending this back to HomeShell.
+    var loadingDismissed = false;
+    try {
+      final boundary =
+          _qrBoundaryKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
+      if (boundary == null) {
+        throw Exception('QR code is not ready yet.');
+      }
+      final image = await boundary.toImage(pixelRatio: 3);
+      final byteData = await image.toByteData(format: ImageByteFormat.png);
+      final bytes = byteData!.buffer.asUint8List();
+
+      final isMobile =
+          defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.android;
+
+      if (isMobile) {
+        final result = await ImageGallerySaverPlus.saveImage(
+          bytes,
+          quality: 100,
+          name: _fileBaseName,
+        );
+        final saved = result is Map
+            ? result['isSuccess'] == true || result['is_success'] == true
+            : result != null;
+        if (!saved) throw Exception('The QR code could not be saved.');
+      } else {
+        GlobalAlert.dismiss();
+        loadingDismissed = true;
+        final location = await getSaveLocation(
+          suggestedName: '$_fileBaseName.png',
+          acceptedTypeGroups: [
+            XTypeGroup(label: 'Images', extensions: ['png']),
+          ],
+        );
+        if (location == null) {
+          if (mounted) setState(() => _saving = false);
+          return;
+        }
+        await XFile.fromData(
+          bytes,
+          name: '$_fileBaseName.png',
+          mimeType: 'image/png',
+        ).saveTo(location.path);
+      }
+
+      if (!loadingDismissed) GlobalAlert.dismiss();
+      if (!mounted) return;
+      GlobalAlert.showSuccess(
+        title: 'QR code saved',
+        message: isMobile
+            ? 'The QR code was saved to your gallery.'
+            : 'The QR code was saved successfully.',
+      );
+    } catch (error) {
+      if (!loadingDismissed) GlobalAlert.dismiss();
+      if (!mounted) return;
+      GlobalAlert.showError(
+        title: 'Could not save QR code',
+        message: error.toString(),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final student = widget.student;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final acc = _accent(context, isDark);
+
+    final shadow = _o(Colors.black, isDark ? .35 : .10);
+    final cardBg = isDark
+        ? _o(Colors.white, .075)
+        : Colors.white.withAlpha(245);
+    final border = isDark ? _o(Colors.white, .14) : Colors.white.withAlpha(160);
+    final textMain = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSub = isDark
+        ? _o(Colors.white, .64)
+        : Colors.black.withAlpha(120);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: border),
+            boxShadow: [
+              BoxShadow(
+                color: shadow,
+                blurRadius: 24,
+                offset: const Offset(0, 14),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(LucideIcons.qrCode, size: 18, color: acc),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Student QR Code',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      color: textMain,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              RepaintBoundary(
+                key: _qrBoundaryKey,
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: isDark
+                          ? _o(Colors.white, .14)
+                          : Colors.black.withAlpha(10),
+                    ),
+                  ),
+                  child: QrImageView(
+                    data: student.id!,
+                    version: QrVersions.auto,
+                    size: 180,
+                    gapless: false,
+                    eyeStyle: const QrEyeStyle(
+                      eyeShape: QrEyeShape.square,
+                      color: Color(0xFF0F172A),
+                    ),
+                    dataModuleStyle: const QrDataModuleStyle(
+                      dataModuleShape: QrDataModuleShape.square,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                student.name,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: textMain,
+                ),
+              ),
+              if (student.studentId.trim().isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  student.studentId,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: textSub,
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _saving ? null : _saveQr,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: acc,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(LucideIcons.download, size: 18),
+                  label: Text(_saving ? 'Saving...' : 'Save QR code'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -24,139 +24,72 @@ class AuthService {
 
   final ApiClient _apiClient;
 
-  /// Checks `GET /admins` first, then falls back to `GET /parents` —
-  /// admin and parent accounts live in separate backend tables, so either
-  /// endpoint may hold the matching login (OR semantics, first match wins).
+  /// Login must go through the backend auth endpoints so password validation
+  /// happens against the stored bcrypt hash. Do not fall back to listing users:
+  /// those endpoints intentionally omit password hashes.
   Future<AuthenticatedUser> login({
     required String login,
     required String password,
   }) async {
-    final admin = await _findMatch(
-      path: '/admins',
-      resourceKey: 'admins',
-      login: login,
-      password: password,
-      isParentRecord: false,
-    );
-    if (admin != null) return admin;
+    final email = login.trim().toLowerCase();
 
-    final parent = await _findMatch(
-      path: '/parents',
-      resourceKey: 'parents',
-      login: login,
-      password: password,
-      isParentRecord: true,
-    );
-    if (parent != null) return parent;
+    try {
+      return await _loginWithEndpoint(
+        path: '/auth/parent/login',
+        email: email,
+        password: password,
+        isParentRecord: true,
+      );
+    } on ApiException catch (parentError) {
+      if (parentError.statusCode == 403) rethrow;
 
-    throw const ApiException('Invalid username/email or password');
+      try {
+        return await _loginWithEndpoint(
+          path: '/auth/login',
+          email: email,
+          password: password,
+          isParentRecord: false,
+        );
+      } on ApiException catch (adminError) {
+        if (adminError.statusCode == 403) rethrow;
+        throw const ApiException('Invalid email or password');
+      }
+    }
   }
 
-  Future<AuthenticatedUser?> _findMatch({
+  Future<AuthenticatedUser> _loginWithEndpoint({
     required String path,
-    required String resourceKey,
-    required String login,
+    required String email,
     required String password,
     required bool isParentRecord,
   }) async {
-    final response = await _apiClient.get(path);
+    final response = await _apiClient.post(
+      path,
+      body: {'email': email, 'password': password},
+    );
+    final user = _userFromLoginResponse(response);
+    return AuthenticatedUser(
+      json: user,
+      roleName: _roleName(user),
+      isParentRecord: isParentRecord,
+    );
+  }
 
-    for (final record in _extractRecords(response, resourceKey)) {
-      final username = _readString(record, const ['username']);
-      final email = _readString(record, const ['email']);
-      final matchesLogin =
-          username.toLowerCase() == login.toLowerCase() ||
-          email.toLowerCase() == login.toLowerCase();
-      if (!matchesLogin) continue;
-
-      final approvalStatus = _approvalStatus(record);
-      if (approvalStatus == 'rejected') {
-        final reason = _readString(record, const [
-          'reject_reason',
-          'rejectReason',
-          'rejection_reason',
-          'rejectionReason',
-        ]);
-        throw ApiException(
-          reason.isEmpty
-              ? 'Your account was rejected by admin. Please review your application and submit again.'
-              : 'Your account was rejected by admin: $reason',
-          statusCode: 403,
-        );
-      }
-      if (!_isActive(record) || approvalStatus == 'pending') {
-        throw const ApiException(
-          'Your account is pending admin approval. Please wait until an administrator activates your account.',
-          statusCode: 403,
-        );
-      }
-
-      if (!_passwordMatches(record, password)) continue;
-
-      return AuthenticatedUser(
-        json: record,
-        roleName: _roleName(record),
-        isParentRecord: isParentRecord,
-      );
+  Map<String, dynamic> _userFromLoginResponse(dynamic response) {
+    if (response is! Map<String, dynamic>) {
+      throw const ApiException('Invalid login response from API');
     }
 
-    return null;
-  }
-
-  /// Same defensive shape-handling as other feature services: the backend
-  /// may answer with a bare array, `{data: [...]}`, `{results: [...]}`, or
-  /// `{<resourceKey>: [...]}` (e.g. `{admins: [...]}` / `{parents: [...]}`).
-  List<Map<String, dynamic>> _extractRecords(
-    dynamic response,
-    String resourceKey,
-  ) {
-    List<dynamic> rawList = const [];
-
-    if (response is List<dynamic>) {
-      rawList = response;
-    } else if (response is Map<String, dynamic>) {
-      final byResource = response[resourceKey];
-      final data = response['data'];
-      final results = response['results'];
-      if (byResource is List<dynamic>) {
-        rawList = byResource;
-      } else if (data is List<dynamic>) {
-        rawList = data;
-      } else if (results is List<dynamic>) {
-        rawList = results;
-      }
+    final rawUser = response['user'];
+    if (rawUser is! Map<String, dynamic>) {
+      throw const ApiException('Invalid login response from API');
     }
 
-    return rawList.whereType<Map<String, dynamic>>().toList();
-  }
-
-  /// `/admins` reports `is_active`, `/parents` reports `isActive` —
-  /// missing/null is treated as active, matching the previous behavior.
-  bool _isActive(Map<String, dynamic> json) {
-    final value = json['is_active'] ?? json['isActive'];
-    return value != false;
-  }
-
-  String _approvalStatus(Map<String, dynamic> json) {
-    final raw = (json['approval_status'] ?? json['approvalStatus'])
-        ?.toString()
-        .trim()
-        .toLowerCase();
-    if (raw == 'approved' || raw == 'rejected' || raw == 'pending') {
-      return raw!;
-    }
-    return '';
-  }
-
-  bool _passwordMatches(Map<String, dynamic> json, String password) {
-    final apiPassword = _readString(json, const [
-      'password',
-      'pass',
-      'admin_password',
-      'passwordHash',
-    ]);
-
-    return apiPassword.isEmpty || apiPassword == password;
+    return {
+      ...rawUser,
+      'id': _readString(rawUser, const ['id', 'sub']),
+      'access_token': response['access_token'],
+    };
   }
 
   String _roleName(Map<String, dynamic> json) {
