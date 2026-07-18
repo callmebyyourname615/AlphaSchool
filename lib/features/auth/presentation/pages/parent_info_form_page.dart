@@ -82,6 +82,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   bool _processingFamilyBook = false;
   bool _submitted = false;
   bool _submitting = false;
+  String _submissionMessage = 'Preparing your application...';
   bool _bootstrapping = true;
   bool _checkingStatus = false;
   String? _referenceId;
@@ -339,22 +340,27 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
 
   Future<void> _onSubmit() async {
     if (!_validate() || _submitting) return;
-    setState(() => _submitting = true);
-    GlobalAlert.showLoading(message: 'Submitting your application...');
+    setState(() {
+      _submitting = true;
+      _submissionMessage = 'Preparing your application...';
+    });
+    await WidgetsBinding.instance.endOfFrame;
     try {
       if (_familyBookImages.isNotEmpty) {
-        GlobalAlert.showLoading(
-          message: _familyBookImages.length == 1
+        setState(() {
+          _submissionMessage = _familyBookImages.length == 1
               ? 'Converting Family Book image to PDF...'
-              : 'Converting ${_familyBookImages.length} Family Book images to PDF...',
-        );
+              : 'Converting ${_familyBookImages.length} Family Book images to PDF...';
+        });
+        await WidgetsBinding.instance.endOfFrame;
       }
       final attachments = await _buildSubmitAttachments();
       final familyBook = attachments
           .where((attachment) => attachment.field == 'family_book')
           .cast<ParentAttachment?>()
           .firstWhere((attachment) => attachment != null, orElse: () => null);
-      GlobalAlert.showLoading(message: 'Submitting your application...');
+      setState(() => _submissionMessage = 'Submitting your application...');
+      await WidgetsBinding.instance.endOfFrame;
       final isResubmission = _rejected && _referenceId != null;
       final result = isResubmission
           ? await _service.resubmit(
@@ -390,7 +396,6 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       );
       await _service.saveReusableDetails(_data);
       await _service.saveReusableFamilyBook(familyBook);
-      GlobalAlert.dismiss();
       if (!mounted) return;
       setState(() {
         _submitted = true;
@@ -412,7 +417,6 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       );
       _refreshStatus(silent: true);
     } catch (error) {
-      GlobalAlert.dismiss();
       if (!mounted) return;
       setState(() => _submitting = false);
       GlobalAlert.showError(
@@ -433,34 +437,97 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     return Scaffold(
       backgroundColor: _blueSofter,
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            _buildHeader(),
-            if (!_submitted) _buildStepper(),
-            Expanded(
-              child: _submitted
-                  ? SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
-                      child: _buildSuccess(),
-                    )
-                  : PageView.builder(
-                      controller: _pageController,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: 4,
-                      onPageChanged: (i) {
-                        if (_step != i + 1) setState(() => _step = i + 1);
-                      },
-                      itemBuilder: (_, i) => SingleChildScrollView(
-                        key: PageStorageKey('step_${i + 1}'),
-                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
-                        child: _buildStepBodyFor(i + 1),
-                      ),
-                    ),
+            Column(
+              children: [
+                _buildHeader(),
+                if (!_submitted) _buildStepper(),
+                Expanded(
+                  child: _submitted
+                      ? SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
+                          child: _buildSuccess(),
+                        )
+                      : PageView.builder(
+                          controller: _pageController,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: 4,
+                          onPageChanged: (i) {
+                            if (_step != i + 1) setState(() => _step = i + 1);
+                          },
+                          itemBuilder: (_, i) => SingleChildScrollView(
+                            key: PageStorageKey('step_${i + 1}'),
+                            padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
+                            child: _buildStepBodyFor(i + 1),
+                          ),
+                        ),
+                ),
+              ],
             ),
+            if (_submitting) _buildSubmissionLoadingOverlay(),
           ],
         ),
       ),
       bottomNavigationBar: _submitted ? null : _buildBottomNav(),
+    );
+  }
+
+  Widget _buildSubmissionLoadingOverlay() {
+    return Positioned.fill(
+      child: ColoredBox(
+        color: const Color(0x99071B55),
+        child: Center(
+          child: Container(
+            width: 280,
+            margin: const EdgeInsets.all(24),
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 30),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x33071B55),
+                  blurRadius: 28,
+                  offset: Offset(0, 12),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 4,
+                    color: _blue,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Please wait',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: _navy,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _submissionMessage,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.45,
+                    color: _muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
