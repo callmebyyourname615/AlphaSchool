@@ -150,7 +150,15 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     ]);
     final savedDetails = results[0] as Map<String, String>;
     final savedFamilyBook = results[1] as ReusableParentFamilyBook?;
-    if (!mounted || savedDetails.isEmpty) return;
+    if (!mounted) return;
+    if (savedDetails.isEmpty) {
+      GlobalAlert.showInfo(
+        title: 'No saved details yet',
+        message:
+            'Submit a previous application first to save your contact, identity and address details.',
+      );
+      return;
+    }
     setState(() {
       _data.addAll(savedDetails);
       if (savedFamilyBook != null) {
@@ -164,11 +172,13 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       _errors.removeWhere((key, _) => savedDetails.containsKey(key));
       if (savedFamilyBook != null) _errors.remove('family_book');
       _formRevision++;
+      _step = 2;
     });
+    _animateToStep(2);
     GlobalAlert.showSuccess(
       title: 'Saved details applied',
       message:
-          'Your saved contact, identity and address details have been filled in.',
+          'Your saved contact, identity and address details have been filled in. Step 1 remains private and must be completed again.',
     );
   }
 
