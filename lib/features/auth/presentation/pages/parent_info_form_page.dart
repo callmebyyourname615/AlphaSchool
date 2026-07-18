@@ -3,10 +3,10 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../../../core/theme/app_icons.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
@@ -1170,14 +1170,16 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         '${temporaryDirectory.path}/${attachment.filename}',
       );
       await previewFile.writeAsBytes(attachment.bytes, flush: true);
-      final opened = await launchUrl(
-        Uri.file(previewFile.path),
-        mode: LaunchMode.externalApplication,
+      final result = await OpenFile.open(
+        previewFile.path,
+        type: 'application/pdf',
       );
-      if (!opened && mounted) {
+      if (result.type != ResultType.done && mounted) {
         GlobalAlert.showError(
           title: 'Preview unavailable',
-          message: 'Could not open this PDF on this device.',
+          message: result.message.isEmpty
+              ? 'Could not open this PDF on this device.'
+              : result.message,
         );
       }
     } catch (_) {
