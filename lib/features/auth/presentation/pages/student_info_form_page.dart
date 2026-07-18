@@ -105,6 +105,8 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
   int _step = 1;
   bool _submitting = false;
   bool _prefilling = false;
+  bool _hasSavedDetails = false;
+  int _formRevision = 0;
   final Set<int> _livingExpanded = {};
 
   List<_ProvinceOption> _provinces = const [];
@@ -125,6 +127,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     _loadProvinces();
     _loadBranches();
     _prefillSavedBranch();
+    _loadReusableDetailsAvailability();
     if (widget.resubmitStudentId != null) {
       _prefilling = true;
       _prefillFromExisting(widget.resubmitStudentId!).whenComplete(() {
@@ -139,6 +142,84 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     if (saved == null || saved.isEmpty) return;
     if (!mounted) return;
     setState(() => _branchId = saved);
+  }
+
+  Future<void> _loadReusableDetailsAvailability() async {
+    final details = await StudentReusableDetailsStore.load();
+    if (!mounted) return;
+    setState(() => _hasSavedDetails = details != null);
+  }
+
+  Future<void> _useSavedDetails() async {
+    final details = await StudentReusableDetailsStore.load();
+    if (!mounted) return;
+    if (details == null) {
+      GlobalAlert.showInfo(
+        title: 'No saved details yet',
+        message:
+            'Submit a previous student application first to save household details.',
+      );
+      return;
+    }
+
+    List<LiveWithEntry> readLivingWith() =>
+        (details['livingWith'] as List? ?? [])
+            .whereType<Map>()
+            .map(
+              (item) =>
+                  LiveWithEntry.fromDraft(Map<String, dynamic>.from(item)),
+            )
+            .toList();
+    List<EmergencyContactEntry> readEmergencyContacts() =>
+        (details['emergencyContacts'] as List? ?? [])
+            .whereType<Map>()
+            .map(
+              (item) => EmergencyContactEntry.fromDraft(
+                Map<String, dynamic>.from(item),
+              ),
+            )
+            .toList();
+
+    setState(() {
+      _s.nationality = (details['nationality'] ?? '').toString();
+      _s.ethnicity = (details['ethnicity'] ?? '').toString();
+      _s.religion = (details['religion'] ?? '').toString();
+      _s.village = (details['village'] ?? '').toString();
+      _s.district = (details['district'] ?? '').toString();
+      _s.province = (details['province'] ?? '').toString();
+      _s.districtId = (details['districtId'] ?? '').toString();
+      _s.provinceId = (details['provinceId'] ?? '').toString();
+      _s.districtName = (details['districtName'] ?? '').toString();
+      _s.provinceName = (details['provinceName'] ?? '').toString();
+      _s.livingWith
+        ..clear()
+        ..addAll(readLivingWith());
+      _s.emergencyContacts
+        ..clear()
+        ..addAll(readEmergencyContacts());
+      if (_s.emergencyContacts.isEmpty) {
+        _s.emergencyContacts.add(EmergencyContactEntry());
+      }
+      _errors.removeWhere(
+        (key, _) =>
+            key == 'Nationality' ||
+            key == 'Ethnicity' ||
+            key == 'Religion' ||
+            key == 'Village' ||
+            key == 'Province' ||
+            key == 'District' ||
+            key.startsWith('L') ||
+            key.startsWith('E') ||
+            key == 'LiveWith_Required' ||
+            key == 'Emergency_Required',
+      );
+      _formRevision++;
+    });
+    GlobalAlert.showSuccess(
+      title: 'Saved details applied',
+      message:
+          'Your household address, living-with and emergency contact details have been filled in.',
+    );
   }
 
   Future<void> _loadBranches() async {
@@ -592,6 +673,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           studentId: widget.resubmitStudentId!,
           s: _s,
         );
+        await StudentReusableDetailsStore.save(_s);
         // Refresh the local draft with the latest edits so a future rejection
         // still finds the most recent values.
         await StudentDraftStore.save(widget.resubmitStudentId!, _s);
@@ -649,6 +731,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
       }
 
       final studentRes = await _registerStudent(parentId);
+      await StudentReusableDetailsStore.save(_s);
 
       // Cache the submitted form keyed by the new student id so a later
       // rejection can re-open the form with everything still filled in.
@@ -790,7 +873,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                   if (_step != i + 1) setState(() => _step = i + 1);
                 },
                 itemBuilder: (_, i) => SingleChildScrollView(
-                  key: PageStorageKey('s_step_${i + 1}'),
+                  key: PageStorageKey('s_step_${i + 1}_$_formRevision'),
                   padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
                   child: _buildStep(i + 1),
                 ),
@@ -1062,11 +1145,54 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     }
   }
 
+  Widget _buildSavedDetailsAction() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _blueSoft,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFBED4FF)),
+      ),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.clipboardCheck, size: 20, color: _blue),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Use saved details',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: _navy,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Fill household address, living-with and emergency contacts.',
+                  style: TextStyle(fontSize: 12, color: _muted),
+                ),
+              ],
+            ),
+          ),
+          TextButton(onPressed: _useSavedDetails, child: const Text('Use')),
+        ],
+      ),
+    );
+  }
+
   Widget _stepStudent() {
     return _section(
       1,
       'Student Information',
       children: [
+        if (_hasSavedDetails) ...[
+          _buildSavedDetailsAction(),
+          const SizedBox(height: 16),
+        ],
         _branchSelect(),
         _input(
           'First Name (Lao)',

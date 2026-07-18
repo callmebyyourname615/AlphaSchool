@@ -438,6 +438,55 @@ class StudentDraftStore {
   }
 }
 
+/// Stores only household details that can safely be re-used when a parent
+/// registers another child. Student identity and education history are never
+/// included in this record.
+class StudentReusableDetailsStore {
+  static const _key = 'student_reusable_details_v1';
+
+  static Future<void> save(StudentSubmission submission) async {
+    final details = <String, dynamic>{
+      'nationality': submission.nationality.trim(),
+      'ethnicity': submission.ethnicity.trim(),
+      'religion': submission.religion.trim(),
+      'village': submission.village.trim(),
+      'district': submission.district.trim(),
+      'province': submission.province.trim(),
+      'districtId': submission.districtId.trim(),
+      'provinceId': submission.provinceId.trim(),
+      'districtName': submission.districtName.trim(),
+      'provinceName': submission.provinceName.trim(),
+      'livingWith': submission.livingWith
+          .map((entry) => entry.toDraft())
+          .toList(),
+      'emergencyContacts': submission.emergencyContacts
+          .map((entry) => entry.toDraft())
+          .toList(),
+    };
+    final hasReusableValue = details.entries.any((entry) {
+      final value = entry.value;
+      return value is String
+          ? value.isNotEmpty
+          : value is List && value.isNotEmpty;
+    });
+    if (!hasReusableValue) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_key, jsonEncode(details));
+  }
+
+  static Future<Map<String, dynamic>?> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_key);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
 /// A pre-existing student the backend flagged as a likely duplicate of the
 /// one being submitted (same parent, matching name + date of birth).
 class DuplicateStudentMatch {
