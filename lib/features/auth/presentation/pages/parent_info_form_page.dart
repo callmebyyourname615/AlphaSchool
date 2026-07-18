@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../../../core/theme/app_icons.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
@@ -1003,6 +1006,10 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
               ),
             ),
           ),
+          if (isFamilyBook && selected != null) ...[
+            const SizedBox(height: 10),
+            _buildFamilyBookFileList(selected),
+          ],
           if (error != null)
             Padding(
               padding: const EdgeInsets.only(top: 5),
@@ -1014,6 +1021,173 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         ],
       ),
     );
+  }
+
+  Widget _buildFamilyBookFileList(_ParentAttachmentDraft selected) {
+    final imageDrafts = _familyBookImages;
+    final isImageList = imageDrafts.isNotEmpty;
+    final count = isImageList ? imageDrafts.length : 1;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: _blueSofter,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _slate200),
+      ),
+      child: Column(
+        children: [
+          for (var index = 0; index < count; index++) ...[
+            if (index > 0) const Divider(height: 1, color: _slate200),
+            Builder(
+              builder: (_) {
+                final image = isImageList ? imageDrafts[index] : null;
+                final filename = image?.name ?? selected.displayName;
+                final isPdf = image == null;
+                return ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.only(left: 12, right: 4),
+                  leading: Icon(
+                    isPdf ? LucideIcons.fileText : LucideIcons.image,
+                    size: 18,
+                    color: _blue,
+                  ),
+                  title: Text(
+                    filename,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: _navy,
+                    ),
+                  ),
+                  trailing: Wrap(
+                    spacing: 0,
+                    children: [
+                      IconButton(
+                        tooltip: 'Preview',
+                        icon: const Icon(LucideIcons.eye, size: 18),
+                        onPressed: () => isPdf
+                            ? _previewFamilyBookPdf(selected)
+                            : _previewFamilyBookImage(image),
+                      ),
+                      IconButton(
+                        tooltip: 'Remove',
+                        icon: const Icon(
+                          LucideIcons.trash2,
+                          size: 17,
+                          color: _rose500,
+                        ),
+                        onPressed: () => isPdf
+                            ? _removeFamilyBookPdf()
+                            : _removeFamilyBookImage(index),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _removeFamilyBookPdf() {
+    setState(() {
+      _attachments.remove('family_book');
+      _familyBookImages.clear();
+    });
+  }
+
+  void _removeFamilyBookImage(int index) {
+    setState(() {
+      _familyBookImages.removeAt(index);
+      if (_familyBookImages.isEmpty) {
+        _attachments.remove('family_book');
+        return;
+      }
+      final imageCount = _familyBookImages.length;
+      final baseName = imageCount == 1
+          ? _basenameWithoutExtension(_familyBookImages.first.name)
+          : 'family_book_${imageCount}_images';
+      _attachments['family_book'] = _ParentAttachmentDraft(
+        bytes: Uint8List(0),
+        filename: '$baseName.pdf',
+        displayName: imageCount == 1
+            ? '${_familyBookImages.first.name} -> PDF'
+            : '$imageCount images -> PDF',
+        deferUntilSubmit: true,
+      );
+    });
+  }
+
+  Future<void> _previewFamilyBookImage(_FamilyBookImageDraft image) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720, maxHeight: 760),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        image.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(LucideIcons.x),
+                    ),
+                  ],
+                ),
+              ),
+              Flexible(
+                child: InteractiveViewer(
+                  child: Image.memory(image.bytes, fit: BoxFit.contain),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _previewFamilyBookPdf(_ParentAttachmentDraft attachment) async {
+    try {
+      final temporaryDirectory = await getTemporaryDirectory();
+      final previewFile = File(
+        '${temporaryDirectory.path}/${attachment.filename}',
+      );
+      await previewFile.writeAsBytes(attachment.bytes, flush: true);
+      final opened = await launchUrl(
+        Uri.file(previewFile.path),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!opened && mounted) {
+        GlobalAlert.showError(
+          title: 'Preview unavailable',
+          message: 'Could not open this PDF on this device.',
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        GlobalAlert.showError(
+          title: 'Preview unavailable',
+          message: 'Could not prepare this PDF for preview.',
+        );
+      }
+    }
   }
 
   Future<_ParentAttachmentDraft?> _pickSingleAttachment(
