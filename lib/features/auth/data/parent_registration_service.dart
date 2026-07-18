@@ -232,6 +232,67 @@ class ParentRegistrationService {
   }
 
   static const _kStorageKey = 'pending_parent_application';
+  static const _kReusableDetailsStorageKey = 'parent_reusable_details_v1';
+
+  static const _reusableDetailFields = <String>{
+    'Firstname_Lao',
+    'Firstname_Eng',
+    'Midlename_Lao',
+    'Midlename_Eng',
+    'Lastname_Lao',
+    'Lastname_Eng',
+    'Nickname',
+    'DateofBirth',
+    'Gender',
+    'Educatio_Level',
+    'Job',
+    'Workplace',
+    'Email',
+    'Phone_No1',
+    'Phone_No2',
+    'Nationality',
+    'Ethnicty',
+    'Religion',
+    'Home_no',
+    'Home_unit',
+    'Village',
+    'District',
+    'Province',
+  };
+
+  Future<void> saveReusableDetails(Map<String, String> formData) async {
+    final details = <String, String>{
+      for (final entry in formData.entries)
+        if (_reusableDetailFields.contains(entry.key) &&
+            entry.value.trim().isNotEmpty)
+          entry.key: entry.value.trim(),
+    };
+    if (details.isEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kReusableDetailsStorageKey, jsonEncode(details));
+  }
+
+  Future<Map<String, String>> loadReusableDetails() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kReusableDetailsStorageKey);
+    if (raw == null || raw.isEmpty) return const {};
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return const {};
+      return Map<String, String>.fromEntries(
+        decoded.entries
+            .where(
+              (entry) => _reusableDetailFields.contains(entry.key.toString()),
+            )
+            .map(
+              (entry) => MapEntry(entry.key.toString(), entry.value.toString()),
+            ),
+      );
+    } catch (_) {
+      return const {};
+    }
+  }
 
   Future<void> savePending({
     required String id,

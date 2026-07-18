@@ -97,6 +97,8 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   final ParentRegistrationService _service = ParentRegistrationService();
   List<_ParentProvinceOption> _provinces = const [];
   bool _provincesLoading = false;
+  bool _hasSavedDetails = false;
+  int _formRevision = 0;
 
   @override
   void initState() {
@@ -106,7 +108,12 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
 
   Future<void> _bootstrap() async {
     _loadProvinces();
-    final pending = await _service.loadPending();
+    final results = await Future.wait([
+      _service.loadPending(),
+      _service.loadReusableDetails(),
+    ]);
+    final pending = results[0] as PendingApplication?;
+    final reusableDetails = results[1] as Map<String, String>;
     if (!mounted) return;
     if (pending != null) {
       setState(() {
@@ -118,12 +125,31 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         _data
           ..clear()
           ..addAll(pending.formData);
+        _hasSavedDetails = reusableDetails.isNotEmpty;
         _bootstrapping = false;
       });
       _refreshStatus(silent: true);
     } else {
-      setState(() => _bootstrapping = false);
+      setState(() {
+        _hasSavedDetails = reusableDetails.isNotEmpty;
+        _bootstrapping = false;
+      });
     }
+  }
+
+  Future<void> _useSavedDetails() async {
+    final savedDetails = await _service.loadReusableDetails();
+    if (!mounted || savedDetails.isEmpty) return;
+    setState(() {
+      _data.addAll(savedDetails);
+      _errors.removeWhere((key, _) => savedDetails.containsKey(key));
+      _formRevision++;
+    });
+    GlobalAlert.showSuccess(
+      title: 'Saved details applied',
+      message:
+          'Your reusable personal, contact and address details have been filled in.',
+    );
   }
 
   Future<void> _loadProvinces() async {
@@ -339,6 +365,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         password: submittedPassword,
         formData: _data,
       );
+      await _service.saveReusableDetails(_data);
       GlobalAlert.dismiss();
       if (!mounted) return;
       setState(() {
@@ -347,6 +374,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         _pendingEmail = _data['Email'];
         _pendingPassword = submittedPassword;
         _pendingFullName = fullName.isEmpty ? null : fullName;
+        _hasSavedDetails = true;
         _passwordVisible = false;
         _rejected = false;
         _approved = false;
@@ -423,11 +451,11 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
             tooltip: 'Back',
           ),
           const SizedBox(width: 8),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Parent Information',
                   style: TextStyle(
                     fontSize: 24,
@@ -438,13 +466,19 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                   ),
                 ),
                 SizedBox(height: 5),
-                Text(
+                const Text(
                   'Tell us about yourself. Fields marked * are required.',
                   style: TextStyle(fontSize: 13, color: _muted, height: 1.35),
                 ),
               ],
             ),
           ),
+          if (!_submitted && _hasSavedDetails)
+            TextButton.icon(
+              onPressed: _useSavedDetails,
+              icon: const Icon(LucideIcons.clipboardCheck, size: 16),
+              label: const Text('Use saved details'),
+            ),
         ],
       ),
     );
@@ -1198,7 +1232,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       children: [
         _label(label, required),
         TextFormField(
-          key: ValueKey('input_$name'),
+          key: ValueKey('input_$name:$_formRevision'),
           initialValue: _data[name],
           onChanged: (v) => _set(name, v),
           keyboardType: keyboard,
@@ -1239,6 +1273,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       children: [
         _label('Province', true),
         DropdownButtonFormField<String>(
+          key: ValueKey('province_$_formRevision'),
           initialValue: selected?.id,
           isExpanded: true,
           icon: _provincesLoading
@@ -1309,6 +1344,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       children: [
         _label('District', true),
         DropdownButtonFormField<String>(
+          key: ValueKey('district_$_formRevision'),
           initialValue: selected.id.isEmpty ? null : selected.id,
           isExpanded: true,
           icon: const Icon(LucideIcons.chevronDown, color: _muted),
@@ -1366,6 +1402,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       children: [
         _label(label, required),
         DropdownButtonFormField<String>(
+          key: ValueKey('select_$name:$_formRevision'),
           initialValue: (value != null && options.contains(value))
               ? value
               : null,
