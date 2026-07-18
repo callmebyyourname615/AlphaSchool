@@ -142,11 +142,25 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   }
 
   Future<void> _useSavedDetails() async {
-    final savedDetails = await _service.loadReusableDetails();
+    final results = await Future.wait([
+      _service.loadReusableDetails(),
+      _service.loadReusableFamilyBook(),
+    ]);
+    final savedDetails = results[0] as Map<String, String>;
+    final savedFamilyBook = results[1] as ReusableParentFamilyBook?;
     if (!mounted || savedDetails.isEmpty) return;
     setState(() {
       _data.addAll(savedDetails);
+      if (savedFamilyBook != null) {
+        _familyBookImages.clear();
+        _attachments['family_book'] = _ParentAttachmentDraft(
+          bytes: savedFamilyBook.bytes,
+          filename: savedFamilyBook.filename,
+          displayName: savedFamilyBook.filename,
+        );
+      }
       _errors.removeWhere((key, _) => savedDetails.containsKey(key));
+      if (savedFamilyBook != null) _errors.remove('family_book');
       _formRevision++;
     });
     GlobalAlert.showSuccess(
@@ -335,6 +349,10 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         );
       }
       final attachments = await _buildSubmitAttachments();
+      final familyBook = attachments
+          .where((attachment) => attachment.field == 'family_book')
+          .cast<ParentAttachment?>()
+          .firstWhere((attachment) => attachment != null, orElse: () => null);
       GlobalAlert.showLoading(message: 'Submitting your application...');
       final isResubmission = _rejected && _referenceId != null;
       final result = isResubmission
@@ -370,6 +388,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         formData: _data,
       );
       await _service.saveReusableDetails(_data);
+      await _service.saveReusableFamilyBook(familyBook);
       GlobalAlert.dismiss();
       if (!mounted) return;
       setState(() {

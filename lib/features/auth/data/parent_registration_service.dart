@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/api_client.dart';
@@ -76,6 +78,13 @@ class ParentAttachment {
   });
 
   final String field;
+  final Uint8List bytes;
+  final String filename;
+}
+
+class ReusableParentFamilyBook {
+  const ReusableParentFamilyBook({required this.bytes, required this.filename});
+
   final Uint8List bytes;
   final String filename;
 }
@@ -233,6 +242,8 @@ class ParentRegistrationService {
 
   static const _kStorageKey = 'pending_parent_application';
   static const _kReusableDetailsStorageKey = 'parent_reusable_details_v1';
+  static const _kReusableFamilyBookStorageKey =
+      'parent_reusable_family_book_v1';
 
   static const _reusableDetailFields = <String>{
     'Firstname_Lao',
@@ -250,6 +261,7 @@ class ParentRegistrationService {
     'Email',
     'Phone_No1',
     'Phone_No2',
+    'FamillyBook_no',
     'Nationality',
     'Ethnicty',
     'Religion',
@@ -291,6 +303,39 @@ class ParentRegistrationService {
       );
     } catch (_) {
       return const {};
+    }
+  }
+
+  Future<void> saveReusableFamilyBook(ParentAttachment? familyBook) async {
+    if (familyBook == null || familyBook.bytes.isEmpty) return;
+    final directory = await getApplicationDocumentsDirectory();
+    final file = File('${directory.path}/parent_reusable_family_book.bin');
+    await file.writeAsBytes(familyBook.bytes, flush: true);
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _kReusableFamilyBookStorageKey,
+      jsonEncode({'filename': familyBook.filename}),
+    );
+  }
+
+  Future<ReusableParentFamilyBook?> loadReusableFamilyBook() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kReusableFamilyBookStorageKey);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final metadata = jsonDecode(raw) as Map<String, dynamic>;
+      final filename = metadata['filename']?.toString().trim() ?? '';
+      if (filename.isEmpty) return null;
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/parent_reusable_family_book.bin');
+      if (!await file.exists()) return null;
+      return ReusableParentFamilyBook(
+        bytes: await file.readAsBytes(),
+        filename: filename,
+      );
+    } catch (_) {
+      return null;
     }
   }
 
