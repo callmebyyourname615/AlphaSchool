@@ -1,12 +1,10 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
-import 'package:open_file/open_file.dart';
-import 'package:path_provider/path_provider.dart';
 import '../../../../core/theme/app_icons.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
@@ -1164,32 +1162,41 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   }
 
   Future<void> _previewFamilyBookPdf(_ParentAttachmentDraft attachment) async {
-    try {
-      final temporaryDirectory = await getTemporaryDirectory();
-      final previewFile = File(
-        '${temporaryDirectory.path}/${attachment.filename}',
-      );
-      await previewFile.writeAsBytes(attachment.bytes, flush: true);
-      final result = await OpenFile.open(
-        previewFile.path,
-        type: 'application/pdf',
-      );
-      if (result.type != ResultType.done && mounted) {
-        GlobalAlert.showError(
-          title: 'Preview unavailable',
-          message: result.message.isEmpty
-              ? 'Could not open this PDF on this device.'
-              : result.message,
-        );
-      }
-    } catch (_) {
-      if (mounted) {
-        GlobalAlert.showError(
-          title: 'Preview unavailable',
-          message: 'Could not prepare this PDF for preview.',
-        );
-      }
-    }
+    await showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        child: SizedBox(
+          width: 900,
+          height: 720,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        attachment.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(LucideIcons.x),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(child: SfPdfViewer.memory(attachment.bytes)),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<_ParentAttachmentDraft?> _pickSingleAttachment(
