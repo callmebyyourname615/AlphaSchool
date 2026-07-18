@@ -246,19 +246,9 @@ class ParentRegistrationService {
       'parent_reusable_family_book_v1';
 
   static const _reusableDetailFields = <String>{
-    'Firstname_Lao',
-    'Firstname_Eng',
-    'Midlename_Lao',
-    'Midlename_Eng',
-    'Lastname_Lao',
-    'Lastname_Eng',
-    'Nickname',
-    'DateofBirth',
-    'Gender',
     'Educatio_Level',
     'Job',
     'Workplace',
-    'Email',
     'Phone_No1',
     'Phone_No2',
     'FamillyBook_no',

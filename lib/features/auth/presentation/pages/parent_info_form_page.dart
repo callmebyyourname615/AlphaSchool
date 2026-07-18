@@ -166,7 +166,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     GlobalAlert.showSuccess(
       title: 'Saved details applied',
       message:
-          'Your reusable personal, contact and address details have been filled in.',
+          'Your saved contact, identity and address details have been filled in.',
     );
   }
 
@@ -528,7 +528,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 ),
                 SizedBox(height: 2),
                 Text(
-                  'Fill your saved personal, contact and address details.',
+                  'Fill saved contact, identity and address details.',
                   style: TextStyle(fontSize: 12, color: _muted),
                 ),
               ],
