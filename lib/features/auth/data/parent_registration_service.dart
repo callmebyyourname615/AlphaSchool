@@ -1,8 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/api_client.dart';
@@ -298,14 +296,13 @@ class ParentRegistrationService {
 
   Future<void> saveReusableFamilyBook(ParentAttachment? familyBook) async {
     if (familyBook == null || familyBook.bytes.isEmpty) return;
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/parent_reusable_family_book.bin');
-    await file.writeAsBytes(familyBook.bytes, flush: true);
-
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       _kReusableFamilyBookStorageKey,
-      jsonEncode({'filename': familyBook.filename}),
+      jsonEncode({
+        'filename': familyBook.filename,
+        'bytes': base64Encode(familyBook.bytes),
+      }),
     );
   }
 
@@ -316,12 +313,10 @@ class ParentRegistrationService {
     try {
       final metadata = jsonDecode(raw) as Map<String, dynamic>;
       final filename = metadata['filename']?.toString().trim() ?? '';
-      if (filename.isEmpty) return null;
-      final directory = await getApplicationDocumentsDirectory();
-      final file = File('${directory.path}/parent_reusable_family_book.bin');
-      if (!await file.exists()) return null;
+      final encodedBytes = metadata['bytes']?.toString() ?? '';
+      if (filename.isEmpty || encodedBytes.isEmpty) return null;
       return ReusableParentFamilyBook(
-        bytes: await file.readAsBytes(),
+        bytes: Uint8List.fromList(base64Decode(encodedBytes)),
         filename: filename,
       );
     } catch (_) {
