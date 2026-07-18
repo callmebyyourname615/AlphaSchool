@@ -113,7 +113,11 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       _service.loadReusableDetails(),
     ]);
     final pending = results[0] as PendingApplication?;
-    final reusableDetails = results[1] as Map<String, String>;
+    var reusableDetails = results[1] as Map<String, String>;
+    if (reusableDetails.isEmpty && pending?.formData.isNotEmpty == true) {
+      await _service.saveReusableDetails(pending!.formData);
+      reusableDetails = await _service.loadReusableDetails();
+    }
     if (!mounted) return;
     if (pending != null) {
       setState(() {
@@ -473,12 +477,45 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
               ],
             ),
           ),
-          if (!_submitted && _hasSavedDetails)
-            TextButton.icon(
-              onPressed: _useSavedDetails,
-              icon: const Icon(LucideIcons.clipboardCheck, size: 16),
-              label: const Text('Use saved details'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSavedDetailsAction() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _blueSoft,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFBED4FF)),
+      ),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.clipboardCheck, size: 20, color: _blue),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Use saved details',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: _navy,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Fill your saved personal, contact and address details.',
+                  style: TextStyle(fontSize: 12, color: _muted),
+                ),
+              ],
             ),
+          ),
+          TextButton(onPressed: _useSavedDetails, child: const Text('Use')),
         ],
       ),
     );
@@ -615,6 +652,10 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       case 1:
         return Column(
           children: [
+            if (_hasSavedDetails) ...[
+              _buildSavedDetailsAction(),
+              const SizedBox(height: 16),
+            ],
             _sectionCard(1, 'Create Login Account', [
               _input(
                 'Email',
