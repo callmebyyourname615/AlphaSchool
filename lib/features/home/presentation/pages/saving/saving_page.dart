@@ -1680,8 +1680,8 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
     setState(() => _amountError = err);
   }
 
-  void _setPercent(double p) {
-    final v = (widget.available * p).floor();
+  void _setQuickAmount(double amount) {
+    final v = amount.floor();
     final text = v == 0 ? '' : _amountFmt.format(v);
     _amountController.value = TextEditingValue(
       text: text,
@@ -1689,14 +1689,14 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
     );
   }
 
-  /// Index of the quick-preset chip matching the current amount, so the
+  /// Index of the quick-amount chip matching the current amount, so the
   /// segmented control can show which one is active (or none, if the user
   /// typed a custom amount).
   int? get _activePreset {
     if (_amountController.text.trim().isEmpty) return null;
-    const presets = [.25, .50, .75, 1.0];
+    const presets = [50000, 100000, 150000, 200000];
     for (var i = 0; i < presets.length; i++) {
-      if ((widget.available * presets[i]).floor() == _amount.floor()) {
+      if (presets[i] == _amount.floor()) {
         return i;
       }
     }
@@ -2047,7 +2047,7 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
   }
 
   Widget _buildQuickChips() {
-    const presets = [.25, .50, .75, 1.0];
+    const presets = [50000, 100000, 150000, 200000];
     final active = _activePreset;
     return Container(
       padding: const EdgeInsets.all(4),
@@ -2061,11 +2061,9 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
             if (i != 0) const SizedBox(width: 4),
             Expanded(
               child: _segment(
-                label: presets[i] == 1.0
-                    ? 'Max'
-                    : '${(presets[i] * 100).round()}%',
+                label: '${_amountFmt.format(presets[i])} ₭',
                 selected: active == i,
-                onTap: () => _setPercent(presets[i]),
+                onTap: () => _setQuickAmount(presets[i].toDouble()),
               ),
             ),
           ],
