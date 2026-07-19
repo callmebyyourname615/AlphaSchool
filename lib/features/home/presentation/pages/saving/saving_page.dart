@@ -718,8 +718,7 @@ class _RangeBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final locale = Localizations.localeOf(context).toString();
-    final df = _safeDateFmt('dd MMM yyyy', locale);
+    final df = _numericDateFmt();
 
     final fromText = from == null ? "Any" : df.format(from!);
     final toText = to == null ? "Any" : df.format(to!);
@@ -861,8 +860,8 @@ class _SavingTabBody extends StatelessWidget {
 
   /// Flattens rows (already newest-first) into a date-header + row sequence
   /// so each calendar day is only labeled once instead of on every row.
-  List<Object> _ledgerEntries(List<_SavingRow> rows, String locale) {
-    final df = _safeDateFmt('dd MMM yyyy', locale);
+  List<Object> _ledgerEntries(List<_SavingRow> rows) {
+    final df = _numericDateFmt();
     final entries = <Object>[];
     DateTime? lastDay;
     for (final r in rows) {
@@ -880,10 +879,7 @@ class _SavingTabBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final view = dataBuilder();
     final rows = view.rows;
-    final entries = _ledgerEntries(
-      rows,
-      Localizations.localeOf(context).toString(),
-    );
+    final entries = _ledgerEntries(rows);
 
     return _Panel(
           isDark: isDark,
@@ -1595,13 +1591,9 @@ class _SavingView {
 // ======================================================
 // FORMAT HELPERS
 // ======================================================
-DateFormat _safeDateFmt(String pattern, String localeTag) {
-  try {
-    return DateFormat(pattern, localeTag);
-  } catch (_) {
-    return DateFormat(pattern, 'en');
-  }
-}
+/// Savings dates are always numeric so they remain compact and consistent
+/// across Lao, Thai and English device locales.
+DateFormat _numericDateFmt() => DateFormat('dd/MM/yyyy', 'en');
 
 NumberFormat _safeNumFmt(String localeTag) {
   try {
