@@ -21,7 +21,7 @@ import 'package:alpha_school/features/home/presentation/pages/participant/partic
 import 'package:alpha_school/features/home/presentation/pages/participant/participant_service.dart';
 import 'package:alpha_school/features/home/presentation/pages/profile/profile.dart';
 import 'package:alpha_school/features/home/presentation/pages/saving/saving_page.dart';
-import 'package:alpha_school/features/home/presentation/pages/task/task_page.dart';
+import 'package:alpha_school/features/home/presentation/pages/task/parent_task_list_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -2366,7 +2366,10 @@ class _WalletSheet extends StatelessWidget {
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const GalleryPage()),
+            MaterialPageRoute(
+              builder: (_) =>
+                  GalleryPage(selectedStudentId: selectedStudent?.id),
+            ),
           );
         },
       ),
@@ -2405,7 +2408,10 @@ class _WalletSheet extends StatelessWidget {
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const TaskPage()),
+            MaterialPageRoute(
+              builder: (_) =>
+                  ParentTaskListPage(selectedStudent: selectedStudent),
+            ),
           );
         },
       ),

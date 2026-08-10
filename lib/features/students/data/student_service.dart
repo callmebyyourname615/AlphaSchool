@@ -35,7 +35,10 @@ class StudentService {
 
       items.add(_toCardItem(record, classNamesById));
     }
-    final linkedStudentIds = items.map((item) => item.id).whereType<String>().toSet();
+    final linkedStudentIds = items
+        .map((item) => item.id)
+        .whereType<String>()
+        .toSet();
     for (final request in linkRequests) {
       final item = _linkRequestToCardItem(request, classNamesById);
       if (item == null) continue;
@@ -74,9 +77,10 @@ class StudentService {
       'lastNameEng',
     ]);
     final classId = _readStudentClassId(record);
-    final name = [firstName, lastName]
-        .where((part) => part.isNotEmpty)
-        .join(' ');
+    final name = [
+      firstName,
+      lastName,
+    ].where((part) => part.isNotEmpty).join(' ');
     return StudentCardItem(
       id: _readString(record, const ['id']),
       studentId: studentId,
@@ -260,10 +264,10 @@ class StudentService {
         ?.toString()
         .trim()
         .toLowerCase();
-    if (raw == 'approved' || raw == 'rejected' || raw == 'pending') {
-      return raw!;
-    }
     final active = json['is_active'] ?? json['isActive'];
+    if (raw == 'rejected') return 'rejected';
+    if (active == true) return 'approved';
+    if (raw == 'approved' || raw == 'pending') return raw!;
     if (active == false) return 'pending';
     return 'approved';
   }

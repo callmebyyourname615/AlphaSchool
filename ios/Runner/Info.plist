@@ -13,6 +13,8 @@
 	<string>We need photo library access so you can upload homework.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>We need permission to save homework images to your photo library.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>We need microphone access so you can send voice messages in task chat.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use Face ID to log in automatically.</string>
 	<key>CFBundleDevelopmentRegion</key>

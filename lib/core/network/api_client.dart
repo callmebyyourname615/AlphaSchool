@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import 'api_config.dart';
 import 'api_exception.dart';
@@ -123,6 +124,7 @@ class ApiClient {
           fileField,
           fileBytes,
           filename: fileName ?? 'homework-upload.jpg',
+          contentType: _contentTypeForFilename(fileName),
         ),
       );
     }
@@ -132,6 +134,7 @@ class ApiClient {
           file.field,
           file.bytes,
           filename: file.filename,
+          contentType: _contentTypeForFilename(file.filename),
         ),
       );
     }
@@ -166,6 +169,7 @@ class ApiClient {
           file.field,
           file.bytes,
           filename: file.filename,
+          contentType: _contentTypeForFilename(file.filename),
         ),
       );
     }
@@ -234,6 +238,36 @@ class ApiClient {
           if (entry.value != null) entry.key: entry.value.toString(),
       },
     );
+  }
+
+  MediaType _contentTypeForFilename(String? filename) {
+    final extension = (filename?.split('.').last ?? '').toLowerCase();
+    switch (extension) {
+      case 'jpg':
+      case 'jpeg':
+        return MediaType('image', 'jpeg');
+      case 'png':
+        return MediaType('image', 'png');
+      case 'webp':
+        return MediaType('image', 'webp');
+      case 'gif':
+        return MediaType('image', 'gif');
+      case 'pdf':
+        return MediaType('application', 'pdf');
+      case 'doc':
+        return MediaType('application', 'msword');
+      case 'docx':
+        return MediaType(
+          'application',
+          'vnd.openxmlformats-officedocument.wordprocessingml.document',
+        );
+      case 'mp4':
+        return MediaType('video', 'mp4');
+      case 'webm':
+        return MediaType('video', 'webm');
+      default:
+        return MediaType('application', 'octet-stream');
+    }
   }
 
   dynamic _decodeResponse(http.Response response) {

@@ -144,12 +144,7 @@ class _TaskPageState extends State<TaskPage>
   }
 
   void _openDetail(TaskModel task) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) =>
-            TaskDetailPage(task: task, backgroundAsset: widget.backgroundAsset),
-      ),
-    );
+    Navigator.of(context).pushNamed('/tasks/speech-exercise', arguments: task);
   }
 
   @override
