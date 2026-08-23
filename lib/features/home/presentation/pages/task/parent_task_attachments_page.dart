@@ -651,10 +651,10 @@ class _CheckpointChip extends StatelessWidget {
 
   String get _label => switch (slot.status) {
     'submitted' ||
-    'reviewed' => _isSubmittedLate ? 'Submitted Late' : 'Submitted Early',
-    'late' => 'Submitted Late',
+    'reviewed' => _isSubmittedLate ? 'Late Submitted' : 'Early Submitted',
+    'late' => 'Late Submitted',
     'missed' => 'Missed',
-    _ => 'To submit',
+    _ => 'Due Date',
   };
 
   @override

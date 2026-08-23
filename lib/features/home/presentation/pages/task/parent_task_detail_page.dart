@@ -661,8 +661,8 @@ class _SubmissionSlotRow extends StatelessWidget {
 
   String get _submitLabel => switch (slot.status) {
     'submitted' ||
-    'reviewed' => _isSubmittedLate ? 'Submitted Late' : 'Submitted Early',
-    'late' => 'Submitted late',
+    'reviewed' => _isSubmittedLate ? 'Late Submitted' : 'Early Submitted',
+    'late' => 'Late Submitted',
     'missed' => 'Missed',
     _ => 'Waiting to submit',
   };
