@@ -10,7 +10,7 @@ import 'features/home/presentation/pages/task/task_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env', isOptional: true);
+  await dotenv.load(fileName: 'assets/config/app.env', isOptional: true);
   runApp(const CConnectApp());
 }
 

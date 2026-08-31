@@ -8,7 +8,7 @@ class ApiConfig {
   static String get baseUrl {
     final value = dotenv.env[_apiBaseUrlKey]?.trim();
     if (value == null || value.isEmpty) {
-      throw StateError('Missing $_apiBaseUrlKey in .env');
+      throw StateError('Missing $_apiBaseUrlKey in assets/config/app.env');
     }
     return value;
   }
