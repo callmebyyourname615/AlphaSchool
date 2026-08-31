@@ -14,23 +14,31 @@ class AttendanceService {
   /// `start_date`/`end_date` range is supplied (and auto-marks absentees for
   /// that date), returning every student's record for the day with the
   /// `student` relation populated -- so this matches client-side on the
-  /// nested `student.student_id`. That's the same human-readable code carried
-  /// by [StudentCardItem.studentId]; the attendance record's own top-level
-  /// `student_id` column is a foreign key holding the student's *internal
-  /// UUID*, not that code, so it can't be compared directly.
+  /// top-level `student_id` first. That column is the student's internal UUID;
+  /// [StudentCardItem.studentId] is only the human-readable student code, so it
+  /// is used as a fallback only when the card has no internal id.
   ///
   /// Returns `null` when the student has no attendance record for today or
-  /// has no `studentId` to match on.
+  /// has no id/code to match on.
   Future<TodayAttendance?> fetchTodayAttendance(StudentCardItem student) async {
+    final internalId = student.id?.trim() ?? '';
     final code = student.studentId.trim();
-    if (code.isEmpty) return null;
+    if (internalId.isEmpty && code.isEmpty) return null;
 
     final response = await _apiClient.get('/attendances');
 
     for (final record in _extractRecords(response)) {
+      if (internalId.isNotEmpty &&
+          record['student_id']?.toString().trim() == internalId) {
+        return TodayAttendance.fromJson(record);
+      }
+
       final studentJson = record['student'];
-      if (studentJson is! Map<String, dynamic>) continue;
-      if (studentJson['student_id']?.toString().trim() != code) continue;
+      if (studentJson is! Map) continue;
+      if (code.isEmpty ||
+          studentJson['student_id']?.toString().trim() != code) {
+        continue;
+      }
 
       return TodayAttendance.fromJson(record);
     }
@@ -68,7 +76,7 @@ class AttendanceService {
             .where((record) {
               if (record['student_id']?.toString() == internalId) return true;
               final nested = record['student'];
-              return nested is Map<String, dynamic> &&
+              return nested is Map &&
                   nested['student_id']?.toString().trim() == code;
             })
             .map(AttendanceRecord.fromJson)
@@ -101,6 +109,9 @@ class AttendanceService {
       }
     }
 
-    return rawList.whereType<Map<String, dynamic>>().toList();
+    return rawList
+        .whereType<Map>()
+        .map((record) => Map<String, dynamic>.from(record))
+        .toList();
   }
 }

@@ -266,6 +266,412 @@ class SchoolHistoryEntry {
   }
 }
 
+class StudentPhysicalDisabilityCategory {
+  final String title;
+  final String description;
+  final List<String> details;
+
+  const StudentPhysicalDisabilityCategory({
+    required this.title,
+    this.description = '',
+    required this.details,
+  });
+}
+
+class StudentPhysicalDisabilitySelection {
+  static const String optionTitle = 'Physical and Mobility Disabilities';
+  static const String sensoryOptionTitle = 'Sensory Disabilities';
+  static const String intellectualOptionTitle =
+      'Intellectual and Cognitive Disabilities';
+  static const String neurodevelopmentalOptionTitle =
+      'Neurodevelopmental and Learning Disabilities';
+  static const String psychiatricOptionTitle =
+      'Psychiatric and Mental Health Disabilities';
+  static const String chronicIllnessOptionTitle =
+      'Chronic Illnesses and Invisible Disabilities';
+  static const List<StudentPhysicalDisabilityCategory> categories = [
+    StudentPhysicalDisabilityCategory(
+      title: 'Mobility disability',
+      details: [
+        'Difficulty walking or using stairs',
+        'Often requiring wheelchairs, walkers, or canes.',
+      ],
+    ),
+    StudentPhysicalDisabilityCategory(
+      title: 'Amputation and Limb Differences',
+      details: ['Missing limbs from birth, accidents, or medical procedures.'],
+    ),
+    StudentPhysicalDisabilityCategory(
+      title: 'Neuromuscular Conditions',
+      details: ['Cerebral Palsy', 'Muscular Dystrophy', 'Multiple Sclerosis'],
+    ),
+    StudentPhysicalDisabilityCategory(
+      title: 'Spinal Cord Injuries',
+      details: [
+        'Trauma to the spine resulting in partial pain',
+        'Trauma to the spine resulting in full paralysis',
+      ],
+    ),
+  ];
+  static const List<StudentPhysicalDisabilityCategory> sensoryCategories = [
+    StudentPhysicalDisabilityCategory(
+      title: 'Visual differences',
+      details: [
+        'Low vision not correctable by glasses',
+        'Legal blindness',
+        'Total blindness',
+        'Colourblindness',
+        'Albinism or aniridia',
+      ],
+    ),
+    StudentPhysicalDisabilityCategory(
+      title: 'Hearing loss',
+      details: [
+        'Mild hearing loss (cannot hear soft sounds)',
+        'Moderate hearing loss (struggles to hear normal speech)',
+        'Severe hearing loss (cannot hear speech)',
+        'Profound deafness (cannot hear speech and only detects very loud sounds)',
+      ],
+    ),
+    StudentPhysicalDisabilityCategory(
+      title: 'Sensory Processing Differences',
+      details: [
+        'Interoception (Internal Senses): Processing internal bodily signals like heart rate, hunger, thirst, and the need to use the restroom.',
+      ],
+    ),
+  ];
+  static const List<StudentPhysicalDisabilityCategory> intellectualCategories =
+      [
+        StudentPhysicalDisabilityCategory(
+          title: 'Mild intellectual disability',
+          details: [],
+        ),
+        StudentPhysicalDisabilityCategory(
+          title: 'Moderate intellectual disability',
+          details: [],
+        ),
+        StudentPhysicalDisabilityCategory(
+          title: 'Severe intellectual disability',
+          details: [],
+        ),
+        StudentPhysicalDisabilityCategory(
+          title: 'Traumatic Brain Injuries (TBI)',
+          details: [],
+        ),
+        StudentPhysicalDisabilityCategory(
+          title: 'Hypoxic/Anoxic Brain Injury',
+          details: [],
+        ),
+        StudentPhysicalDisabilityCategory(title: 'Stroke', details: []),
+      ];
+  static const List<StudentPhysicalDisabilityCategory>
+  neurodevelopmentalCategories = [
+    StudentPhysicalDisabilityCategory(
+      title: 'Specific Learning Disabilities',
+      description: 'Difficulties with specific academic skills, such as',
+      details: [
+        'Dyslexia (reading)',
+        'Dyscalculia (math)',
+        'Dysgraphia (writing)',
+      ],
+    ),
+    StudentPhysicalDisabilityCategory(
+      title: 'Autism Spectrum Disorder (ASD)',
+      details: [],
+    ),
+    StudentPhysicalDisabilityCategory(title: 'ADHD', details: []),
+    StudentPhysicalDisabilityCategory(
+      title: 'Foetal alcohol spectrum disorders',
+      details: [],
+    ),
+    StudentPhysicalDisabilityCategory(
+      title: 'Developmental language disorder',
+      details: [],
+    ),
+  ];
+  static const List<StudentPhysicalDisabilityCategory> psychiatricCategories = [
+    StudentPhysicalDisabilityCategory(
+      title: 'Mood Disorders',
+      details: ['Major Depressive Disorder', 'Bipolar Disorder.'],
+    ),
+    StudentPhysicalDisabilityCategory(
+      title: 'Anxiety Disorders',
+      details: [
+        'Severe anxiety',
+        'Panic Disorder',
+        'Obsessive-Compulsive Disorder (OCD)',
+        'Post-Traumatic Stress Disorder (PTSD)',
+      ],
+    ),
+  ];
+  static const List<StudentPhysicalDisabilityCategory>
+  chronicIllnessCategories = [
+    StudentPhysicalDisabilityCategory(
+      title: 'Respiratory and Cardiovascular Conditions',
+      description: 'Severe',
+      details: ['Asthma'],
+    ),
+  ];
+
+  bool physicalMobilityDisabilities = false;
+  bool sensoryDisabilities = false;
+  bool intellectualCognitiveDisabilities = false;
+  bool neurodevelopmentalLearningDisabilities = false;
+  bool psychiatricMentalHealthDisabilities = false;
+  bool chronicIllnessesInvisibleDisabilities = false;
+  final Set<String> selectedCategories = {};
+  final Map<String, Set<String>> selectedDetails = {};
+
+  bool get isSelected =>
+      physicalMobilityDisabilities ||
+      sensoryDisabilities ||
+      intellectualCognitiveDisabilities ||
+      neurodevelopmentalLearningDisabilities ||
+      psychiatricMentalHealthDisabilities ||
+      chronicIllnessesInvisibleDisabilities;
+
+  Map<String, dynamic> toDraft() => {
+    'physicalMobilityDisabilities': physicalMobilityDisabilities,
+    'sensoryDisabilities': sensoryDisabilities,
+    'intellectualCognitiveDisabilities': intellectualCognitiveDisabilities,
+    'neurodevelopmentalLearningDisabilities':
+        neurodevelopmentalLearningDisabilities,
+    'psychiatricMentalHealthDisabilities': psychiatricMentalHealthDisabilities,
+    'chronicIllnessesInvisibleDisabilities':
+        chronicIllnessesInvisibleDisabilities,
+    'selectedCategories': selectedCategories.toList(),
+    'selectedDetails': selectedDetails.map(
+      (key, value) => MapEntry(key, value.toList()),
+    ),
+  };
+
+  void hydrateFromDraft(Map<String, dynamic> j) {
+    physicalMobilityDisabilities =
+        j['physicalMobilityDisabilities'] == true ||
+        j['physical_mobility_disabilities'] == true;
+    sensoryDisabilities =
+        j['sensoryDisabilities'] == true || j['sensory_disabilities'] == true;
+    intellectualCognitiveDisabilities =
+        j['intellectualCognitiveDisabilities'] == true ||
+        j['intellectual_cognitive_disabilities'] == true;
+    neurodevelopmentalLearningDisabilities =
+        j['neurodevelopmentalLearningDisabilities'] == true ||
+        j['neurodevelopmental_learning_disabilities'] == true;
+    psychiatricMentalHealthDisabilities =
+        j['psychiatricMentalHealthDisabilities'] == true ||
+        j['psychiatric_mental_health_disabilities'] == true;
+    chronicIllnessesInvisibleDisabilities =
+        j['chronicIllnessesInvisibleDisabilities'] == true ||
+        j['chronic_illnesses_invisible_disabilities'] == true;
+    selectedCategories
+      ..clear()
+      ..addAll(((j['selectedCategories'] as List?) ?? []).map((e) => '$e'));
+    selectedDetails
+      ..clear()
+      ..addAll(
+        ((j['selectedDetails'] as Map?) ?? {}).map(
+          (key, value) => MapEntry(
+            '$key',
+            ((value as List?) ?? []).map((e) => '$e').toSet(),
+          ),
+        ),
+      );
+  }
+
+  void hydrateFromApi(dynamic value) {
+    final rows = switch (value) {
+      List() => value,
+      String() => _tryDecodeList(value),
+      _ => const [],
+    };
+    if (rows.isEmpty) return;
+    final flattened = rows
+        .whereType<Map>()
+        .map((item) => item.values.join(' '))
+        .join(' ')
+        .toLowerCase();
+    physicalMobilityDisabilities =
+        flattened.contains(optionTitle.toLowerCase()) ||
+        flattened.contains('mobility disability') ||
+        flattened.contains('spinal cord injuries');
+    sensoryDisabilities =
+        flattened.contains(sensoryOptionTitle.toLowerCase()) ||
+        flattened.contains('visual differences') ||
+        flattened.contains('hearing loss') ||
+        flattened.contains('sensory processing differences');
+    intellectualCognitiveDisabilities =
+        flattened.contains(intellectualOptionTitle.toLowerCase()) ||
+        flattened.contains('mild intellectual disability') ||
+        flattened.contains('traumatic brain injuries') ||
+        flattened.contains('hypoxic/anoxic brain injury') ||
+        flattened.contains('stroke');
+    neurodevelopmentalLearningDisabilities =
+        flattened.contains(neurodevelopmentalOptionTitle.toLowerCase()) ||
+        flattened.contains('specific learning disabilities') ||
+        flattened.contains('autism spectrum disorder') ||
+        flattened.contains('adhd') ||
+        flattened.contains('foetal alcohol spectrum disorders') ||
+        flattened.contains('developmental language disorder');
+    psychiatricMentalHealthDisabilities =
+        flattened.contains(psychiatricOptionTitle.toLowerCase()) ||
+        flattened.contains('mood disorders') ||
+        flattened.contains('major depressive disorder') ||
+        flattened.contains('bipolar disorder') ||
+        flattened.contains('anxiety disorders') ||
+        flattened.contains('obsessive-compulsive disorder') ||
+        flattened.contains('post-traumatic stress disorder');
+    chronicIllnessesInvisibleDisabilities =
+        flattened.contains(chronicIllnessOptionTitle.toLowerCase()) ||
+        flattened.contains('respiratory and cardiovascular conditions') ||
+        flattened.contains('asthma');
+    if (!isSelected) return;
+    for (final category in [
+      ...categories,
+      ...sensoryCategories,
+      ...intellectualCategories,
+      ...neurodevelopmentalCategories,
+      ...psychiatricCategories,
+      ...chronicIllnessCategories,
+    ]) {
+      if (flattened.contains(category.title.toLowerCase())) {
+        selectedCategories.add(category.title);
+      }
+      for (final detail in category.details) {
+        if (flattened.contains(detail.toLowerCase())) {
+          selectedCategories.add(category.title);
+          selectedDetails
+              .putIfAbsent(category.title, () => <String>{})
+              .add(detail);
+        }
+      }
+    }
+  }
+
+  List<dynamic> _tryDecodeList(String value) {
+    try {
+      final decoded = jsonDecode(value);
+      return decoded is List ? decoded : const [];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  List<Map<String, dynamic>> toJson() {
+    if (!isSelected) return const [];
+    return [
+      {'other_condition': _serializedSummary()},
+    ];
+  }
+
+  List<String> reviewReasons() {
+    if (!isSelected) return const [];
+    final parts = <String>[
+      if (physicalMobilityDisabilities) optionTitle,
+      if (sensoryDisabilities) sensoryOptionTitle,
+      if (intellectualCognitiveDisabilities) intellectualOptionTitle,
+      if (neurodevelopmentalLearningDisabilities) neurodevelopmentalOptionTitle,
+      if (psychiatricMentalHealthDisabilities) psychiatricOptionTitle,
+      if (chronicIllnessesInvisibleDisabilities) chronicIllnessOptionTitle,
+    ];
+    for (final category in [
+      ...categories,
+      ...sensoryCategories,
+      ...intellectualCategories,
+      ...neurodevelopmentalCategories,
+      ...psychiatricCategories,
+      ...chronicIllnessCategories,
+    ]) {
+      if (!selectedCategories.contains(category.title)) continue;
+      final details = selectedDetails[category.title] ?? const <String>{};
+      parts.add(
+        details.isEmpty
+            ? category.title
+            : '${category.title}: ${details.join('; ')}',
+      );
+    }
+    return parts;
+  }
+
+  String _serializedSummary() => reviewReasons().join(' | ');
+
+  void setMainSelected(bool value) {
+    setMainOptionSelected(optionTitle, value);
+  }
+
+  bool isMainOptionSelected(String title) => switch (title) {
+    optionTitle => physicalMobilityDisabilities,
+    sensoryOptionTitle => sensoryDisabilities,
+    intellectualOptionTitle => intellectualCognitiveDisabilities,
+    neurodevelopmentalOptionTitle => neurodevelopmentalLearningDisabilities,
+    psychiatricOptionTitle => psychiatricMentalHealthDisabilities,
+    chronicIllnessOptionTitle => chronicIllnessesInvisibleDisabilities,
+    _ => false,
+  };
+
+  void setMainOptionSelected(String title, bool value) {
+    switch (title) {
+      case optionTitle:
+        physicalMobilityDisabilities = value;
+      case sensoryOptionTitle:
+        sensoryDisabilities = value;
+      case intellectualOptionTitle:
+        intellectualCognitiveDisabilities = value;
+      case neurodevelopmentalOptionTitle:
+        neurodevelopmentalLearningDisabilities = value;
+      case psychiatricOptionTitle:
+        psychiatricMentalHealthDisabilities = value;
+      case chronicIllnessOptionTitle:
+        chronicIllnessesInvisibleDisabilities = value;
+    }
+    if (!value) {
+      for (final category in categoriesFor(title)) {
+        selectedCategories.remove(category.title);
+        selectedDetails.remove(category.title);
+      }
+    }
+  }
+
+  List<StudentPhysicalDisabilityCategory> categoriesFor(String title) {
+    return switch (title) {
+      optionTitle => categories,
+      sensoryOptionTitle => sensoryCategories,
+      intellectualOptionTitle => intellectualCategories,
+      neurodevelopmentalOptionTitle => neurodevelopmentalCategories,
+      psychiatricOptionTitle => psychiatricCategories,
+      chronicIllnessOptionTitle => chronicIllnessCategories,
+      _ => const [],
+    };
+  }
+
+  bool isCategorySelected(String title) => selectedCategories.contains(title);
+
+  void setCategorySelected(String title, bool value) {
+    if (value) {
+      selectedCategories.add(title);
+    } else {
+      selectedCategories.remove(title);
+      selectedDetails.remove(title);
+    }
+  }
+
+  bool isDetailSelected(String categoryTitle, String detail) =>
+      selectedDetails[categoryTitle]?.contains(detail) ?? false;
+
+  void setDetailSelected(String categoryTitle, String detail, bool value) {
+    final details = selectedDetails.putIfAbsent(
+      categoryTitle,
+      () => <String>{},
+    );
+    if (value) {
+      selectedCategories.add(categoryTitle);
+      details.add(detail);
+    } else {
+      details.remove(detail);
+      if (details.isEmpty) selectedDetails.remove(categoryTitle);
+    }
+  }
+}
+
 class StudentSubmission {
   // Step 1 — Student basic
   String firstNameLao = '';
@@ -281,6 +687,9 @@ class StudentSubmission {
   String ethnicity = '';
   String religion = '';
   String passportNo = '';
+
+  final StudentPhysicalDisabilitySelection physicalDisability =
+      StudentPhysicalDisabilitySelection();
 
   // Step 2 — Place of Birth + Current Address
   String villageBirth = '';
@@ -326,6 +735,7 @@ class StudentSubmission {
     'ethnicity': ethnicity,
     'religion': religion,
     'passportNo': passportNo,
+    'physicalDisability': physicalDisability.toDraft(),
     'villageBirth': villageBirth,
     'districtBirth': districtBirth,
     'provinceBirth': provinceBirth,
@@ -357,6 +767,11 @@ class StudentSubmission {
     ethnicity = (j['ethnicity'] ?? '').toString();
     religion = (j['religion'] ?? '').toString();
     passportNo = (j['passportNo'] ?? '').toString();
+    if (j['physicalDisability'] is Map) {
+      physicalDisability.hydrateFromDraft(
+        Map<String, dynamic>.from(j['physicalDisability'] as Map),
+      );
+    }
     villageBirth = (j['villageBirth'] ?? '').toString();
     districtBirth = (j['districtBirth'] ?? '').toString();
     provinceBirth = (j['provinceBirth'] ?? '').toString();
@@ -396,8 +811,9 @@ class StudentSubmission {
           (m) => EmergencyContactEntry.fromDraft(Map<String, dynamic>.from(m)),
         ),
       );
-    if (emergencyContacts.isEmpty)
+    if (emergencyContacts.isEmpty) {
       emergencyContacts.add(EmergencyContactEntry());
+    }
   }
 }
 
@@ -551,6 +967,18 @@ class StudentRegistrationService {
     return 'PENDING-${ts.substring(ts.length - 9)}';
   }
 
+  void _addSpecialReviewFields(
+    Map<String, dynamic> body,
+    StudentSubmission s,
+  ) {
+    final reasons = s.physicalDisability.reviewReasons();
+    body['physical_disability'] = s.physicalDisability.isSelected
+        ? s.physicalDisability.toJson()
+        : <Map<String, dynamic>>[];
+    body['health_review_required'] = reasons.isNotEmpty;
+    body['health_review_reasons'] = reasons;
+  }
+
   Future<Map<String, dynamic>> register({
     required StudentSubmission s,
     required String parentId,
@@ -558,7 +986,7 @@ class StudentRegistrationService {
   }) async {
     final branchId = await _resolveBranchId();
     if (branchId == null) {
-      throw ApiException('No school branch found. Please contact admin.');
+      throw const ApiException('No school branch found. Please contact admin.');
     }
 
     final body = <String, dynamic>{
@@ -613,6 +1041,7 @@ class StudentRegistrationService {
       if (!s.primary.isEmpty) 'his_school_primary': [s.primary.toJson()],
       'parentIds': [parentId],
     };
+    _addSpecialReviewFields(body, s);
 
     try {
       final res = await _api.post('/students', body: body);
@@ -720,6 +1149,7 @@ class StudentRegistrationService {
       if (!s.primary.isEmpty) 'his_school_primary': [s.primary.toJson()],
       if (includeParentIds != null) 'parentIds': [includeParentIds],
     };
+    _addSpecialReviewFields(body, s);
     return body;
   }
 }

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/theme/app_icons.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
@@ -9,6 +10,8 @@ import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/global_alert_service.dart';
+import '../../../home/presentation/pages/contact/branch_model.dart';
+import '../../../home/presentation/pages/contact/branch_service.dart';
 import '../../data/parent_registration_service.dart';
 import 'login_page.dart';
 
@@ -42,6 +45,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       'Email',
       'Password',
       'ConfirmPassword',
+      'Branch',
       'Firstname_Lao',
       'Firstname_Eng',
       'Midlename_Lao',
@@ -97,6 +101,11 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   String? _rejectReason;
   final PageController _pageController = PageController();
   final ParentRegistrationService _service = ParentRegistrationService();
+  static const String _kSelectedBranchIdKey = 'selected_branch_id';
+  final BranchService _branchService = BranchService();
+  List<BranchInfo> _branches = const [];
+  bool _branchesLoading = false;
+  String? _branchId;
   List<_ParentProvinceOption> _provinces = const [];
   bool _provincesLoading = false;
   bool _hasSavedDetails = false;
@@ -105,7 +114,42 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   @override
   void initState() {
     super.initState();
+    _loadBranches();
+    _prefillSavedBranch();
     _bootstrap();
+  }
+
+  Future<void> _prefillSavedBranch() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_kSelectedBranchIdKey);
+    if (saved == null || saved.isEmpty) return;
+    if (!mounted) return;
+    setState(() {
+      if ((_data['Branch'] ?? '').isNotEmpty) return;
+      _branchId = saved;
+      _data['Branch'] = saved;
+    });
+  }
+
+  Future<void> _loadBranches() async {
+    if (_branchesLoading) return;
+    setState(() => _branchesLoading = true);
+    try {
+      final list = await _branchService.fetchBranches();
+      if (!mounted) return;
+      setState(() {
+        _branches = list;
+        _branchesLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _branchesLoading = false);
+    }
+  }
+
+  Future<void> _saveBranchSelection(String branchId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kSelectedBranchIdKey, branchId);
   }
 
   Future<void> _bootstrap() async {
@@ -122,6 +166,11 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     }
     if (!mounted) return;
     if (pending != null) {
+      final pendingBranch = pending.formData['Branch'];
+      if (pendingBranch != null && pendingBranch.isNotEmpty) {
+        await _saveBranchSelection(pendingBranch);
+      }
+      if (!mounted) return;
       setState(() {
         _submitted = true;
         _referenceId = pending.id;
@@ -131,6 +180,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         _data
           ..clear()
           ..addAll(pending.formData);
+        _branchId = pending.formData['Branch'] ?? _branchId;
         _hasSavedDetails = reusableDetails.isNotEmpty;
         _bootstrapping = false;
       });
@@ -159,8 +209,15 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       );
       return;
     }
+    final savedBranch = savedDetails['Branch'];
+    if (savedBranch != null && savedBranch.isNotEmpty) {
+      await _saveBranchSelection(savedBranch);
+    }
     setState(() {
       _data.addAll(savedDetails);
+      if (savedBranch != null && savedBranch.isNotEmpty) {
+        _branchId = savedBranch;
+      }
       if (savedFamilyBook != null) {
         _familyBookImages.clear();
         _attachments['family_book'] = _ParentAttachmentDraft(
@@ -350,6 +407,11 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
 
   Future<void> _onSubmit() async {
     if (!_validate() || _submitting) return;
+    final selectedBranchId = (_data['Branch'] ?? _branchId ?? '').trim();
+    if (selectedBranchId.isNotEmpty) {
+      _data['Branch'] = selectedBranchId;
+      await _saveBranchSelection(selectedBranchId);
+    }
     setState(() {
       _submitting = true;
       _submissionMessage = 'Preparing your application...';
@@ -552,11 +614,11 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
             tooltip: 'Back',
           ),
           const SizedBox(width: 8),
-          Expanded(
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Parent Information',
                   style: TextStyle(
                     fontSize: 24,
@@ -567,7 +629,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                   ),
                 ),
                 SizedBox(height: 5),
-                const Text(
+                Text(
                   'Tell us about yourself. Fields marked * are required.',
                   style: TextStyle(fontSize: 13, color: _muted, height: 1.35),
                 ),
@@ -803,6 +865,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                   tooltip: _confirmPasswordVisible ? 'Hide' : 'Show',
                 ),
               ),
+              _branchSelect(),
             ]),
             const SizedBox(height: 16),
             _sectionCard(1, 'Personal Information', [
@@ -1534,6 +1597,81 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       ),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
       isDense: true,
+    );
+  }
+
+  Widget _branchSelect() {
+    final err = _errors['Branch'];
+    final value = _branchId ?? _data['Branch'];
+    final hasValue = value != null && _branches.any((b) => b.id == value);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label("Child's Branch", true),
+        DropdownButtonFormField<String>(
+          key: ValueKey(
+            'branch_${_formRevision}_${_branches.length}_${value ?? ''}',
+          ),
+          initialValue: hasValue ? value : null,
+          isExpanded: true,
+          icon: _branchesLoading
+              ? const SizedBox(
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: _muted,
+                  ),
+                )
+              : const Icon(LucideIcons.chevronDown, color: _muted),
+          hint: Text(
+            _branchesLoading
+                ? 'Loading branches...'
+                : "Select your child's branch",
+            style: const TextStyle(color: _slate400, fontSize: 14),
+          ),
+          style: const TextStyle(
+            fontSize: 16,
+            color: _navy,
+            fontWeight: FontWeight.w500,
+          ),
+          decoration: _decoration(null, err),
+          items: _branches
+              .map(
+                (b) => DropdownMenuItem(
+                  value: b.id,
+                  child: Text(
+                    b.name.isEmpty ? b.code : b.name,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: _branches.isEmpty
+              ? null
+              : (v) {
+                  if (v == null) return;
+                  setState(() {
+                    _branchId = v;
+                    _data['Branch'] = v;
+                    _errors.remove('Branch');
+                  });
+                  _saveBranchSelection(v);
+                },
+        ),
+        if (err != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              err,
+              style: const TextStyle(
+                fontSize: 13,
+                color: _rose500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+      ],
     );
   }
 

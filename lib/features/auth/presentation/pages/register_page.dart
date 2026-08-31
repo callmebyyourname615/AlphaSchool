@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:lottie/lottie.dart';
 import '../../../../core/theme/app_icons.dart';
 
 import 'parent_info_form_page.dart';
@@ -38,38 +42,12 @@ class RegisterPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  SizedBox(
-                    height: 220,
+                  const SizedBox(
+                    height: 360,
                     width: double.infinity,
-                    child: Image.asset(
-                      'assets/images/register/register.png',
-                      fit: BoxFit.contain,
-                    ),
+                    child: _RegisterAnimation(),
                   ),
-                  const SizedBox(height: 22),
-                  const Text(
-                    'Apply to Our School',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: _navy,
-                      fontSize: 30,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -.8,
-                      height: 1.15,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Please fill in the application form\neasily in just a few steps.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: _muted,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   const _BenefitRow(
                     icon: LucideIcons.refreshCw,
                     title: 'Fast & Easy',
@@ -124,6 +102,109 @@ class RegisterPage extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _RegisterAnimation extends StatefulWidget {
+  const _RegisterAnimation();
+
+  @override
+  State<_RegisterAnimation> createState() => _RegisterAnimationState();
+}
+
+class _RegisterAnimationState extends State<_RegisterAnimation> {
+  static const _animations = [
+    'assets/lottie/exams_preparation.json',
+    'assets/lottie/kids_studying_from_home.json',
+    'assets/lottie/student.json',
+  ];
+  static const _animationScales = [1.0, 1.0, .86];
+
+  Timer? _autoTimer;
+  int _animationIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _autoTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted) return;
+      setState(() {
+        _animationIndex = (_animationIndex + 1) % _animations.length;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoTimer?.cancel();
+    super.dispose();
+  }
+
+  Widget _fallback() =>
+      Image.asset('assets/images/register/register.png', fit: BoxFit.contain);
+
+  Widget _lottie(String path) {
+    if (kIsWeb) {
+      return Lottie.network(
+        path,
+        fit: BoxFit.contain,
+        repeat: true,
+        errorBuilder: (_, __, ___) => _fallback(),
+      );
+    }
+
+    return Lottie.asset(
+      path,
+      fit: BoxFit.contain,
+      repeat: true,
+      errorBuilder: (_, __, ___) => _fallback(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final path = _animations[_animationIndex];
+    final scale = _animationScales[_animationIndex];
+    return Stack(
+      children: [
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 620),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeOutCubic,
+          transitionBuilder: (child, animation) =>
+              FadeTransition(opacity: animation, child: child),
+          child: Padding(
+            key: ValueKey(path),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Transform.scale(scale: scale, child: _lottie(path)),
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 6,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (var i = 0; i < _animations.length; i++)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeOutCubic,
+                  width: _animationIndex == i ? 18 : 7,
+                  height: 7,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: _animationIndex == i
+                        ? RegisterPage._blue
+                        : const Color(0xFFD9E2F2),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

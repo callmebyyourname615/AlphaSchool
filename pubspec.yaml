@@ -64,6 +64,7 @@ dependencies:
   qr_flutter: ^4.1.0
   record: ^6.1.2
   path_provider: ^2.1.5
+  lottie: ^3.3.3
 
 dev_dependencies:
   flutter_test:
@@ -99,6 +100,7 @@ flutter:
     - assets/images/profile/me.jpg
     - assets/images/icons/
     - assets/images/register/
+    - assets/lottie/
     - assets/images/login/
     - assets/images/logo/
 

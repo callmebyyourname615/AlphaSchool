@@ -120,6 +120,7 @@ class ParentRegistrationService {
     'Village': 'village',
     'District': 'district',
     'Province': 'province',
+    'Branch': 'branch_id',
   };
 
   static const _requiredStringFields = [
@@ -152,6 +153,11 @@ class ParentRegistrationService {
     body['username'] = email;
     body['password'] = password;
     body['is_active'] = false;
+    final branchId = (body['branch_id'] ?? body['branchId'])?.toString().trim();
+    if (branchId != null && branchId.isNotEmpty) {
+      body['branch_id'] = branchId;
+      body['branchId'] = branchId;
+    }
 
     final existing = await _findByEmail(email);
     if (existing != null) {
@@ -205,6 +211,11 @@ class ParentRegistrationService {
       'approval_status': 'pending',
       'reject_reason': '',
     };
+    final branchId = (fields['branch_id'] ?? fields['branchId'])?.trim();
+    if (branchId != null && branchId.isNotEmpty) {
+      fields['branch_id'] = branchId;
+      fields['branchId'] = branchId;
+    }
     final files = attachments
         .map(
           (file) => MultipartFilePart(
@@ -258,6 +269,7 @@ class ParentRegistrationService {
     'Village',
     'District',
     'Province',
+    'Branch',
   };
 
   Future<void> saveReusableDetails(Map<String, String> formData) async {

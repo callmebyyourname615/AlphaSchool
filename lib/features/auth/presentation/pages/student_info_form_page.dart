@@ -307,6 +307,9 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           ..provinceId = draft.provinceId
           ..districtName = draft.districtName
           ..provinceName = draft.provinceName;
+        _s.physicalDisability.hydrateFromDraft(
+          draft.physicalDisability.toDraft(),
+        );
         _s.kindergarten
           ..academicYear = draft.kindergarten.academicYear
           ..yearLevel = draft.kindergarten.yearLevel
@@ -364,6 +367,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
       ..passportNo = _str(r, ['passport_number', 'passport_no'])
       ..villageBirth = _str(r, ['village_bd'])
       ..village = _str(r, ['village']);
+    _s.physicalDisability.hydrateFromApi(r['physical_disability']);
     // dm_birth was joined as "village, district, province"
     final dm = _str(r, ['dm_birth']).split(',').map((e) => e.trim()).toList();
     if (dm.length >= 2) _s.districtBirth = dm[1];
@@ -1298,7 +1302,418 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           required: true,
           placeholder: 'Enter passport number',
         ),
+        _studentHealthOptions(),
       ],
+    );
+  }
+
+  Widget _studentHealthOptions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('Student Health', false),
+        _studentHealthMainOption(
+          title: StudentPhysicalDisabilitySelection.optionTitle,
+          icon: Icons.accessible_forward,
+        ),
+        const SizedBox(height: 12),
+        _studentHealthMainOption(
+          title: StudentPhysicalDisabilitySelection.sensoryOptionTitle,
+          icon: Icons.visibility_outlined,
+        ),
+        const SizedBox(height: 12),
+        _studentHealthMainOption(
+          title: StudentPhysicalDisabilitySelection.intellectualOptionTitle,
+          icon: Icons.psychology_outlined,
+        ),
+        const SizedBox(height: 12),
+        _studentHealthMainOption(
+          title:
+              StudentPhysicalDisabilitySelection.neurodevelopmentalOptionTitle,
+          icon: Icons.menu_book_outlined,
+        ),
+        const SizedBox(height: 12),
+        _studentHealthMainOption(
+          title: StudentPhysicalDisabilitySelection.psychiatricOptionTitle,
+          icon: Icons.psychology_alt_outlined,
+        ),
+        const SizedBox(height: 12),
+        _studentHealthMainOption(
+          title: StudentPhysicalDisabilitySelection.chronicIllnessOptionTitle,
+          icon: Icons.monitor_heart_outlined,
+        ),
+      ],
+    );
+  }
+
+  Widget _studentHealthMainOption({
+    required String title,
+    required IconData icon,
+  }) {
+    final selected = _s.physicalDisability.isMainOptionSelected(title);
+    return Column(
+      children: [
+        Material(
+          color: selected ? _blueSoft : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () {
+              setState(() {
+                _s.physicalDisability.setMainOptionSelected(title, !selected);
+              });
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: selected ? _blue : _slate200,
+                  width: selected ? 1.5 : 1,
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 38,
+                    width: 38,
+                    decoration: BoxDecoration(
+                      color: selected ? _blue : _blueSofter,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      icon,
+                      color: selected ? Colors.white : _blue,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: _navy,
+                            fontWeight: FontWeight.w800,
+                            height: 1.25,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Select this option only if it applies to the student.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _muted,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Checkbox(
+                    value: selected,
+                    activeColor: _blue,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _s.physicalDisability.setMainOptionSelected(
+                          title,
+                          value ?? false,
+                        );
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: _physicalDisabilityDetails(title),
+          ),
+          crossFadeState: selected
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 180),
+          firstCurve: Curves.easeOutCubic,
+          secondCurve: Curves.easeOutCubic,
+          sizeCurve: Curves.easeOutCubic,
+        ),
+      ],
+    );
+  }
+
+  Widget _physicalDisabilityDetails(String title) {
+    final categories = _s.physicalDisability.categoriesFor(title);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _blueSofter,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFCEDAF0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                height: 28,
+                width: 28,
+                decoration: BoxDecoration(
+                  color: _blueSoft,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: const Icon(
+                  LucideIcons.heartPulse,
+                  color: _blue,
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: _navy,
+                    fontWeight: FontWeight.w800,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          for (final category in categories) ...[
+            _physicalDisabilityCategoryOption(category),
+            if (category != categories.last) const SizedBox(height: 12),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _physicalDisabilityCategoryOption(
+    StudentPhysicalDisabilityCategory category,
+  ) {
+    final selected = _s.physicalDisability.isCategorySelected(category.title);
+    final hasDetailOptions = category.details.isNotEmpty;
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: selected ? _blue : _slate100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () {
+              setState(() {
+                _s.physicalDisability.setCategorySelected(
+                  category.title,
+                  !selected,
+                );
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+              child: Row(
+                children: [
+                  Checkbox(
+                    value: selected,
+                    activeColor: _blue,
+                    visualDensity: VisualDensity.compact,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _s.physicalDisability.setCategorySelected(
+                          category.title,
+                          value ?? false,
+                        );
+                      });
+                    },
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          category.title,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: _navy,
+                            fontWeight: FontWeight.w800,
+                            height: 1.25,
+                          ),
+                        ),
+                        if (category.description.isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            category.description,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: _muted,
+                              fontWeight: FontWeight.w500,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (hasDetailOptions)
+                    Icon(
+                      selected
+                          ? LucideIcons.chevronUp
+                          : LucideIcons.chevronDown,
+                      color: _muted,
+                      size: 18,
+                    ),
+                ],
+              ),
+            ),
+          ),
+          if (hasDetailOptions)
+            AnimatedCrossFade(
+              firstChild: const SizedBox.shrink(),
+              secondChild: Padding(
+                padding: const EdgeInsets.fromLTRB(48, 0, 12, 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 2,
+                      margin: const EdgeInsets.only(top: 4, right: 10),
+                      height: 42.0 * category.details.length,
+                      decoration: BoxDecoration(
+                        color: _blue.withValues(alpha: .22),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          for (final detail in category.details) ...[
+                            _physicalDisabilityDetailOption(
+                              category.title,
+                              detail,
+                            ),
+                            if (detail != category.details.last)
+                              const SizedBox(height: 7),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              crossFadeState: selected
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 180),
+              firstCurve: Curves.easeOutCubic,
+              secondCurve: Curves.easeOutCubic,
+              sizeCurve: Curves.easeOutCubic,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _physicalDisabilityDetailOption(String categoryTitle, String detail) {
+    final selected = _s.physicalDisability.isDetailSelected(
+      categoryTitle,
+      detail,
+    );
+    return Material(
+      color: selected ? _blueSoft : const Color(0xFFF8FAFD),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () {
+          setState(() {
+            _s.physicalDisability.setDetailSelected(
+              categoryTitle,
+              detail,
+              !selected,
+            );
+          });
+        },
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected ? _blue : const Color(0xFFE8EDF5),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: 28,
+                width: 28,
+                child: Transform.scale(
+                  scale: .82,
+                  child: Checkbox(
+                    value: selected,
+                    activeColor: _blue,
+                    visualDensity: VisualDensity.compact,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _s.physicalDisability.setDetailSelected(
+                          categoryTitle,
+                          detail,
+                          value ?? false,
+                        );
+                      });
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 5),
+                  child: Text(
+                    detail,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: selected ? _navy : _muted,
+                      height: 1.35,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1657,7 +2072,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         const SizedBox(height: 14),
         _section(
           2,
-          'Education History — Primary School',
+          'Primary History',
           children: [
             _input(
               'Academic Year',

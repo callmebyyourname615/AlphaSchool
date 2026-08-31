@@ -120,7 +120,15 @@ class _ExplorePageState extends State<ExplorePage> {
         oldWidget.selectedStudent?.studentId ??
         'none';
     if (oldKey != _studentReadKey) {
-      setState(() => _isInitialLoading = true);
+      setState(() {
+        _checkedIn = false;
+        _isLate = false;
+        _checkinTime = null;
+        _participantPercent = 0.0;
+        _isInitialLoading = true;
+      });
+      _loadTodayAttendance();
+      _loadLatestParticipantScore();
       _loadMenuUnreadCounts();
     }
   }
@@ -216,16 +224,26 @@ class _ExplorePageState extends State<ExplorePage> {
   /// its "Not Checked-In" default -- a flaky fetch shouldn't block the page.
   Future<void> _loadTodayAttendance() async {
     final student = widget.selectedStudent;
-    if (student == null) return;
+    if (student == null) {
+      if (!mounted) return;
+      setState(() {
+        _checkedIn = false;
+        _isLate = false;
+        _checkinTime = null;
+      });
+      return;
+    }
+
+    final keyAtFetch = _studentReadKey;
 
     try {
       final attendance = await _attendanceService.fetchTodayAttendance(student);
-      if (!mounted || attendance == null) return;
+      if (!mounted || keyAtFetch != _studentReadKey) return;
 
       setState(() {
-        _checkedIn = attendance.checkedIn;
-        _isLate = attendance.isLate;
-        _checkinTime = attendance.checkinTime;
+        _checkedIn = attendance?.checkedIn ?? false;
+        _isLate = attendance?.isLate ?? false;
+        _checkinTime = attendance?.checkinTime;
       });
     } catch (_) {
       // Keep the default "Not Checked-In" state on failure.
@@ -238,9 +256,11 @@ class _ExplorePageState extends State<ExplorePage> {
     final student = widget.selectedStudent;
     if (student == null) return;
 
+    final keyAtFetch = _studentReadKey;
+
     try {
       final summary = await _participantService.fetchSummary(student);
-      if (!mounted) return;
+      if (!mounted || keyAtFetch != _studentReadKey) return;
       setState(() {
         _participantPercent = (summary.latestPercent / 100).clamp(0.0, 1.0);
       });
