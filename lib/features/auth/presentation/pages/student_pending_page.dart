@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_icons.dart';
 
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/services/global_alert_service.dart';
 import '../../data/student_registration_service.dart';
@@ -63,6 +64,8 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
 
   bool get _isQrLinkRequest =>
       widget.qrLinkRequestId != null && widget.qrLinkRequestId!.isNotEmpty;
+
+  String _t(String key) => AppLocalizations.of(context).t(key);
 
   @override
   void initState() {
@@ -173,13 +176,21 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
   }
 
   void _showRejectedAlert(String reason) {
+    final studentName = widget.studentName;
     GlobalAlert.showError(
-      title: _isQrLinkRequest ? 'Link request rejected' : 'Student rejected',
+      title: _isQrLinkRequest
+          ? _t('linkRequestRejectedAlertTitle')
+          : _t('studentRejectedAlertTitle'),
       message: reason.trim().isEmpty
           ? _isQrLinkRequest
-                ? 'Admin rejected the request to link ${widget.studentName} to your account.'
-                : 'Admin rejected ${widget.studentName}. Please review the student information and submit again.'
+                ? _t(
+                    'linkRequestRejectedDefaultMessage',
+                  ).replaceAll('{name}', studentName)
+                : _t(
+                    'studentRejectedDefaultMessage',
+                  ).replaceAll('{name}', studentName)
           : reason.trim(),
+      buttonText: _t('ok'),
     );
   }
 
@@ -395,9 +406,9 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Reason from admin',
-                  style: TextStyle(
+                Text(
+                  _t('reasonFromAdmin'),
+                  style: const TextStyle(
                     color: _roseDark,
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
@@ -406,7 +417,7 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
                 const SizedBox(height: 4),
                 Text(
                   _rejectReason.isEmpty
-                      ? 'Please review the student information and submit again.'
+                      ? _t('reviewStudentInformationAndSubmitAgain')
                       : _rejectReason,
                   style: const TextStyle(
                     color: _muted,

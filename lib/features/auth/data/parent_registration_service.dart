@@ -139,7 +139,7 @@ class ParentRegistrationService {
   }) async {
     final body = <String, dynamic>{};
     for (final e in data.entries) {
-      if (e.key == 'ConfirmPassword') continue;
+      if (_clientOnlyFields.contains(e.key)) continue;
       final v = e.value.trim();
       if (v.isEmpty) continue;
       final key = _fieldMap[e.key] ?? e.key;
@@ -153,6 +153,7 @@ class ParentRegistrationService {
     body['username'] = email;
     body['password'] = password;
     body['is_active'] = false;
+    body['approval_status'] = 'pending';
     final branchId = (body['branch_id'] ?? body['branchId'])?.toString().trim();
     if (branchId != null && branchId.isNotEmpty) {
       body['branch_id'] = branchId;
@@ -173,7 +174,7 @@ class ParentRegistrationService {
           ? await _api.post('/parents', body: body)
           : await _api.multipartPost(
               '/parents',
-              fields: body.map((key, value) => MapEntry(key, value.toString())),
+              fields: _multipartFields(body),
               files: attachments
                   .map(
                     (file) => MultipartFilePart(
@@ -202,19 +203,20 @@ class ParentRegistrationService {
     Map<String, String> data, {
     List<ParentAttachment> attachments = const [],
   }) async {
-    final fields = <String, String>{
+    final body = <String, dynamic>{
       for (final entry in data.entries)
-        if (entry.key != 'ConfirmPassword' && entry.value.trim().isNotEmpty)
+        if (!_clientOnlyFields.contains(entry.key) &&
+            entry.value.trim().isNotEmpty)
           (_fieldMap[entry.key] ?? entry.key): entry.value.trim(),
       'username': (data['Email'] ?? '').trim(),
-      'is_active': 'false',
+      'is_active': false,
       'approval_status': 'pending',
       'reject_reason': '',
     };
-    final branchId = (fields['branch_id'] ?? fields['branchId'])?.trim();
+    final branchId = (body['branch_id'] ?? body['branchId'])?.toString().trim();
     if (branchId != null && branchId.isNotEmpty) {
-      fields['branch_id'] = branchId;
-      fields['branchId'] = branchId;
+      body['branch_id'] = branchId;
+      body['branchId'] = branchId;
     }
     final files = attachments
         .map(
@@ -226,10 +228,28 @@ class ParentRegistrationService {
         )
         .toList();
     final response = attachments.isEmpty
-        ? await _api.put('/parents/$id', body: fields)
-        : await _api.multipartPut('/parents/$id', fields: fields, files: files);
+        ? await _api.put('/parents/$id/resubmit', body: body)
+        : await _api.multipartPut(
+            '/parents/$id/resubmit',
+            fields: _multipartFields(body),
+            files: files,
+          );
     return RegistrationResult(data: _asMap(response), password: '');
   }
+
+  Map<String, String> _multipartFields(Map<String, dynamic> body) {
+    return {
+      for (final entry in body.entries)
+        if (entry.key != 'is_active' && entry.key != 'isActive')
+          entry.key: entry.value.toString(),
+    };
+  }
+
+  static const _clientOnlyFields = {
+    'ConfirmPassword',
+    'ProvinceId',
+    'DistrictId',
+  };
 
   Future<Map<String, dynamic>?> _findByEmail(String? email) async {
     if (email == null || email.isEmpty) return null;
@@ -377,38 +397,33 @@ class ParentRegistrationService {
   /// Rejected when `approval_status == 'rejected'`; carries the admin's reason.
   Future<ApplicationStatus> checkStatus(String id) async {
     try {
-      final res = await _api.get('/parents');
-      final list = res is List
+      final res = await _api.get('/parents/$id/status');
+      final item = res is Map<String, dynamic>
           ? res
-          : (res is Map && res['data'] is List ? res['data'] as List : null);
-      if (list == null) return const ApplicationStatus('not_found');
-      for (final item in list) {
-        if (item is Map && item['id']?.toString() == id) {
-          final active = item['isActive'] == true || item['is_active'] == true;
-          final approval = (item['approval_status'] ?? item['approvalStatus'])
-              ?.toString()
-              .toLowerCase();
-          if (active || approval == 'approved') {
-            return const ApplicationStatus('approved');
-          }
-          if (approval == 'rejected') {
-            final reason =
-                (item['reject_reason'] ??
-                        item['rejectReason'] ??
-                        item['rejection_reason'] ??
-                        item['rejectionReason'])
-                    ?.toString();
-            return ApplicationStatus(
-              'rejected',
-              rejectReason: (reason == null || reason.trim().isEmpty)
-                  ? null
-                  : reason.trim(),
-            );
-          }
-          return const ApplicationStatus('pending');
-        }
+          : (res is Map ? Map<String, dynamic>.from(res) : null);
+      if (item == null) return const ApplicationStatus('not_found');
+      final active = item['isActive'] == true || item['is_active'] == true;
+      final approval = (item['approval_status'] ?? item['approvalStatus'])
+          ?.toString()
+          .toLowerCase();
+      if (approval == 'rejected') {
+        final reason =
+            (item['reject_reason'] ??
+                    item['rejectReason'] ??
+                    item['rejection_reason'] ??
+                    item['rejectionReason'])
+                ?.toString();
+        return ApplicationStatus(
+          'rejected',
+          rejectReason: (reason == null || reason.trim().isEmpty)
+              ? null
+              : reason.trim(),
+        );
       }
-      return const ApplicationStatus('not_found');
+      if (active && approval == 'approved') {
+        return const ApplicationStatus('approved');
+      }
+      return const ApplicationStatus('pending');
     } catch (_) {
       return const ApplicationStatus('pending');
     }

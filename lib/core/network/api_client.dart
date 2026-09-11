@@ -324,6 +324,9 @@ class ApiClient {
   String? _errorMessage(dynamic decoded) {
     if (decoded is Map<String, dynamic>) {
       final message = decoded['message'] ?? decoded['error'];
+      if (message is List) {
+        return message.map((item) => item.toString()).join('\n');
+      }
       return message?.toString();
     }
     return null;

@@ -513,9 +513,9 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     if (!mounted) return;
     if (details == null) {
       GlobalAlert.showInfo(
-        title: 'No saved details yet',
-        message:
-            'Submit a previous student application first to save household details.',
+        title: _t('noSavedDetailsYet'),
+        message: _t('submitPreviousStudentApplicationFirst'),
+        buttonText: _t('ok'),
       );
       return;
     }
@@ -574,9 +574,9 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
       _formRevision++;
     });
     GlobalAlert.showSuccess(
-      title: 'Saved details applied',
-      message:
-          'Your household address, living-with and emergency contact details have been filled in.',
+      title: _t('savedDetailsApplied'),
+      message: _t('savedStudentDetailsAppliedMessage'),
+      buttonText: _t('continueAction'),
     );
   }
 
@@ -1030,10 +1030,10 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     setState(() => _submitting = true);
     GlobalAlert.showLoading(
       message: widget.resubmitStudentId != null
-          ? 'Resubmitting application...'
+          ? _t('resubmittingApplication')
           : widget.addOnly
-          ? 'Adding student...'
-          : 'Submitting application...',
+          ? _t('addingStudent')
+          : _t('submittingApplication'),
     );
     try {
       if (widget.resubmitStudentId != null) {
@@ -1061,7 +1061,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           'studentId': widget.resubmitStudentId!,
           'studentName': fullName.isNotEmpty
               ? fullName
-              : (fallbackLao.isNotEmpty ? fallbackLao : 'your child'),
+              : (fallbackLao.isNotEmpty ? fallbackLao : _t('yourChild')),
           'nickname': _s.nickname.trim(),
         });
         return;
@@ -1082,7 +1082,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                         : null))
                 ?.toString();
         if (id == null || id.isEmpty) {
-          throw ApiException('Could not resolve parent ID from response.');
+          throw ApiException(_t('couldNotResolveParentId'));
         }
         parentId = id;
         final fullName = [
@@ -1122,7 +1122,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         ].map((e) => e.trim()).where((e) => e.isNotEmpty).join(' ');
         final displayName = fullName.isNotEmpty
             ? fullName
-            : (fallbackLao.isNotEmpty ? fallbackLao : 'your child');
+            : (fallbackLao.isNotEmpty ? fallbackLao : _t('yourChild'));
         final newId = (studentRes['id'] ?? studentRes['_id'])?.toString() ?? '';
         final localId = (studentRes['student_id'] ?? '').toString();
         // Keep this form route in the stack while the pending screen is open.
@@ -1153,7 +1153,11 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
       setState(() => _submitting = false);
       if (e is _SubmitCancelled) return;
       final msg = e is ApiException ? e.message : e.toString();
-      GlobalAlert.showError(title: 'Submission failed', message: msg);
+      GlobalAlert.showError(
+        title: _t('submissionFailed'),
+        message: msg,
+        buttonText: _t('ok'),
+      );
     }
   }
 
@@ -1166,19 +1170,17 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
       GlobalAlert.dismiss();
       final names = e.matches.map((m) => '${m.name} (${m.dob})').join(', ');
       final confirmed = await GlobalAlert.showConfirmation(
-        title: 'Possible duplicate',
-        message:
-            'A student named $names is already registered under this '
-            'account. Add this student anyway?',
-        confirmText: 'Add anyway',
-        cancelText: 'Cancel',
+        title: _t('possibleDuplicate'),
+        message: _t('possibleDuplicateMessage').replaceAll('{names}', names),
+        confirmText: _t('addAnyway'),
+        cancelText: _t('cancel'),
       );
       if (confirmed != true) throw _SubmitCancelled();
       if (!mounted) throw _SubmitCancelled();
       GlobalAlert.showLoading(
         message: widget.addOnly
-            ? 'Adding student...'
-            : 'Submitting application...',
+            ? _t('addingStudent')
+            : _t('submittingApplication'),
       );
       return _studentService.register(
         s: _s,
@@ -2487,7 +2489,9 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           const SizedBox(height: 14),
         ],
         _addCardButton(
-          label: _s.siblings.isEmpty ? 'Add a sibling' : 'Add another sibling',
+          label: _s.siblings.isEmpty
+              ? _t('addSibling')
+              : _t('addAnotherSibling'),
           onTap: () {
             setState(() {
               _s.siblings.add(SiblingEntry());
@@ -2499,9 +2503,8 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           const SizedBox(height: 14),
           _emptyHint(
             icon: LucideIcons.users,
-            title: 'No siblings added yet',
-            body:
-                'Add brothers or sisters who are direct relatives of the student, or skip this step.',
+            title: _t('noSiblingsAddedYet'),
+            body: _t('siblingsEmptyHint'),
           ),
         ],
       ],

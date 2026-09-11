@@ -49,7 +49,7 @@ class AppLocalizations {
   }
 
   static String _assetCode(String languageCode) {
-    if (languageCode == 'lo') return 'la';
+    if (languageCode == 'lo' || languageCode == 'la') return 'la';
     return 'en';
   }
 
@@ -157,9 +157,12 @@ class AppLocalizations {
     'district': 'District',
     'enterVillage': 'Enter village',
     'loadingProvinces': 'Loading provinces...',
+    'couldNotLoadProvinces': 'Could not load provinces',
     'selectProvince': 'Select province',
     'selectProvinceFirst': 'Select province first',
     'selectDistrict': 'Select district',
+    'selectDistrictFirst': 'Select district first',
+    'selectVillage': 'Select village',
     'academicYear': 'Academic year',
     'educationLevel': 'Education Level',
     'workplace': 'Workplace',
@@ -267,8 +270,107 @@ class AppLocalizations {
         'An admin will review your request. Once approved, this student will show up in your account.',
     'done': 'Done',
     'pendingApproval': 'Pending Approval',
+    'pendingApprovalUpper': 'PENDING APPROVAL',
+    'parentApplicationSubmittedTitle': 'Application Submitted',
+    'parentApplicationSubmittedAlertTitle': 'Application submitted',
+    'parentApplicationSubmittedAlertMessage':
+        'Your parent information has been submitted. Please wait for admin approval before signing in.',
+    'parentApplicationApprovedAlertTitle': 'Application approved',
+    'parentApplicationApprovedAlertMessage':
+        'Your application has been approved. You can now sign in with your email and password.',
+    'parentApplicationRejectedAlertTitle': 'Application rejected',
+    'parentApplicationRejectedDefaultMessage':
+        'Admin rejected your parent application. Please review your information and submit again.',
+    'submissionFailed': 'Submission failed',
+    'resubmittingApplication': 'Resubmitting application...',
+    'addingStudent': 'Adding student...',
+    'couldNotResolveParentId': 'Could not resolve parent ID from response.',
+    'studentRejectedAlertTitle': 'Student rejected',
+    'linkRequestRejectedAlertTitle': 'Link request rejected',
+    'studentRejectedDefaultMessage':
+        'Admin rejected {name}. Please review the student information and submit again.',
+    'linkRequestRejectedDefaultMessage':
+        'Admin rejected the request to link {name} to your account.',
+    'reviewStudentInformationAndSubmitAgain':
+        'Please review the student information and submit again.',
+    'submitPreviousStudentApplicationFirst':
+        'Submit a previous student application first to save household details.',
+    'savedStudentDetailsAppliedMessage':
+        'Your household address, living-with and emergency contact details have been filled in.',
+    'possibleDuplicate': 'Possible duplicate',
+    'possibleDuplicateMessage':
+        'A student named {names} is already registered under this account. Add this student anyway?',
+    'addAnyway': 'Add anyway',
+    'preparingApplication': 'Preparing your application...',
+    'convertingFamilyBookSingle': 'Converting Family Book image to PDF...',
+    'convertingFamilyBookMany':
+        'Converting {count} Family Book images to PDF...',
+    'submittingApplication': 'Submitting your application...',
+    'couldNotResolveApplicationId': 'Could not resolve your application ID.',
+    'noSavedDetailsYet': 'No saved details yet',
+    'submitPreviousApplicationFirst':
+        'Submit a previous application first to save your contact, identity and address details.',
+    'savedDetailsApplied': 'Saved details applied',
+    'savedParentDetailsAppliedMessage':
+        'Your saved contact, identity and address details have been filled in. Step 1 remains private and must be completed again.',
+    'fillSavedParentDetails':
+        'Fill saved contact, identity and address details.',
+    'pleaseWait': 'Please wait',
+    'couldNotReadFile': 'Could not read this file',
+    'pdf': 'PDF',
+    'image': 'Image',
+    'choosePdfOrImages': 'Choose PDF or images',
+    'choosePdf': 'Choose PDF',
+    'chooseImage': 'Choose image',
+    'tapToAddMore': 'tap to add more',
+    'convertedToPdf': '{name} -> PDF',
+    'imagesConvertedToPdf': '{count} images -> PDF',
+    'reasonFromAdmin': 'Reason from admin',
+    'parentApplicationThanks': 'Thank you',
+    'parentApplicationWaitingMessage':
+        'Your application has been received and is now waiting for admin approval.',
+    'checkingStatus': 'Checking status...',
+    'checkApprovalStatus': 'Check approval status',
+    'checkAgain': 'Check again',
+    'backToSignIn': 'Back to Sign In',
+    'cancelApplication': 'Cancel application',
+    'cancelApplicationQuestion': 'Cancel application?',
+    'cancelApplicationMessage':
+        'Your local pending status will be cleared. The backend record remains until admin removes it.',
+    'yourLogin': 'YOUR LOGIN',
+    'password': 'Password',
+    'notAvailable': 'Not available',
+    'passwordUnavailable': 'Password unavailable',
+    'passwordUnavailableMessage':
+        'This application was submitted before the password was stored locally. Cancel the application and re-submit to see your login password.',
+    'savePasswordHint':
+        'Save this password. You can change it after admin approves your account.',
+    'hide': 'Hide',
+    'show': 'Show',
+    'submitted': 'Submitted',
+    'applicationReceived': 'Application received',
+    'pendingReview': 'Pending Review',
+    'adminRequestedChanges': 'Admin requested changes',
+    'waitingForAdminApproval': 'Waiting for admin approval',
+    'approved': 'Approved',
+    'accountApprovedUpper': 'ACCOUNT APPROVED',
+    'youreApproved': "You're approved!",
+    'welcome': 'Welcome',
+    'accountApprovedMessage':
+        'Your account is now active. You can sign in any time using the email and password you submitted.',
+    'goToSignIn': 'Go to sign in',
+    'resubmit': 'Resubmit',
+    'updateDetailsAndSendAgain': 'Update details and send again',
+    'editAndResubmit': 'Edit and resubmit',
+    'notifiedOnceApproved': "You'll be notified once approved",
     'qrLinkPending': 'QR Link Pending',
     'rejected': 'Rejected',
+    'rejectedUpper': 'REJECTED',
+    'applicationRejected': 'Application Rejected',
+    'applicationRejectedMessage':
+        'Admin reviewed this application and requested changes.',
+    'reviewParentInformationAndSubmitAgain':
+        'Please review your parent information and submit again.',
     'logout': 'Logout',
     'logoutConfirmMessage': 'Do you want to logout and go to Login page?',
     'cancel': 'Cancel',
@@ -890,9 +992,12 @@ class AppLocalizations {
     'district': 'ເມືອງ',
     'enterVillage': 'ປ້ອນຊື່ບ້ານ',
     'loadingProvinces': 'ກຳລັງໂຫຼດແຂວງ...',
+    'couldNotLoadProvinces': 'ບໍ່ສາມາດໂຫຼດແຂວງໄດ້',
     'selectProvince': 'ເລືອກແຂວງ',
     'selectProvinceFirst': 'ເລືອກແຂວງກ່ອນ',
     'selectDistrict': 'ເລືອກເມືອງ',
+    'selectDistrictFirst': 'ເລືອກເມືອງກ່ອນ',
+    'selectVillage': 'ເລືອກບ້ານ',
     'academicYear': 'ສົກຮຽນ',
     'educationLevel': 'ລະດັບການສຶກສາ',
     'workplace': 'ສະຖານທີ່ເຮັດວຽກ',
@@ -997,8 +1102,105 @@ class AppLocalizations {
         'ຜູ້ດູແລຈະກວດສອບຄຳຮ້ອງຂອງທ່ານ. ຫຼັງຈາກອະນຸມັດແລ້ວ ນັກຮຽນຄົນນີ້ຈະສະແດງໃນບັນຊີຂອງທ່ານ.',
     'done': 'ສຳເລັດ',
     'pendingApproval': 'ລໍຖ້າອະນຸມັດ',
+    'pendingApprovalUpper': 'ລໍຖ້າອະນຸມັດ',
+    'parentApplicationSubmittedTitle': 'ສົ່ງຄຳຮ້ອງສຳເລັດ',
+    'parentApplicationSubmittedAlertTitle': 'ສົ່ງຄຳຮ້ອງສຳເລັດ',
+    'parentApplicationSubmittedAlertMessage':
+        'ຂໍ້ມູນຜູ້ປົກຄອງຂອງທ່ານຖືກສົ່ງແລ້ວ. ກະລຸນາລໍຖ້າຜູ້ດູແລອະນຸມັດກ່ອນເຂົ້າລະບົບ.',
+    'parentApplicationApprovedAlertTitle': 'ຄຳຮ້ອງອະນຸມັດແລ້ວ',
+    'parentApplicationApprovedAlertMessage':
+        'ຄຳຮ້ອງຂອງທ່ານຖືກອະນຸມັດແລ້ວ. ທ່ານສາມາດເຂົ້າລະບົບດ້ວຍອີເມວ ແລະ ລະຫັດຜ່ານ.',
+    'parentApplicationRejectedAlertTitle': 'ຄຳຮ້ອງຖືກປະຕິເສດ',
+    'parentApplicationRejectedDefaultMessage':
+        'ຜູ້ດູແລປະຕິເສດຄຳຮ້ອງຜູ້ປົກຄອງຂອງທ່ານ. ກະລຸນາກວດສອບຂໍ້ມູນ ແລະ ສົ່ງອີກຄັ້ງ.',
+    'submissionFailed': 'ສົ່ງຄຳຮ້ອງບໍ່ສຳເລັດ',
+    'resubmittingApplication': 'ກຳລັງສົ່ງຄຳຮ້ອງໃໝ່...',
+    'addingStudent': 'ກຳລັງເພີ່ມນັກຮຽນ...',
+    'couldNotResolveParentId': 'ບໍ່ສາມາດອ່ານເລກອ້າງອີງຜູ້ປົກຄອງຈາກຄຳຕອບໄດ້.',
+    'studentRejectedAlertTitle': 'ນັກຮຽນຖືກປະຕິເສດ',
+    'linkRequestRejectedAlertTitle': 'ຄຳຮ້ອງເຊື່ອມຖືກປະຕິເສດ',
+    'studentRejectedDefaultMessage':
+        'ຜູ້ດູແລປະຕິເສດ {name}. ກະລຸນາກວດສອບຂໍ້ມູນນັກຮຽນ ແລະ ສົ່ງອີກຄັ້ງ.',
+    'linkRequestRejectedDefaultMessage':
+        'ຜູ້ດູແລປະຕິເສດຄຳຮ້ອງເຊື່ອມ {name} ເຂົ້າກັບບັນຊີຂອງທ່ານ.',
+    'reviewStudentInformationAndSubmitAgain':
+        'ກະລຸນາກວດສອບຂໍ້ມູນນັກຮຽນ ແລະ ສົ່ງອີກຄັ້ງ.',
+    'submitPreviousStudentApplicationFirst':
+        'ກະລຸນາສົ່ງຄຳຮ້ອງນັກຮຽນກ່ອນໜ້ານີ້ກ່ອນ ເພື່ອບັນທຶກຂໍ້ມູນຄົວເຮືອນ.',
+    'savedStudentDetailsAppliedMessage':
+        'ຂໍ້ມູນທີ່ຢູ່ຄົວເຮືອນ, ຜູ້ອາໄສຢູ່ນຳ ແລະ ຜູ້ຕິດຕໍ່ສຸກເສີນຖືກຕື່ມໃຫ້ແລ້ວ.',
+    'possibleDuplicate': 'ອາດຈະຊ້ຳກັນ',
+    'possibleDuplicateMessage':
+        'ນັກຮຽນຊື່ {names} ຖືກລົງທະບຽນໃນບັນຊີນີ້ແລ້ວ. ຕ້ອງການເພີ່ມນັກຮຽນຄົນນີ້ອີກບໍ?',
+    'addAnyway': 'ເພີ່ມຕໍ່ໄປ',
+    'preparingApplication': 'ກຳລັງກຽມຄຳຮ້ອງ...',
+    'convertingFamilyBookSingle': 'ກຳລັງແປງຮູບສຳມະໂນຄົວເປັນ PDF...',
+    'convertingFamilyBookMany': 'ກຳລັງແປງຮູບສຳມະໂນຄົວ {count} ຮູບເປັນ PDF...',
+    'submittingApplication': 'ກຳລັງສົ່ງຄຳຮ້ອງ...',
+    'couldNotResolveApplicationId': 'ບໍ່ສາມາດອ່ານເລກອ້າງອີງຄຳຮ້ອງໄດ້.',
+    'noSavedDetailsYet': 'ຍັງບໍ່ມີຂໍ້ມູນທີ່ບັນທຶກ',
+    'submitPreviousApplicationFirst':
+        'ກະລຸນາສົ່ງຄຳຮ້ອງກ່ອນໜ້ານີ້ກ່ອນ ເພື່ອບັນທຶກຂໍ້ມູນຕິດຕໍ່ ເອກະສານ ແລະ ທີ່ຢູ່.',
+    'savedDetailsApplied': 'ນຳໃຊ້ຂໍ້ມູນທີ່ບັນທຶກແລ້ວ',
+    'savedParentDetailsAppliedMessage':
+        'ຂໍ້ມູນຕິດຕໍ່ ເອກະສານ ແລະ ທີ່ຢູ່ທີ່ບັນທຶກໄວ້ຖືກຕື່ມໃຫ້ແລ້ວ. ຂັ້ນຕອນທີ 1 ເປັນຂໍ້ມູນສ່ວນຕົວ ແລະ ຕ້ອງກອກໃໝ່.',
+    'fillSavedParentDetails':
+        'ຕື່ມຂໍ້ມູນຕິດຕໍ່ ເອກະສານ ແລະ ທີ່ຢູ່ທີ່ບັນທຶກໄວ້.',
+    'pleaseWait': 'ກະລຸນາລໍຖ້າ',
+    'couldNotReadFile': 'ບໍ່ສາມາດອ່ານໄຟລ໌ນີ້ໄດ້',
+    'pdf': 'PDF',
+    'image': 'ຮູບພາບ',
+    'choosePdfOrImages': 'ເລືອກ PDF ຫຼື ຮູບພາບ',
+    'choosePdf': 'ເລືອກ PDF',
+    'chooseImage': 'ເລືອກຮູບພາບ',
+    'tapToAddMore': 'ແຕະເພື່ອເພີ່ມອີກ',
+    'convertedToPdf': '{name} -> PDF',
+    'imagesConvertedToPdf': '{count} ຮູບ -> PDF',
+    'reasonFromAdmin': 'ເຫດຜົນຈາກຜູ້ດູແລ',
+    'parentApplicationThanks': 'ຂອບໃຈ',
+    'parentApplicationWaitingMessage':
+        'ຄຳຮ້ອງຂອງທ່ານຖືກຮັບແລ້ວ ແລະ ກຳລັງລໍຖ້າຜູ້ດູແລກວດສອບ.',
+    'checkingStatus': 'ກຳລັງກວດສອບສະຖານະ...',
+    'checkApprovalStatus': 'ກວດສອບສະຖານະອະນຸມັດ',
+    'checkAgain': 'ກວດສອບອີກຄັ້ງ',
+    'backToSignIn': 'ກັບໄປໜ້າເຂົ້າລະບົບ',
+    'cancelApplication': 'ຍົກເລີກຄຳຮ້ອງ',
+    'cancelApplicationQuestion': 'ຍົກເລີກຄຳຮ້ອງບໍ?',
+    'cancelApplicationMessage':
+        'ສະຖານະຄຳຮ້ອງທີ່ບັນທຶກໃນເຄື່ອງຈະຖືກລຶບ. ຂໍ້ມູນໃນລະບົບຈະຍັງຢູ່ຈົນກວ່າຜູ້ດູແລຈະລຶບອອກ.',
+    'yourLogin': 'ຂໍ້ມູນເຂົ້າລະບົບ',
+    'password': 'ລະຫັດຜ່ານ',
+    'notAvailable': 'ບໍ່ມີຂໍ້ມູນ',
+    'passwordUnavailable': 'ບໍ່ພົບລະຫັດຜ່ານ',
+    'passwordUnavailableMessage':
+        'ຄຳຮ້ອງນີ້ຖືກສົ່ງກ່ອນທີ່ຈະບັນທຶກລະຫັດຜ່ານໄວ້ໃນເຄື່ອງ. ກະລຸນາຍົກເລີກຄຳຮ້ອງ ແລະ ສົ່ງໃໝ່ເພື່ອເບິ່ງລະຫັດຜ່ານ.',
+    'savePasswordHint':
+        'ກະລຸນາບັນທຶກລະຫັດຜ່ານນີ້ໄວ້. ທ່ານສາມາດປ່ຽນໄດ້ຫຼັງຈາກຜູ້ດູແລອະນຸມັດບັນຊີ.',
+    'hide': 'ເຊື່ອງ',
+    'show': 'ສະແດງ',
+    'submitted': 'ສົ່ງແລ້ວ',
+    'applicationReceived': 'ໄດ້ຮັບຄຳຮ້ອງແລ້ວ',
+    'pendingReview': 'ລໍຖ້າກວດສອບ',
+    'adminRequestedChanges': 'ຜູ້ດູແລຂໍໃຫ້ແກ້ໄຂຂໍ້ມູນ',
+    'waitingForAdminApproval': 'ລໍຖ້າຜູ້ດູແລອະນຸມັດ',
+    'approved': 'ອະນຸມັດແລ້ວ',
+    'accountApprovedUpper': 'ບັນຊີອະນຸມັດແລ້ວ',
+    'youreApproved': 'ບັນຊີຂອງທ່ານອະນຸມັດແລ້ວ!',
+    'welcome': 'ຍິນດີຕ້ອນຮັບ',
+    'accountApprovedMessage':
+        'ບັນຊີຂອງທ່ານເປີດໃຊ້ງານແລ້ວ. ທ່ານສາມາດເຂົ້າລະບົບໄດ້ທຸກເວລາດ້ວຍອີເມວ ແລະ ລະຫັດຜ່ານທີ່ສົ່ງໄວ້.',
+    'goToSignIn': 'ໄປໜ້າເຂົ້າລະບົບ',
+    'resubmit': 'ສົ່ງໃໝ່',
+    'updateDetailsAndSendAgain': 'ແກ້ໄຂຂໍ້ມູນ ແລະ ສົ່ງໃໝ່',
+    'editAndResubmit': 'ແກ້ໄຂ ແລະ ສົ່ງໃໝ່',
+    'notifiedOnceApproved': 'ຈະແຈ້ງໃຫ້ທ່ານຮູ້ເມື່ອອະນຸມັດແລ້ວ',
     'qrLinkPending': 'ລໍຖ້າເຊື່ອມ QR',
     'rejected': 'ຖືກປະຕິເສດ',
+    'rejectedUpper': 'ຖືກປະຕິເສດ',
+    'applicationRejected': 'ຄຳຮ້ອງຖືກປະຕິເສດ',
+    'applicationRejectedMessage': 'ຜູ້ດູແລໄດ້ກວດສອບຄຳຮ້ອງນີ້ ແລະ ຂໍໃຫ້ແກ້ໄຂ.',
+    'reviewParentInformationAndSubmitAgain':
+        'ກະລຸນາກວດສອບຂໍ້ມູນຜູ້ປົກຄອງ ແລະ ສົ່ງອີກຄັ້ງ.',
     'logout': 'ອອກຈາກລະບົບ',
     'logoutConfirmMessage': 'ທ່ານຕ້ອງການອອກຈາກລະບົບ ແລະ ກັບໄປໜ້າເຂົ້າລະບົບບໍ?',
     'cancel': 'ຍົກເລີກ',

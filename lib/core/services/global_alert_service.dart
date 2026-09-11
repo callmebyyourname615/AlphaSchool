@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
+import '../localization/app_localizations.dart';
 import '../widgets/global_alert.dart';
 
 class GlobalAlert {
@@ -16,7 +17,7 @@ class GlobalAlert {
   static Future<void> showError({
     required String title,
     required String message,
-    String buttonText = 'OK',
+    String? buttonText,
     VoidCallback? onPressed,
     bool dismissible = true,
     IconData? icon,
@@ -25,7 +26,7 @@ class GlobalAlert {
       type: GlobalAlertType.error,
       title: title,
       message: message,
-      primaryText: buttonText,
+      primaryText: buttonText ?? _localized('ok', fallback: 'OK'),
       onPrimary: onPressed,
       dismissible: dismissible,
       icon: icon,
@@ -35,7 +36,7 @@ class GlobalAlert {
   static Future<void> showSuccess({
     required String title,
     required String message,
-    String buttonText = 'Continue',
+    String? buttonText,
     VoidCallback? onPressed,
     bool dismissible = true,
     IconData? icon,
@@ -44,7 +45,8 @@ class GlobalAlert {
       type: GlobalAlertType.success,
       title: title,
       message: message,
-      primaryText: buttonText,
+      primaryText:
+          buttonText ?? _localized('continueAction', fallback: 'Continue'),
       onPrimary: onPressed,
       dismissible: dismissible,
       icon: icon,
@@ -54,7 +56,7 @@ class GlobalAlert {
   static Future<void> showWarning({
     required String title,
     required String message,
-    String buttonText = 'OK',
+    String? buttonText,
     VoidCallback? onPressed,
     bool dismissible = true,
     IconData? icon,
@@ -63,7 +65,7 @@ class GlobalAlert {
       type: GlobalAlertType.warning,
       title: title,
       message: message,
-      primaryText: buttonText,
+      primaryText: buttonText ?? _localized('ok', fallback: 'OK'),
       onPrimary: onPressed,
       dismissible: dismissible,
       icon: icon,
@@ -73,7 +75,7 @@ class GlobalAlert {
   static Future<void> showInfo({
     required String title,
     required String message,
-    String buttonText = 'OK',
+    String? buttonText,
     VoidCallback? onPressed,
     bool dismissible = true,
     IconData? icon,
@@ -82,7 +84,7 @@ class GlobalAlert {
       type: GlobalAlertType.info,
       title: title,
       message: message,
-      primaryText: buttonText,
+      primaryText: buttonText ?? _localized('ok', fallback: 'OK'),
       onPrimary: onPressed,
       dismissible: dismissible,
       icon: icon,
@@ -92,8 +94,8 @@ class GlobalAlert {
   static Future<bool?> showConfirmation({
     required String title,
     required String message,
-    String confirmText = 'Confirm',
-    String cancelText = 'Cancel',
+    String? confirmText,
+    String? cancelText,
     VoidCallback? onConfirm,
     VoidCallback? onCancel,
     bool dismissible = true,
@@ -104,8 +106,8 @@ class GlobalAlert {
       type: GlobalAlertType.confirm,
       title: title,
       message: message,
-      primaryText: confirmText,
-      secondaryText: cancelText,
+      primaryText: confirmText ?? _localized('confirm', fallback: 'Confirm'),
+      secondaryText: cancelText ?? _localized('cancel', fallback: 'Cancel'),
       onPrimary: () {
         onConfirm?.call();
       },
@@ -120,7 +122,7 @@ class GlobalAlert {
     );
   }
 
-  static Future<void> showLoading({String message = 'Please wait...'}) async {
+  static Future<void> showLoading({String? message}) async {
     if (_loadingVisible) return;
     final context = _context;
     if (context == null) return;
@@ -130,7 +132,8 @@ class GlobalAlert {
       _show(
         type: GlobalAlertType.loading,
         title: null,
-        message: message,
+        message:
+            message ?? _localized('pleaseWait', fallback: 'Please wait...'),
         primaryText: '',
         dismissible: false,
       ).whenComplete(() => _loadingVisible = false),
@@ -141,6 +144,18 @@ class GlobalAlert {
     final navigator = navigatorKey.currentState;
     if (navigator == null || !navigator.canPop()) return;
     navigator.pop();
+  }
+
+  static String _localized(String key, {required String fallback}) {
+    final context = _context;
+    if (context == null) return fallback;
+    final localizations = Localizations.of<AppLocalizations>(
+      context,
+      AppLocalizations,
+    );
+    if (localizations == null) return fallback;
+    final value = localizations.t(key);
+    return value == key ? fallback : value;
   }
 
   static Future<T?> _show<T>({

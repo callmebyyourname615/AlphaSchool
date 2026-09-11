@@ -8,6 +8,7 @@ import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/network/api_config.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/global_alert_service.dart';
 import '../../data/parent_registration_service.dart';
@@ -84,7 +85,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   bool _processingFamilyBook = false;
   bool _submitted = false;
   bool _submitting = false;
-  String _submissionMessage = 'Preparing your application...';
+  String _submissionMessage = '';
   bool _bootstrapping = true;
   bool _checkingStatus = false;
   String? _referenceId;
@@ -101,6 +102,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   final ParentRegistrationService _service = ParentRegistrationService();
   List<_ParentProvinceOption> _provinces = const [];
   bool _provincesLoading = false;
+  String _provincesError = '';
   bool _hasSavedDetails = false;
   int _formRevision = 0;
 
@@ -198,9 +200,9 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     if (!mounted) return;
     if (savedDetails.isEmpty) {
       GlobalAlert.showInfo(
-        title: 'No saved details yet',
-        message:
-            'Submit a previous application first to save your contact, identity and address details.',
+        title: _t('noSavedDetailsYet'),
+        message: _t('submitPreviousApplicationFirst'),
+        buttonText: _t('ok'),
       );
       return;
     }
@@ -217,46 +219,90 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       _errors.removeWhere((key, _) => savedDetails.containsKey(key));
       if (savedFamilyBook != null) _errors.remove('family_book');
       _formRevision++;
-      _step = 2;
     });
-    _animateToStep(2);
+    if (_step == 1) _validate();
     GlobalAlert.showSuccess(
-      title: 'Saved details applied',
-      message:
-          'Your saved contact, identity and address details have been filled in. Step 1 remains private and must be completed again.',
+      title: _t('savedDetailsApplied'),
+      message: _t('savedParentDetailsAppliedMessage'),
+      buttonText: _t('continueAction'),
     );
   }
 
   Future<void> _loadProvinces() async {
     if (_provincesLoading) return;
-    setState(() => _provincesLoading = true);
+    debugPrint(
+      '[ParentInfoForm] load provinces start baseUrl=${ApiConfig.baseUrl}',
+    );
+    setState(() {
+      _provincesLoading = true;
+      _provincesError = '';
+    });
     try {
       final res = await ApiClient().get('/locations/province');
+      debugPrint(
+        '[ParentInfoForm] /locations/province responseType=${res.runtimeType}',
+      );
       final raw = res is List
           ? res
           : (res is Map && res['data'] is List
                 ? res['data'] as List
                 : const []);
-      final list = raw
+      var list = raw
           .whereType<Map>()
           .map(
             (m) => _ParentProvinceOption.fromJson(Map<String, dynamic>.from(m)),
           )
           .toList();
+      if (list.isEmpty) {
+        list = _fallbackLaoProvinces();
+      }
       if (!mounted) return;
       setState(() {
         _provinces = list;
         _provincesLoading = false;
+        _provincesError = '';
       });
-    } catch (_) {
+      debugPrint(
+        '[ParentInfoForm] provinces loaded count=${list.length} districts=${list.map((p) => '${p.label}:${p.districts.length}').join(', ')}',
+      );
+    } on ApiException catch (error) {
+      debugPrint(
+        '[ParentInfoForm] provinces failed status=${error.statusCode} message=${error.message} body=${error.body}',
+      );
       if (!mounted) return;
-      setState(() => _provincesLoading = false);
+      setState(() {
+        _provinces = _fallbackLaoProvinces();
+        _provincesLoading = false;
+        _provincesError = '';
+      });
+      debugPrint(
+        '[ParentInfoForm] using fallback province data count=${_provinces.length}',
+      );
+    } catch (error, stackTrace) {
+      debugPrint('[ParentInfoForm] provinces failed error=$error');
+      debugPrint('$stackTrace');
+      if (!mounted) return;
+      setState(() {
+        _provinces = _fallbackLaoProvinces();
+        _provincesLoading = false;
+        _provincesError = '';
+      });
+      debugPrint(
+        '[ParentInfoForm] using fallback province data count=${_provinces.length}',
+      );
     }
   }
 
-  _ParentProvinceOption? _provinceByLabel(String label) {
-    if (label.trim().isEmpty) return null;
-    final lc = label.trim().toLowerCase();
+  _ParentProvinceOption? _provinceByIdOrLabel({String? id, String? label}) {
+    final cleanId = id?.trim() ?? '';
+    if (cleanId.isNotEmpty) {
+      for (final p in _provinces) {
+        if (p.id == cleanId) return p;
+      }
+    }
+    final cleanLabel = label?.trim() ?? '';
+    if (cleanLabel.isEmpty) return null;
+    final lc = cleanLabel.toLowerCase();
     for (final p in _provinces) {
       if (p.label.toLowerCase() == lc) return p;
     }
@@ -278,9 +324,9 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       });
       if (!wasApproved && !silent) {
         GlobalAlert.showSuccess(
-          title: 'Application approved',
-          message:
-              'Your application has been approved. You can now sign in with your email and password.',
+          title: _t('parentApplicationApprovedAlertTitle'),
+          message: _t('parentApplicationApprovedAlertMessage'),
+          buttonText: _t('continueAction'),
         );
       }
     } else if (result.status == 'rejected') {
@@ -294,10 +340,11 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       });
       if (!wasRejected || !silent) {
         GlobalAlert.showError(
-          title: 'Application rejected',
+          title: _t('parentApplicationRejectedAlertTitle'),
           message: reason.isEmpty
-              ? 'Admin rejected your parent application. Please review your information and submit again.'
+              ? _t('parentApplicationRejectedDefaultMessage')
               : reason,
+          buttonText: _t('ok'),
         );
       }
     } else {
@@ -402,15 +449,17 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     if (!_validate() || _submitting) return;
     setState(() {
       _submitting = true;
-      _submissionMessage = 'Preparing your application...';
+      _submissionMessage = _t('preparingApplication');
     });
     await WidgetsBinding.instance.endOfFrame;
     try {
       if (_familyBookImages.isNotEmpty) {
         setState(() {
           _submissionMessage = _familyBookImages.length == 1
-              ? 'Converting Family Book image to PDF...'
-              : 'Converting ${_familyBookImages.length} Family Book images to PDF...';
+              ? _t('convertingFamilyBookSingle')
+              : _t(
+                  'convertingFamilyBookMany',
+                ).replaceAll('{count}', '${_familyBookImages.length}');
         });
         await WidgetsBinding.instance.endOfFrame;
       }
@@ -419,7 +468,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
           .where((attachment) => attachment.field == 'family_book')
           .cast<ParentAttachment?>()
           .firstWhere((attachment) => attachment != null, orElse: () => null);
-      setState(() => _submissionMessage = 'Submitting your application...');
+      setState(() => _submissionMessage = _t('submittingApplication'));
       await WidgetsBinding.instance.endOfFrame;
       final isResubmission = _rejected && _referenceId != null;
       final result = isResubmission
@@ -435,7 +484,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
           : parent;
       final id = (parentData['id'] ?? parentData['_id'])?.toString();
       if (id == null || id.isEmpty) {
-        throw const ApiException('Could not resolve your application ID.');
+        throw ApiException(_t('couldNotResolveApplicationId'));
       }
       final fullName = [
         _data['Firstname_Eng'],
@@ -471,17 +520,18 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         _submitting = false;
       });
       GlobalAlert.showSuccess(
-        title: 'Application submitted',
-        message:
-            'Your parent information has been submitted. Please wait for admin approval before signing in.',
+        title: _t('parentApplicationSubmittedAlertTitle'),
+        message: _t('parentApplicationSubmittedAlertMessage'),
+        buttonText: _t('continueAction'),
       );
       _refreshStatus(silent: true);
     } catch (error) {
       if (!mounted) return;
       setState(() => _submitting = false);
       GlobalAlert.showError(
-        title: 'Submission failed',
+        title: _t('submissionFailed'),
         message: error is ApiException ? error.message : error.toString(),
+        buttonText: _t('ok'),
       );
     }
   }
@@ -565,9 +615,9 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Text(
-                  'Please wait',
-                  style: TextStyle(
+                Text(
+                  _t('pleaseWait'),
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
                     color: _navy,
@@ -646,27 +696,27 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         children: [
           const Icon(LucideIcons.clipboardCheck, size: 20, color: _blue),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Use saved details',
-                  style: TextStyle(
+                  _t('useSavedDetails'),
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: _navy,
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
-                  'Fill saved contact, identity and address details.',
-                  style: TextStyle(fontSize: 12, color: _muted),
+                  _t('fillSavedParentDetails'),
+                  style: const TextStyle(fontSize: 12, color: _muted),
                 ),
               ],
             ),
           ),
-          TextButton(onPressed: _useSavedDetails, child: const Text('Use')),
+          TextButton(onPressed: _useSavedDetails, child: Text(_t('use'))),
         ],
       ),
     );
@@ -1030,14 +1080,9 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 required: true,
                 placeholder: _t('enterUnitRoom'),
               ),
-              _input(
-                _t('village'),
-                'Village',
-                required: true,
-                placeholder: _t('enterVillage'),
-              ),
               _locationProvinceSelect(),
               _locationDistrictSelect(),
+              _locationVillageField(),
             ]),
             const SizedBox(height: 16),
             _buildNote(),
@@ -1104,7 +1149,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                       setState(() {
                         _errors[field] = error is Exception
                             ? error.toString().replaceFirst('Exception: ', '')
-                            : 'Could not read this file';
+                            : _t('couldNotReadFile');
                       });
                     } finally {
                       if (mounted && isFamilyBook) {
@@ -1118,9 +1163,11 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
             ),
             label: Text(
               selected == null
-                  ? 'Choose ${isFamilyBook ? 'PDF or images' : (pdfOnly ? 'PDF' : 'image')}'
+                  ? (isFamilyBook
+                        ? _t('choosePdfOrImages')
+                        : (pdfOnly ? _t('choosePdf') : _t('chooseImage')))
                   : (isFamilyBook && _familyBookImages.isNotEmpty
-                        ? '${selected.displayName} (tap to add more)'
+                        ? '${selected.displayName} (${_t('tapToAddMore')})'
                         : selected.displayName),
             ),
             style: OutlinedButton.styleFrom(
@@ -1194,14 +1241,14 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                     spacing: 0,
                     children: [
                       IconButton(
-                        tooltip: 'Preview',
+                        tooltip: _t('preview'),
                         icon: const Icon(LucideIcons.eye, size: 18),
                         onPressed: () => isPdf
                             ? _previewFamilyBookPdf(selected)
                             : _previewFamilyBookImage(image),
                       ),
                       IconButton(
-                        tooltip: 'Remove',
+                        tooltip: _t('remove'),
                         icon: const Icon(
                           LucideIcons.trash2,
                           size: 17,
@@ -1244,8 +1291,10 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         bytes: Uint8List(0),
         filename: '$baseName.pdf',
         displayName: imageCount == 1
-            ? '${_familyBookImages.first.name} -> PDF'
-            : '$imageCount images -> PDF',
+            ? _t(
+                'convertedToPdf',
+              ).replaceAll('{name}', _familyBookImages.first.name)
+            : _t('imagesConvertedToPdf').replaceAll('{count}', '$imageCount'),
         deferUntilSubmit: true,
       );
     });
@@ -1337,7 +1386,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     final file = await openFile(
       acceptedTypeGroups: [
         XTypeGroup(
-          label: pdfOnly ? 'PDF' : 'Image',
+          label: pdfOnly ? _t('pdf') : _t('image'),
           extensions: pdfOnly
               ? const ['pdf']
               : const ['jpg', 'jpeg', 'png', 'gif', 'webp'],
@@ -1380,10 +1429,10 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
 
   Future<_ParentAttachmentDraft?> _pickFamilyBookAttachment() async {
     final files = await openFiles(
-      acceptedTypeGroups: const [
+      acceptedTypeGroups: [
         XTypeGroup(
-          label: 'PDF or images',
-          extensions: ['pdf', 'jpg', 'jpeg', 'png'],
+          label: _t('choosePdfOrImages'),
+          extensions: const ['pdf', 'jpg', 'jpeg', 'png'],
         ),
       ],
     );
@@ -1428,8 +1477,10 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       bytes: Uint8List(0),
       filename: '$baseName.pdf',
       displayName: imageCount == 1
-          ? '${_familyBookImages.first.name} -> PDF'
-          : '$imageCount images -> PDF',
+          ? _t(
+              'convertedToPdf',
+            ).replaceAll('{name}', _familyBookImages.first.name)
+          : _t('imagesConvertedToPdf').replaceAll('{count}', '$imageCount'),
       deferUntilSubmit: true,
     );
   }
@@ -1641,7 +1692,11 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     const name = 'Province';
     final err = _errors[name];
     final current = _data[name] ?? '';
-    final selected = _provinceByLabel(current);
+    final selected = _provinceByIdOrLabel(
+      id: _data['ProvinceId'],
+      label: current,
+    );
+    final loadError = _provincesError.trim();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1661,7 +1716,11 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 )
               : const Icon(LucideIcons.chevronDown, color: _muted),
           hint: Text(
-            _provincesLoading ? _t('loadingProvinces') : _t('selectProvince'),
+            _provincesLoading
+                ? _t('loadingProvinces')
+                : loadError.isNotEmpty
+                ? _t('couldNotLoadProvinces')
+                : _t('selectProvince'),
             style: const TextStyle(color: _slate400, fontSize: 14),
           ),
           style: const TextStyle(
@@ -1678,11 +1737,19 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
               : (v) {
                   if (v == null) return;
                   final picked = _provinces.firstWhere((p) => p.id == v);
+                  debugPrint(
+                    '[ParentInfoForm] province selected id=${picked.id} label=${picked.label} districts=${picked.districts.length}',
+                  );
                   setState(() {
+                    _data['ProvinceId'] = picked.id;
                     _data[name] = picked.label;
+                    _data['DistrictId'] = '';
                     _data['District'] = '';
+                    _data['Village'] = '';
                     _errors.remove(name);
                     _errors.remove('District');
+                    _errors.remove('Village');
+                    _formRevision++;
                   });
                 },
         ),
@@ -1698,6 +1765,35 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
               ),
             ),
           ),
+        if (loadError.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  LucideIcons.triangleAlert,
+                  size: 15,
+                  color: _rose500,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '${_t('couldNotLoadProvinces')}: $loadError',
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: _rose500,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _provincesLoading ? null : _loadProvinces,
+                  child: Text(_t('retry')),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }
@@ -1706,20 +1802,23 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     const name = 'District';
     final err = _errors[name];
     final current = _data[name] ?? '';
-    final province = _provinceByLabel(_data['Province'] ?? '');
+    final province = _provinceByIdOrLabel(
+      id: _data['ProvinceId'],
+      label: _data['Province'],
+    );
     final districts = province?.districts ?? const [];
-    final lc = current.trim().toLowerCase();
-    final selected = districts.firstWhere(
-      (d) => d.label.toLowerCase() == lc,
-      orElse: () => const _ParentDistrictOption(id: '', label: ''),
+    final selected = _districtByIdOrLabel(
+      districts,
+      id: _data['DistrictId'],
+      label: current,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _label(_t('district'), true),
         DropdownButtonFormField<String>(
-          key: ValueKey('district_$_formRevision'),
-          initialValue: selected.id.isEmpty ? null : selected.id,
+          key: ValueKey('district_${province?.id ?? ''}_$_formRevision'),
+          initialValue: selected?.id,
           isExpanded: true,
           icon: const Icon(LucideIcons.chevronDown, color: _muted),
           hint: Text(
@@ -1740,11 +1839,115 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
               : (v) {
                   if (v == null) return;
                   final picked = districts.firstWhere((d) => d.id == v);
+                  debugPrint(
+                    '[ParentInfoForm] district selected id=${picked.id} label=${picked.label} villages=${picked.villages.length}',
+                  );
                   setState(() {
+                    _data['DistrictId'] = picked.id;
                     _data[name] = picked.label;
+                    _data['Village'] = '';
                     _errors.remove(name);
+                    _errors.remove('Village');
+                    _formRevision++;
                   });
                 },
+        ),
+        if (err != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              err,
+              style: const TextStyle(
+                fontSize: 13,
+                color: _rose500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  _ParentDistrictOption? _districtByIdOrLabel(
+    List<_ParentDistrictOption> districts, {
+    String? id,
+    String? label,
+  }) {
+    final cleanId = id?.trim() ?? '';
+    if (cleanId.isNotEmpty) {
+      for (final d in districts) {
+        if (d.id == cleanId) return d;
+      }
+    }
+    final cleanLabel = label?.trim() ?? '';
+    if (cleanLabel.isEmpty) return null;
+    final lc = cleanLabel.toLowerCase();
+    for (final d in districts) {
+      if (d.label.toLowerCase() == lc) return d;
+    }
+    return null;
+  }
+
+  Widget _locationVillageField() {
+    const name = 'Village';
+    final province = _provinceByIdOrLabel(
+      id: _data['ProvinceId'],
+      label: _data['Province'],
+    );
+    final district = _districtByIdOrLabel(
+      province?.districts ?? const [],
+      id: _data['DistrictId'],
+      label: _data['District'],
+    );
+    final villages = district?.villages ?? const <String>[];
+
+    if (villages.isEmpty) {
+      return _input(
+        _t('village'),
+        name,
+        required: true,
+        placeholder: district == null
+            ? _t('selectDistrictFirst')
+            : _t('enterVillage'),
+      );
+    }
+
+    final err = _errors[name];
+    final current = _data[name] ?? '';
+    final selected =
+        villages.any((v) => v.toLowerCase() == current.toLowerCase())
+        ? villages.firstWhere((v) => v.toLowerCase() == current.toLowerCase())
+        : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label(_t('village'), true),
+        DropdownButtonFormField<String>(
+          key: ValueKey('village_${district?.id ?? ''}_$_formRevision'),
+          initialValue: selected,
+          isExpanded: true,
+          icon: const Icon(LucideIcons.chevronDown, color: _muted),
+          hint: Text(
+            _t('selectVillage'),
+            style: const TextStyle(color: _slate400, fontSize: 14),
+          ),
+          style: const TextStyle(
+            fontSize: 16,
+            color: _navy,
+            fontWeight: FontWeight.w500,
+          ),
+          decoration: _decoration(null, err),
+          items: villages
+              .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+              .toList(),
+          onChanged: (v) {
+            if (v == null) return;
+            setState(() {
+              _data[name] = v;
+              _errors.remove(name);
+            });
+          },
         ),
         if (err != null)
           Padding(
@@ -2058,14 +2261,14 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(color: amber.withValues(alpha: .4)),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(LucideIcons.circle, color: amber, size: 8),
-                    SizedBox(width: 6),
+                    const Icon(LucideIcons.circle, color: amber, size: 8),
+                    const SizedBox(width: 6),
                     Text(
-                      'PENDING APPROVAL',
-                      style: TextStyle(
+                      _t('pendingApprovalUpper'),
+                      style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                         color: Color(0xFFB45309),
@@ -2076,9 +2279,9 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text(
-                'Application Submitted',
-                style: TextStyle(
+              Text(
+                _t('parentApplicationSubmittedTitle'),
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w800,
                   color: _navy,
@@ -2087,7 +2290,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
               const SizedBox(height: 8),
               Text.rich(
                 TextSpan(
-                  text: 'Thank you',
+                  text: _t('parentApplicationThanks'),
                   style: const TextStyle(
                     fontSize: 13,
                     color: _muted,
@@ -2104,9 +2307,8 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                         ),
                       ),
                     ],
-                    const TextSpan(
-                      text:
-                          '. Your application has been received and is now waiting for admin approval.',
+                    TextSpan(
+                      text: '. ${_t('parentApplicationWaitingMessage')}',
                     ),
                   ],
                 ),
@@ -2136,7 +2338,9 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                   )
                 : const Icon(LucideIcons.refreshCw, size: 18),
             label: Text(
-              _checkingStatus ? 'Checking status...' : 'Check approval status',
+              _checkingStatus
+                  ? _t('checkingStatus')
+                  : _t('checkApprovalStatus'),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: _blue,
@@ -2168,16 +2372,17 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            child: const Text('Back to Sign In'),
+            child: Text(_t('backToSignIn')),
           ),
         ),
         const SizedBox(height: 6),
         TextButton(
           onPressed: () async {
             final ok = await GlobalAlert.showConfirmation(
-              title: 'Cancel application?',
-              message:
-                  'Your local pending status will be cleared. The backend record remains until admin removes it.',
+              title: _t('cancelApplicationQuestion'),
+              message: _t('cancelApplicationMessage'),
+              confirmText: _t('ok'),
+              cancelText: _t('cancel'),
             );
             if (ok != true) return;
             await _service.clearPending();
@@ -2200,9 +2405,9 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
             _pageController.jumpToPage(0);
           },
           style: TextButton.styleFrom(foregroundColor: _muted),
-          child: const Text(
-            'Cancel application',
-            style: TextStyle(fontWeight: FontWeight.w600),
+          child: Text(
+            _t('cancelApplication'),
+            style: const TextStyle(fontWeight: FontWeight.w600),
           ),
         ),
       ],
@@ -2262,14 +2467,14 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(color: greenBorder),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(LucideIcons.circle, color: green, size: 8),
-                    SizedBox(width: 6),
+                    const Icon(LucideIcons.circle, color: green, size: 8),
+                    const SizedBox(width: 6),
                     Text(
-                      'ACCOUNT APPROVED',
-                      style: TextStyle(
+                      _t('accountApprovedUpper'),
+                      style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                         color: green,
@@ -2280,9 +2485,9 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text(
-                'You\'re approved!',
-                style: TextStyle(
+              Text(
+                _t('youreApproved'),
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w800,
                   color: _navy,
@@ -2292,7 +2497,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
               const SizedBox(height: 8),
               Text.rich(
                 TextSpan(
-                  text: 'Welcome',
+                  text: _t('welcome'),
                   style: const TextStyle(
                     fontSize: 13,
                     color: _muted,
@@ -2309,10 +2514,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                         ),
                       ),
                     ],
-                    const TextSpan(
-                      text:
-                          '. Your account is now active. You can sign in any time using the email and password you submitted.',
-                    ),
+                    TextSpan(text: '. ${_t('accountApprovedMessage')}'),
                   ],
                 ),
                 textAlign: TextAlign.center,
@@ -2336,7 +2538,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
               );
             },
             icon: const Icon(LucideIcons.logIn, size: 18),
-            label: const Text('Go to sign in'),
+            label: Text(_t('goToSignIn')),
             style: ElevatedButton.styleFrom(
               backgroundColor: green,
               foregroundColor: Colors.white,
@@ -2361,7 +2563,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     const rose = Color(0xFFE11D48);
     final reason = (_rejectReason?.trim().isNotEmpty == true)
         ? _rejectReason!.trim()
-        : 'Please review your parent information and submit again.';
+        : _t('reviewParentInformationAndSubmitAgain');
     return Column(
       children: [
         Container(
@@ -2385,14 +2587,14 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(color: rose.withValues(alpha: .35)),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(LucideIcons.circleX, color: rose, size: 12),
-                    SizedBox(width: 6),
+                    const Icon(LucideIcons.circleX, color: rose, size: 12),
+                    const SizedBox(width: 6),
                     Text(
-                      'REJECTED',
-                      style: TextStyle(
+                      _t('rejectedUpper'),
+                      style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                         color: Color(0xFF9F1239),
@@ -2403,9 +2605,9 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text(
-                'Application Rejected',
-                style: TextStyle(
+              Text(
+                _t('applicationRejected'),
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w800,
                   color: _navy,
@@ -2413,12 +2615,13 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              const Text.rich(
-                TextSpan(
-                  text:
-                      'Admin reviewed this application and requested changes.',
+              Text.rich(
+                TextSpan(text: _t('applicationRejectedMessage')),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: _muted,
+                  height: 1.5,
                 ),
-                style: TextStyle(fontSize: 13, color: _muted, height: 1.5),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 14),
@@ -2444,7 +2647,9 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                     ),
                   )
                 : const Icon(LucideIcons.refreshCw, size: 18),
-            label: Text(_checkingStatus ? 'Checking status...' : 'Check again'),
+            label: Text(
+              _checkingStatus ? _t('checkingStatus') : _t('checkAgain'),
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: _blue,
               foregroundColor: Colors.white,
@@ -2465,7 +2670,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
           child: OutlinedButton.icon(
             onPressed: _resubmitApplication,
             icon: const Icon(LucideIcons.filePenLine, size: 18),
-            label: const Text('Edit and resubmit'),
+            label: Text(_t('editAndResubmit')),
             style: OutlinedButton.styleFrom(
               foregroundColor: _blue,
               side: const BorderSide(color: _slate200, width: 1.5),
@@ -2496,7 +2701,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            child: const Text('Back to Sign In'),
+            child: Text(_t('backToSignIn')),
           ),
         ),
       ],
@@ -2525,9 +2730,9 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Reason from admin',
-                  style: TextStyle(
+                Text(
+                  _t('reasonFromAdmin'),
+                  style: const TextStyle(
                     color: Color(0xFF9F1239),
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
@@ -2564,9 +2769,9 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'YOUR LOGIN',
-            style: TextStyle(
+          Text(
+            _t('yourLogin'),
+            style: const TextStyle(
               fontSize: 11,
               color: _blue,
               fontWeight: FontWeight.w800,
@@ -2576,7 +2781,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
           const SizedBox(height: 10),
           if (_pendingEmail != null) ...[
             _credRow(
-              label: 'Email',
+              label: _t('email'),
               value: _pendingEmail!,
               icon: LucideIcons.mail,
             ),
@@ -2587,9 +2792,9 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
               child: Divider(height: 1, color: _slate100),
             ),
           _credRow(
-            label: 'Password',
+            label: _t('password'),
             value: pwd.isEmpty
-                ? 'Not available'
+                ? _t('notAvailable')
                 : (_passwordVisible ? pwd : masked),
             icon: LucideIcons.lock,
             monospace: pwd.isNotEmpty,
@@ -2598,9 +2803,9 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
               onPressed: () {
                 if (pwd.isEmpty) {
                   GlobalAlert.showInfo(
-                    title: 'Password unavailable',
-                    message:
-                        'This application was submitted before the password was stored locally. Cancel the application and re-submit to see your login password.',
+                    title: _t('passwordUnavailable'),
+                    message: _t('passwordUnavailableMessage'),
+                    buttonText: _t('ok'),
                   );
                   return;
                 }
@@ -2611,7 +2816,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 size: 20,
                 color: _blue,
               ),
-              tooltip: _passwordVisible ? 'Hide' : 'Show',
+              tooltip: _passwordVisible ? _t('hide') : _t('show'),
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -2624,15 +2829,19 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
               color: _blueSofter,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Row(
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(LucideIcons.info, size: 14, color: _blue),
-                SizedBox(width: 6),
+                const Icon(LucideIcons.info, size: 14, color: _blue),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Save this password. You can change it after admin approves your account.',
-                    style: TextStyle(fontSize: 11, color: _muted, height: 1.4),
+                    _t('savePasswordHint'),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: _muted,
+                      height: 1.4,
+                    ),
                   ),
                 ),
               ],
@@ -2700,24 +2909,24 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     const rose = Color(0xFFE11D48);
     final steps = [
       (
-        'Submitted',
-        'Application received',
+        _t('submitted'),
+        _t('applicationReceived'),
         LucideIcons.circleCheck,
         _blue,
         true,
       ),
       (
-        _rejected ? 'Rejected' : 'Pending Review',
-        _rejected ? 'Admin requested changes' : 'Waiting for admin approval',
+        _rejected ? _t('rejected') : _t('pendingReview'),
+        _rejected ? _t('adminRequestedChanges') : _t('waitingForAdminApproval'),
         _rejected ? LucideIcons.circleX : LucideIcons.hourglass,
         _rejected ? rose : amber,
         true,
       ),
       (
-        _rejected ? 'Resubmit' : 'Approved',
+        _rejected ? _t('resubmit') : _t('approved'),
         _rejected
-            ? 'Update details and send again'
-            : "You'll be notified once approved",
+            ? _t('updateDetailsAndSendAgain')
+            : _t('notifiedOnceApproved'),
         _rejected ? LucideIcons.filePenLine : LucideIcons.badgeCheck,
         _slate400,
         false,
@@ -3031,11 +3240,320 @@ class _FamilyBookImageDraft {
 class _ParentDistrictOption {
   final String id;
   final String label;
-  const _ParentDistrictOption({required this.id, required this.label});
+  final List<String> villages;
 
-  factory _ParentDistrictOption.fromJson(Map<String, dynamic> j) =>
-      _ParentDistrictOption(
-        id: (j['id'] ?? '').toString(),
-        label: (j['nameEn'] ?? j['nameLa'] ?? j['name'] ?? '').toString(),
-      );
+  const _ParentDistrictOption({
+    required this.id,
+    required this.label,
+    this.villages = const [],
+  });
+
+  factory _ParentDistrictOption.fromJson(Map<String, dynamic> j) {
+    final rawVillages =
+        j['villages'] ?? j['village'] ?? j['bans'] ?? j['ban'] ?? const [];
+    final villages = rawVillages is List
+        ? rawVillages
+              .map((item) {
+                if (item is Map) {
+                  return (item['nameEn'] ??
+                          item['nameLa'] ??
+                          item['name'] ??
+                          item['label'] ??
+                          '')
+                      .toString()
+                      .trim();
+                }
+                return item.toString().trim();
+              })
+              .where((item) => item.isNotEmpty)
+              .toSet()
+              .toList()
+        : const <String>[];
+
+    return _ParentDistrictOption(
+      id: (j['id'] ?? '').toString(),
+      label: (j['nameEn'] ?? j['nameLa'] ?? j['name'] ?? '').toString(),
+      villages: villages,
+    );
+  }
 }
+
+List<_ParentProvinceOption> _fallbackLaoProvinces() => const [
+  _ParentProvinceOption(
+    id: 'fallback-vientiane-capital',
+    label: 'ນະຄອນຫຼວງວຽງຈັນ',
+    districts: [
+      _ParentDistrictOption(id: 'fallback-vtc-chanthabuly', label: 'ຈັນທະບູລີ'),
+      _ParentDistrictOption(
+        id: 'fallback-vtc-sikhottabong',
+        label: 'ສີໂຄດຕະບອງ',
+      ),
+      _ParentDistrictOption(id: 'fallback-vtc-xaysetha', label: 'ໄຊເສດຖາ'),
+      _ParentDistrictOption(id: 'fallback-vtc-sisattanak', label: 'ສີສັດຕະນາກ'),
+      _ParentDistrictOption(id: 'fallback-vtc-naxaythong', label: 'ນາຊາຍທອງ'),
+      _ParentDistrictOption(id: 'fallback-vtc-xaythany', label: 'ໄຊທານີ'),
+      _ParentDistrictOption(id: 'fallback-vtc-hatsaifong', label: 'ຫາດຊາຍຟອງ'),
+      _ParentDistrictOption(id: 'fallback-vtc-sangthong', label: 'ສັງທອງ'),
+      _ParentDistrictOption(id: 'fallback-vtc-pakngum', label: 'ປາກງື່ມ'),
+    ],
+  ),
+  _ParentProvinceOption(
+    id: 'fallback-phongsaly',
+    label: 'ຜົ້ງສາລີ',
+    districts: [
+      _ParentDistrictOption(id: 'fallback-psl-phongsaly', label: 'ຜົ້ງສາລີ'),
+      _ParentDistrictOption(id: 'fallback-psl-may', label: 'ໃໝ່'),
+      _ParentDistrictOption(id: 'fallback-psl-khoua', label: 'ຂວາ'),
+      _ParentDistrictOption(id: 'fallback-psl-samphan', label: 'ສຳພັນ'),
+      _ParentDistrictOption(id: 'fallback-psl-bounneua', label: 'ບຸນເໜືອ'),
+      _ParentDistrictOption(id: 'fallback-psl-nyot-ou', label: 'ຍອດອູ'),
+      _ParentDistrictOption(id: 'fallback-psl-bountai', label: 'ບຸນໃຕ້'),
+    ],
+  ),
+  _ParentProvinceOption(
+    id: 'fallback-luangnamtha',
+    label: 'ຫຼວງນ້ຳທາ',
+    districts: [
+      _ParentDistrictOption(id: 'fallback-lnt-luangnamtha', label: 'ຫຼວງນ້ຳທາ'),
+      _ParentDistrictOption(id: 'fallback-lnt-sing', label: 'ສິງ'),
+      _ParentDistrictOption(id: 'fallback-lnt-long', label: 'ລອງ'),
+      _ParentDistrictOption(id: 'fallback-lnt-viengphoukha', label: 'ວຽງພູຄາ'),
+      _ParentDistrictOption(id: 'fallback-lnt-nalae', label: 'ນາແລ'),
+    ],
+  ),
+  _ParentProvinceOption(
+    id: 'fallback-oudomxay',
+    label: 'ອຸດົມໄຊ',
+    districts: [
+      _ParentDistrictOption(id: 'fallback-odx-xay', label: 'ໄຊ'),
+      _ParentDistrictOption(id: 'fallback-odx-la', label: 'ຫຼາ'),
+      _ParentDistrictOption(id: 'fallback-odx-namo', label: 'ນາໝໍ້'),
+      _ParentDistrictOption(id: 'fallback-odx-nga', label: 'ງາ'),
+      _ParentDistrictOption(id: 'fallback-odx-beng', label: 'ແບງ'),
+      _ParentDistrictOption(id: 'fallback-odx-houn', label: 'ຮຸນ'),
+      _ParentDistrictOption(id: 'fallback-odx-pakbeng', label: 'ປາກແບງ'),
+    ],
+  ),
+  _ParentProvinceOption(
+    id: 'fallback-bokeo',
+    label: 'ບໍ່ແກ້ວ',
+    districts: [
+      _ParentDistrictOption(id: 'fallback-bko-houayxay', label: 'ຫ້ວຍຊາຍ'),
+      _ParentDistrictOption(id: 'fallback-bko-tonpheung', label: 'ຕົ້ນເຜິ້ງ'),
+      _ParentDistrictOption(id: 'fallback-bko-meung', label: 'ເມິງ'),
+      _ParentDistrictOption(id: 'fallback-bko-phaoudom', label: 'ຜາອຸດົມ'),
+      _ParentDistrictOption(id: 'fallback-bko-paktha', label: 'ປາກທາ'),
+    ],
+  ),
+  _ParentProvinceOption(
+    id: 'fallback-luangprabang',
+    label: 'ຫຼວງພະບາງ',
+    districts: [
+      _ParentDistrictOption(
+        id: 'fallback-lpb-luangprabang',
+        label: 'ຫຼວງພະບາງ',
+      ),
+      _ParentDistrictOption(id: 'fallback-lpb-xiengngeun', label: 'ຊຽງເງິນ'),
+      _ParentDistrictOption(id: 'fallback-lpb-nan', label: 'ນານ'),
+      _ParentDistrictOption(id: 'fallback-lpb-pak-ou', label: 'ປາກອູ'),
+      _ParentDistrictOption(id: 'fallback-lpb-nambak', label: 'ນ້ຳບາກ'),
+      _ParentDistrictOption(id: 'fallback-lpb-ngoy', label: 'ງອຍ'),
+      _ParentDistrictOption(id: 'fallback-lpb-pakxeng', label: 'ປາກແຊງ'),
+      _ParentDistrictOption(id: 'fallback-lpb-phonxay', label: 'ໂພນໄຊ'),
+      _ParentDistrictOption(id: 'fallback-lpb-chomphet', label: 'ຈອມເພັດ'),
+      _ParentDistrictOption(id: 'fallback-lpb-viengkham', label: 'ວຽງຄຳ'),
+      _ParentDistrictOption(id: 'fallback-lpb-phoukhoun', label: 'ພູຄູນ'),
+      _ParentDistrictOption(id: 'fallback-lpb-phonthong', label: 'ໂພນທອງ'),
+    ],
+  ),
+  _ParentProvinceOption(
+    id: 'fallback-houaphanh',
+    label: 'ຫົວພັນ',
+    districts: [
+      _ParentDistrictOption(id: 'fallback-hph-xamneua', label: 'ຊຳເໜືອ'),
+      _ParentDistrictOption(id: 'fallback-hph-xiengkhor', label: 'ຊຽງຄໍ້'),
+      _ParentDistrictOption(id: 'fallback-hph-hiem', label: 'ຮ້ຽມ'),
+      _ParentDistrictOption(id: 'fallback-hph-viengxay', label: 'ວຽງໄຊ'),
+      _ParentDistrictOption(id: 'fallback-hph-houameuang', label: 'ຫົວເມືອງ'),
+      _ParentDistrictOption(id: 'fallback-hph-xamtai', label: 'ຊຳໃຕ້'),
+      _ParentDistrictOption(id: 'fallback-hph-sopbao', label: 'ສົບເບົາ'),
+      _ParentDistrictOption(id: 'fallback-hph-add', label: 'ແອດ'),
+      _ParentDistrictOption(id: 'fallback-hph-kuan', label: 'ກວັນ'),
+      _ParentDistrictOption(id: 'fallback-hph-xon', label: 'ຊ່ອນ'),
+    ],
+  ),
+  _ParentProvinceOption(
+    id: 'fallback-xayaboury',
+    label: 'ໄຊຍະບູລີ',
+    districts: [
+      _ParentDistrictOption(id: 'fallback-xbl-xayaboury', label: 'ໄຊຍະບູລີ'),
+      _ParentDistrictOption(id: 'fallback-xbl-khop', label: 'ຄອບ'),
+      _ParentDistrictOption(id: 'fallback-xbl-hongsa', label: 'ຫົງສາ'),
+      _ParentDistrictOption(id: 'fallback-xbl-ngeun', label: 'ເງິນ'),
+      _ParentDistrictOption(id: 'fallback-xbl-xienghone', label: 'ຊຽງຮ່ອນ'),
+      _ParentDistrictOption(id: 'fallback-xbl-phieng', label: 'ພຽງ'),
+      _ParentDistrictOption(id: 'fallback-xbl-paklai', label: 'ປາກລາຍ'),
+      _ParentDistrictOption(id: 'fallback-xbl-kaenthao', label: 'ແກ່ນທ້າວ'),
+      _ParentDistrictOption(id: 'fallback-xbl-boten', label: 'ບໍ່ແຕນ'),
+      _ParentDistrictOption(id: 'fallback-xbl-thongmixay', label: 'ທົ່ງມີໄຊ'),
+      _ParentDistrictOption(id: 'fallback-xbl-xaysathan', label: 'ໄຊສະຖານ'),
+    ],
+  ),
+  _ParentProvinceOption(
+    id: 'fallback-xiengkhouang',
+    label: 'ຊຽງຂວາງ',
+    districts: [
+      _ParentDistrictOption(id: 'fallback-xkh-pek', label: 'ແປກ'),
+      _ParentDistrictOption(id: 'fallback-xkh-kham', label: 'ຄຳ'),
+      _ParentDistrictOption(id: 'fallback-xkh-nonghed', label: 'ໜອງແຮດ'),
+      _ParentDistrictOption(id: 'fallback-xkh-khoun', label: 'ຄູນ'),
+      _ParentDistrictOption(id: 'fallback-xkh-mokmai', label: 'ໝອກໃໝ່'),
+      _ParentDistrictOption(id: 'fallback-xkh-phoukoud', label: 'ພູກູດ'),
+      _ParentDistrictOption(id: 'fallback-xkh-phaxay', label: 'ຜາໄຊ'),
+    ],
+  ),
+  _ParentProvinceOption(
+    id: 'fallback-vientiane-province',
+    label: 'ວຽງຈັນ',
+    districts: [
+      _ParentDistrictOption(id: 'fallback-vtp-phonhong', label: 'ໂພນໂຮງ'),
+      _ParentDistrictOption(id: 'fallback-vtp-thoulakhom', label: 'ທຸລະຄົມ'),
+      _ParentDistrictOption(id: 'fallback-vtp-keooudom', label: 'ແກ້ວອຸດົມ'),
+      _ParentDistrictOption(id: 'fallback-vtp-kasy', label: 'ກາສີ'),
+      _ParentDistrictOption(id: 'fallback-vtp-vangvieng', label: 'ວັງວຽງ'),
+      _ParentDistrictOption(id: 'fallback-vtp-feuang', label: 'ເຟືອງ'),
+      _ParentDistrictOption(id: 'fallback-vtp-xanakham', label: 'ຊະນະຄາມ'),
+      _ParentDistrictOption(id: 'fallback-vtp-mad', label: 'ແມດ'),
+      _ParentDistrictOption(id: 'fallback-vtp-viengkham', label: 'ວຽງຄຳ'),
+      _ParentDistrictOption(id: 'fallback-vtp-hinhurp', label: 'ຫີນເຫີບ'),
+      _ParentDistrictOption(id: 'fallback-vtp-meun', label: 'ໝື່ນ'),
+    ],
+  ),
+  _ParentProvinceOption(
+    id: 'fallback-bolikhamxay',
+    label: 'ບໍລິຄຳໄຊ',
+    districts: [
+      _ParentDistrictOption(id: 'fallback-blk-paksan', label: 'ປາກຊັນ'),
+      _ParentDistrictOption(id: 'fallback-blk-thaphabat', label: 'ທ່າພະບາດ'),
+      _ParentDistrictOption(id: 'fallback-blk-pakkading', label: 'ປາກກະດິງ'),
+      _ParentDistrictOption(id: 'fallback-blk-bolikhan', label: 'ບໍລິຄັນ'),
+      _ParentDistrictOption(id: 'fallback-blk-khamkeut', label: 'ຄຳເກີດ'),
+      _ParentDistrictOption(id: 'fallback-blk-viengthong', label: 'ວຽງທອງ'),
+      _ParentDistrictOption(id: 'fallback-blk-xaychamphon', label: 'ໄຊຈຳພອນ'),
+    ],
+  ),
+  _ParentProvinceOption(
+    id: 'fallback-khammouane',
+    label: 'ຄຳມ່ວນ',
+    districts: [
+      _ParentDistrictOption(id: 'fallback-khm-thakhek', label: 'ທ່າແຂກ'),
+      _ParentDistrictOption(id: 'fallback-khm-mahaxay', label: 'ມະຫາໄຊ'),
+      _ParentDistrictOption(id: 'fallback-khm-nongbok', label: 'ໜອງບົກ'),
+      _ParentDistrictOption(id: 'fallback-khm-hinboun', label: 'ຫີນບູນ'),
+      _ParentDistrictOption(id: 'fallback-khm-nyommalath', label: 'ຍົມມະລາດ'),
+      _ParentDistrictOption(id: 'fallback-khm-boualapha', label: 'ບົວລະພາ'),
+      _ParentDistrictOption(id: 'fallback-khm-nakay', label: 'ນາກາຍ'),
+      _ParentDistrictOption(id: 'fallback-khm-xebangfai', label: 'ເຊບັ້ງໄຟ'),
+      _ParentDistrictOption(id: 'fallback-khm-xaybuathong', label: 'ໄຊບົວທອງ'),
+      _ParentDistrictOption(id: 'fallback-khm-khounkham', label: 'ຄູນຄຳ'),
+    ],
+  ),
+  _ParentProvinceOption(
+    id: 'fallback-savannakhet',
+    label: 'ສະຫວັນນະເຂດ',
+    districts: [
+      _ParentDistrictOption(id: 'fallback-svk-kaysone', label: 'ໄກສອນພົມວິຫານ'),
+      _ParentDistrictOption(id: 'fallback-svk-outhoumphone', label: 'ອຸທຸມພອນ'),
+      _ParentDistrictOption(
+        id: 'fallback-svk-atsaphangthong',
+        label: 'ອາດສະພັງທອງ',
+      ),
+      _ParentDistrictOption(id: 'fallback-svk-phin', label: 'ພີນ'),
+      _ParentDistrictOption(id: 'fallback-svk-sepon', label: 'ເຊໂປນ'),
+      _ParentDistrictOption(id: 'fallback-svk-nong', label: 'ນອງ'),
+      _ParentDistrictOption(
+        id: 'fallback-svk-thapangthong',
+        label: 'ທ່າປາງທອງ',
+      ),
+      _ParentDistrictOption(id: 'fallback-svk-songkhone', label: 'ສອງຄອນ'),
+      _ParentDistrictOption(id: 'fallback-svk-champhone', label: 'ຈຳພອນ'),
+      _ParentDistrictOption(id: 'fallback-svk-xonbuly', label: 'ຊົນບູລີ'),
+      _ParentDistrictOption(id: 'fallback-svk-xaybouly', label: 'ໄຊບູລີ'),
+      _ParentDistrictOption(id: 'fallback-svk-vilabouly', label: 'ວິລະບູລີ'),
+      _ParentDistrictOption(id: 'fallback-svk-atsaphone', label: 'ອາດສະພອນ'),
+      _ParentDistrictOption(id: 'fallback-svk-xayphouthong', label: 'ໄຊພູທອງ'),
+      _ParentDistrictOption(id: 'fallback-svk-phalanxay', label: 'ພະລານໄຊ'),
+    ],
+  ),
+  _ParentProvinceOption(
+    id: 'fallback-salavan',
+    label: 'ສາລະວັນ',
+    districts: [
+      _ParentDistrictOption(id: 'fallback-slv-salavan', label: 'ສາລະວັນ'),
+      _ParentDistrictOption(id: 'fallback-slv-ta-oy', label: 'ຕາໂອ້ຍ'),
+      _ParentDistrictOption(id: 'fallback-slv-toumlan', label: 'ຕຸ້ມລານ'),
+      _ParentDistrictOption(id: 'fallback-slv-lakhonpheng', label: 'ລະຄອນເພັງ'),
+      _ParentDistrictOption(id: 'fallback-slv-vapy', label: 'ວາປີ'),
+      _ParentDistrictOption(id: 'fallback-slv-khongxedone', label: 'ຄົງເຊໂດນ'),
+      _ParentDistrictOption(id: 'fallback-slv-laongam', label: 'ເລົ່າງາມ'),
+      _ParentDistrictOption(id: 'fallback-slv-samouay', label: 'ສະມ້ວຍ'),
+    ],
+  ),
+  _ParentProvinceOption(
+    id: 'fallback-sekong',
+    label: 'ເຊກອງ',
+    districts: [
+      _ParentDistrictOption(id: 'fallback-skg-lamam', label: 'ລະມາມ'),
+      _ParentDistrictOption(id: 'fallback-skg-kaleum', label: 'ກະລຶມ'),
+      _ParentDistrictOption(id: 'fallback-skg-dakcheung', label: 'ດາກຈຶງ'),
+      _ParentDistrictOption(id: 'fallback-skg-thateng', label: 'ທ່າແຕງ'),
+    ],
+  ),
+  _ParentProvinceOption(
+    id: 'fallback-champasak',
+    label: 'ຈຳປາສັກ',
+    districts: [
+      _ParentDistrictOption(id: 'fallback-cps-pakse', label: 'ປາກເຊ'),
+      _ParentDistrictOption(
+        id: 'fallback-cps-xanasomboun',
+        label: 'ຊະນະສົມບູນ',
+      ),
+      _ParentDistrictOption(
+        id: 'fallback-cps-bachieng',
+        label: 'ບາຈຽງຈະເລີນສຸກ',
+      ),
+      _ParentDistrictOption(id: 'fallback-cps-pakxong', label: 'ປາກຊ່ອງ'),
+      _ParentDistrictOption(id: 'fallback-cps-pathoumphone', label: 'ປະທຸມພອນ'),
+      _ParentDistrictOption(id: 'fallback-cps-phonthong', label: 'ໂພນທອງ'),
+      _ParentDistrictOption(id: 'fallback-cps-champasak', label: 'ຈຳປາສັກ'),
+      _ParentDistrictOption(id: 'fallback-cps-sukhuma', label: 'ສຸຂຸມາ'),
+      _ParentDistrictOption(
+        id: 'fallback-cps-mounlapamok',
+        label: 'ມຸນລະປະໂມກ',
+      ),
+      _ParentDistrictOption(id: 'fallback-cps-khong', label: 'ໂຂງ'),
+    ],
+  ),
+  _ParentProvinceOption(
+    id: 'fallback-attapeu',
+    label: 'ອັດຕະປື',
+    districts: [
+      _ParentDistrictOption(id: 'fallback-atp-xaysetha', label: 'ໄຊເສດຖາ'),
+      _ParentDistrictOption(id: 'fallback-atp-samakkhixay', label: 'ສາມັກຄີໄຊ'),
+      _ParentDistrictOption(id: 'fallback-atp-sanamxay', label: 'ສະໜາມໄຊ'),
+      _ParentDistrictOption(id: 'fallback-atp-sanxay', label: 'ສານໄຊ'),
+      _ParentDistrictOption(id: 'fallback-atp-phouvong', label: 'ພູວົງ'),
+    ],
+  ),
+  _ParentProvinceOption(
+    id: 'fallback-xaysomboun',
+    label: 'ໄຊສົມບູນ',
+    districts: [
+      _ParentDistrictOption(id: 'fallback-xsb-anuvong', label: 'ອະນຸວົງ'),
+      _ParentDistrictOption(id: 'fallback-xsb-longchaeng', label: 'ລ້ອງແຈ້ງ'),
+      _ParentDistrictOption(id: 'fallback-xsb-longxan', label: 'ລ້ອງຊານ'),
+      _ParentDistrictOption(id: 'fallback-xsb-hom', label: 'ຮົ່ມ'),
+      _ParentDistrictOption(id: 'fallback-xsb-thathom', label: 'ທ່າໂທມ'),
+    ],
+  ),
+];
