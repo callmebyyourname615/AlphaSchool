@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:lottie/lottie.dart';
 import '../../../../core/theme/app_icons.dart';
 
+import '../../../../core/localization/app_localizations.dart';
 import 'parent_info_form_page.dart';
 
 class RegisterPage extends StatelessWidget {
@@ -17,6 +18,8 @@ class RegisterPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: _surface,
       body: SafeArea(
@@ -37,7 +40,7 @@ class RegisterPage extends StatelessWidget {
                         onPressed: () => Navigator.of(context).pop(),
                         icon: const Icon(LucideIcons.arrowLeft, size: 18),
                         color: _navy,
-                        tooltip: 'Back',
+                        tooltip: l10n.t('back'),
                       ),
                     ),
                   ),
@@ -48,23 +51,22 @@ class RegisterPage extends StatelessWidget {
                     child: _RegisterAnimation(),
                   ),
                   const SizedBox(height: 24),
-                  const _BenefitRow(
+                  _BenefitRow(
                     icon: LucideIcons.refreshCw,
-                    title: 'Fast & Easy',
-                    description: 'Fill in your information online 24/7',
+                    title: l10n.t('registerFastTitle'),
+                    description: l10n.t('registerFastDescription'),
                   ),
                   const _BenefitDivider(),
-                  const _BenefitRow(
+                  _BenefitRow(
                     icon: LucideIcons.lock,
-                    title: 'Secure',
-                    description:
-                        'Your data is protected\nwith highest security',
+                    title: l10n.t('registerSecureTitle'),
+                    description: l10n.t('registerSecureDescription'),
                   ),
                   const _BenefitDivider(),
-                  const _BenefitRow(
+                  _BenefitRow(
                     icon: LucideIcons.history,
-                    title: 'Track Your Status',
-                    description: 'Check your application status\nat any time',
+                    title: l10n.t('registerTrackTitle'),
+                    description: l10n.t('registerTrackDescription'),
                   ),
                   const SizedBox(height: 32),
                   SizedBox(
@@ -87,9 +89,9 @@ class RegisterPage extends StatelessWidget {
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
-                      child: const Text(
-                        'Start Application',
-                        style: TextStyle(
+                      child: Text(
+                        l10n.t('startApplication'),
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                         ),

@@ -6,8 +6,53 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 
+import '../../../../../../core/localization/app_localizations.dart';
 import '../gallery_models.dart';
 import '../gallery_service.dart';
+
+String _t(BuildContext context, String key) =>
+    AppLocalizations.of(context).t(key);
+
+String _galleryShortDate(BuildContext context, DateTime? value) {
+  if (value == null) return _t(context, 'justNow');
+  const months = [
+    'monthJanShort',
+    'monthFebShort',
+    'monthMarShort',
+    'monthAprShort',
+    'monthMayShort',
+    'monthJunShort',
+    'monthJulShort',
+    'monthAugShort',
+    'monthSepShort',
+    'monthOctShort',
+    'monthNovShort',
+    'monthDecShort',
+  ];
+  final month = _t(context, months[value.month - 1]);
+  final isLao = Localizations.localeOf(context).languageCode == 'lo';
+  if (isLao) return '${value.day} $month ${value.year}';
+  return '$month ${value.day}, ${value.year}';
+}
+
+String _galleryRelativeTime(BuildContext context, DateTime? value) {
+  if (value == null) return _t(context, 'justNow');
+  final elapsed = DateTime.now().difference(value);
+  if (elapsed.inMinutes < 1) return _t(context, 'justNow');
+  if (elapsed.inHours < 1) {
+    return _t(
+      context,
+      'minutesAgo',
+    ).replaceAll('{count}', '${elapsed.inMinutes}');
+  }
+  if (elapsed.inDays < 1) {
+    return _t(context, 'hoursAgo').replaceAll('{count}', '${elapsed.inHours}');
+  }
+  if (elapsed.inDays < 7) {
+    return _t(context, 'daysAgo').replaceAll('{count}', '${elapsed.inDays}');
+  }
+  return _galleryShortDate(context, value);
+}
 
 class GalleryDetailPage extends StatefulWidget {
   const GalleryDetailPage({
@@ -126,9 +171,7 @@ class _GalleryDetailPageState extends State<GalleryDetailPage> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to send your comment. Please try again.'),
-        ),
+        SnackBar(content: Text(_t(context, 'unableToSendComment'))),
       );
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -195,12 +238,12 @@ class _GalleryDetailPageState extends State<GalleryDetailPage> {
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Image downloaded successfully.')),
+        SnackBar(content: Text(_t(context, 'imageDownloadedSuccessfully'))),
       );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to download this image.')),
+        SnackBar(content: Text(_t(context, 'unableToDownloadImage'))),
       );
     }
   }
@@ -234,8 +277,8 @@ class _GalleryDetailPageState extends State<GalleryDetailPage> {
           ),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Gallery',
+        title: Text(
+          _t(context, 'gallery'),
           style: TextStyle(
             color: Color(0xFF102A5C),
             fontSize: 18,
@@ -355,6 +398,9 @@ class _PostHeader extends StatelessWidget {
     final color = post.isPrivate
         ? const Color(0xFF7C3AED)
         : const Color(0xFF2563EB);
+    final postTitle = post.title.isEmpty
+        ? _t(context, 'schoolMoment')
+        : post.title;
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
@@ -384,7 +430,7 @@ class _PostHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  post.title,
+                  postTitle,
                   style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
@@ -404,8 +450,8 @@ class _PostHeader extends StatelessWidget {
                     const SizedBox(width: 4),
                     Text(
                       post.isPrivate
-                          ? 'Private · ${galleryRelativeTime(post.createdAt)}'
-                          : 'Public · ${galleryRelativeTime(post.createdAt)}',
+                          ? '${_t(context, 'private')} · ${_galleryRelativeTime(context, post.createdAt)}'
+                          : '${_t(context, 'public')} · ${_galleryRelativeTime(context, post.createdAt)}',
                       style: const TextStyle(
                         fontSize: 12.5,
                         color: Color(0xFF6E7C96),
@@ -584,13 +630,13 @@ class _GalleryPhotoPreviewState extends State<_GalleryPhotoPreview> {
                 children: [
                   _PreviewControl(
                     icon: Icons.close_rounded,
-                    tooltip: 'Close preview',
+                    tooltip: _t(context, 'closePreview'),
                     onPressed: () => Navigator.pop(context),
                   ),
                   const Spacer(),
                   _PreviewControl(
                     icon: Icons.download_rounded,
-                    tooltip: 'Download image',
+                    tooltip: _t(context, 'downloadImage'),
                     onPressed: activeUrl == null
                         ? null
                         : () => widget.onDownload(activeUrl),
@@ -726,7 +772,10 @@ class _ActionRow extends StatelessWidget {
                 size: 20,
               ),
               label: Text(
-                '${post.likesCount} Likes',
+                _t(
+                  context,
+                  post.likesCount == 1 ? 'likeCountOne' : 'likeCountMany',
+                ).replaceAll('{count}', '${post.likesCount}'),
                 style: TextStyle(color: likeColor, fontWeight: FontWeight.w700),
               ),
             ),
@@ -741,7 +790,12 @@ class _ActionRow extends StatelessWidget {
                 size: 19,
               ),
               label: Text(
-                '${post.commentsCount} Comments',
+                _t(
+                  context,
+                  post.commentsCount == 1
+                      ? 'commentCountOne'
+                      : 'commentCountMany',
+                ).replaceAll('{count}', '${post.commentsCount}'),
                 style: const TextStyle(
                   color: Color(0xFF65738C),
                   fontWeight: FontWeight.w700,
@@ -761,22 +815,28 @@ class _DetailsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rows = <({IconData icon, String label, String value})>[
-      (icon: Icons.category_outlined, label: 'Category', value: post.category),
+      (
+        icon: Icons.category_outlined,
+        label: _t(context, 'category'),
+        value: post.category.isEmpty ? '-' : post.category,
+      ),
       (
         icon: Icons.group_outlined,
-        label: 'Audience',
-        value: post.isPrivate ? 'Your family' : 'School community',
+        label: _t(context, 'audience'),
+        value: post.isPrivate
+            ? _t(context, 'yourFamily')
+            : _t(context, 'schoolCommunity'),
       ),
       if (post.location != null)
         (
           icon: Icons.location_on_outlined,
-          label: 'Location',
+          label: _t(context, 'location'),
           value: post.location!,
         ),
       (
         icon: Icons.calendar_today_outlined,
-        label: 'Shared',
-        value: galleryShortDate(post.createdAt),
+        label: _t(context, 'shared'),
+        value: _galleryShortDate(context, post.createdAt),
       ),
     ];
     return Container(
@@ -800,9 +860,9 @@ class _DetailsCard extends StatelessWidget {
             ),
             const SizedBox(height: 15),
           ],
-          const Text(
-            'Details',
-            style: TextStyle(
+          Text(
+            _t(context, 'details'),
+            style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
               color: Color(0xFF172A52),
@@ -858,19 +918,19 @@ class _CommentsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (comments.isEmpty) {
-      return const Column(
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Comments (0)',
-            style: TextStyle(
+            _t(context, 'commentsCount').replaceAll('{count}', '0'),
+            style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w800,
               color: Color(0xFF172A52),
             ),
           ),
-          SizedBox(height: 12),
-          _CommentsEmpty(),
+          const SizedBox(height: 12),
+          const _CommentsEmpty(),
         ],
       );
     }
@@ -883,7 +943,10 @@ class _CommentsSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Comments (${comments.length})',
+          _t(
+            context,
+            'commentsCount',
+          ).replaceAll('{count}', '${comments.length}'),
           style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w800,
@@ -931,10 +994,10 @@ class _CommentsEmpty extends StatelessWidget {
       border: Border.all(color: const Color(0xFFE4E9F2)),
       borderRadius: BorderRadius.circular(18),
     ),
-    child: const Center(
+    child: Center(
       child: Text(
-        'No comments yet. Start the conversation!',
-        style: TextStyle(color: Color(0xFF71809A)),
+        _t(context, 'noCommentsYetStartConversation'),
+        style: const TextStyle(color: Color(0xFF71809A)),
       ),
     ),
   );
@@ -999,7 +1062,10 @@ class _CommentTile extends StatelessWidget {
                     ),
                     if (parentName.isNotEmpty)
                       Text(
-                        'Replying to $parentName',
+                        _t(
+                          context,
+                          'replyingToName',
+                        ).replaceAll('{name}', parentName),
                         style: const TextStyle(
                           fontSize: 11,
                           color: Color(0xFF7C3AED),
@@ -1021,7 +1087,7 @@ class _CommentTile extends StatelessWidget {
               Row(
                 children: [
                   Text(
-                    galleryRelativeTime(comment.createdAt),
+                    _galleryRelativeTime(context, comment.createdAt),
                     style: const TextStyle(
                       fontSize: 11.5,
                       color: Color(0xFF8A98B0),
@@ -1030,9 +1096,9 @@ class _CommentTile extends StatelessWidget {
                   const SizedBox(width: 14),
                   InkWell(
                     onTap: onReply,
-                    child: const Text(
-                      'Reply',
-                      style: TextStyle(
+                    child: Text(
+                      _t(context, 'reply'),
+                      style: const TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w700,
                         color: Color(0xFF52617B),
@@ -1085,10 +1151,13 @@ class _CommentComposer extends StatelessWidget {
                   color: Color(0xFF7C3AED),
                 ),
                 const SizedBox(width: 5),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Replying to comment',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF7C3AED)),
+                    _t(context, 'replyingToComment'),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF7C3AED),
+                    ),
                   ),
                 ),
                 IconButton(
@@ -1116,11 +1185,11 @@ class _CommentComposer extends StatelessWidget {
                   controller: controller,
                   minLines: 1,
                   maxLines: 3,
-                  decoration: const InputDecoration(
-                    hintText: 'Write a comment...',
-                    hintStyle: TextStyle(color: Color(0xFF9AA6B9)),
+                  decoration: InputDecoration(
+                    hintText: _t(context, 'writeAComment'),
+                    hintStyle: const TextStyle(color: Color(0xFF9AA6B9)),
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
+                    contentPadding: const EdgeInsets.symmetric(
                       horizontal: 2,
                       vertical: 10,
                     ),

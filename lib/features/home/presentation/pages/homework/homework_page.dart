@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../../../../core/localization/app_localizations.dart';
 import '../../../../../shared/models/student_card_item.dart';
 import 'homework_detail_page.dart';
 import 'homework_models.dart';
@@ -20,6 +21,16 @@ const _kCardBg = Colors.white;
 const _kBorder = Color(0xFFE8ECF0);
 const _kMuted = Color(0xFF9CA3AF);
 const _kText = Color(0xFF1F2937);
+
+String _t(BuildContext context, String key) =>
+    AppLocalizations.of(context).t(key);
+
+String _homeworkVisualLabel(BuildContext context, HomeworkVisual visual) =>
+    switch (visual) {
+      HomeworkVisual.done => _t(context, 'done'),
+      HomeworkVisual.pending => _t(context, 'pending'),
+      HomeworkVisual.overdue => _t(context, 'overdue'),
+    };
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
@@ -88,7 +99,7 @@ class _HomeworkPageState extends State<HomeworkPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _PageHeader(
-              title: widget.title,
+              title: _t(context, 'homework'),
               onBack: () => Navigator.maybePop(context),
             ),
             if (!hasScope)
@@ -187,8 +198,9 @@ class _HomeworkPageState extends State<HomeworkPage> {
           ).animate().fadeIn(delay: 60.ms, duration: 220.ms),
           const SizedBox(height: 18),
           _SectionRow(
-            title: 'Homework List',
-            trailing: '${list.length} ${list.length == 1 ? "item" : "items"}',
+            title: _t(context, 'homeworkList'),
+            trailing:
+                '${list.length} ${list.length == 1 ? _t(context, 'itemSingular') : _t(context, 'itemPlural')}',
           ).animate().fadeIn(delay: 90.ms, duration: 220.ms),
           const SizedBox(height: 12),
           _TabStrip(
@@ -198,7 +210,7 @@ class _HomeworkPageState extends State<HomeworkPage> {
           ).animate().fadeIn(delay: 110.ms, duration: 220.ms),
           const SizedBox(height: 14),
           if (list.isEmpty)
-            const _EmptyCard().animate().fadeIn(delay: 140.ms, duration: 220.ms)
+            _EmptyCard().animate().fadeIn(delay: 140.ms, duration: 220.ms)
           else
             for (int i = 0; i < list.length; i++)
               Padding(
@@ -369,12 +381,12 @@ class _OverviewCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Overview',
+                      _t(context, 'overview'),
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
@@ -383,7 +395,7 @@ class _OverviewCard extends StatelessWidget {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      'Homework Progress',
+                      _t(context, 'homeworkProgress'),
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w900,
@@ -407,7 +419,7 @@ class _OverviewCard extends StatelessWidget {
                 child: _KpiPill(
                   icon: LucideIcons.layoutDashboard,
                   color: _kBlue,
-                  label: 'All',
+                  label: _t(context, 'all'),
                   count: total,
                 ),
               ),
@@ -416,7 +428,7 @@ class _OverviewCard extends StatelessWidget {
                 child: _KpiPill(
                   icon: LucideIcons.clock3,
                   color: _kOrange,
-                  label: 'Pending',
+                  label: _t(context, 'pending'),
                   count: pending,
                 ),
               ),
@@ -425,7 +437,7 @@ class _OverviewCard extends StatelessWidget {
                 child: _KpiPill(
                   icon: LucideIcons.badgeCheck,
                   color: _kGreen,
-                  label: 'Done',
+                  label: _t(context, 'done'),
                   count: done,
                 ),
               ),
@@ -434,7 +446,7 @@ class _OverviewCard extends StatelessWidget {
                 child: _KpiPill(
                   icon: LucideIcons.circleAlert,
                   color: _kRed,
-                  label: 'Overdue',
+                  label: _t(context, 'overdue'),
                   count: overdue,
                 ),
               ),
@@ -704,16 +716,16 @@ class _SearchSortRow extends StatelessWidget {
                 Expanded(
                   child: TextField(
                     controller: controller,
-                    decoration: const InputDecoration(
-                      hintText: 'Search subject / grade / teacher…',
-                      hintStyle: TextStyle(
+                    decoration: InputDecoration(
+                      hintText: _t(context, 'searchHomeworkHint'),
+                      hintStyle: const TextStyle(
                         color: _kMuted,
                         fontSize: 13.5,
                         fontWeight: FontWeight.w500,
                       ),
                       border: InputBorder.none,
                       isDense: true,
-                      contentPadding: EdgeInsets.symmetric(vertical: 14),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     style: const TextStyle(
                       color: _kText,
@@ -740,10 +752,10 @@ class _SortChip extends StatelessWidget {
 
   const _SortChip({required this.sort, required this.onChanged});
 
-  String _label(HomeworkSort s) => switch (s) {
-    HomeworkSort.nearestDue => 'Due',
-    HomeworkSort.latestDue => 'Latest',
-    HomeworkSort.subjectAZ => 'A–Z',
+  String _label(BuildContext context, HomeworkSort s) => switch (s) {
+    HomeworkSort.nearestDue => _t(context, 'due'),
+    HomeworkSort.latestDue => _t(context, 'latest'),
+    HomeworkSort.subjectAZ => _t(context, 'subjectAZ'),
   };
 
   @override
@@ -765,9 +777,9 @@ class _SortChip extends StatelessWidget {
             value: s,
             child: Text(
               switch (s) {
-                HomeworkSort.nearestDue => 'Nearest due',
-                HomeworkSort.latestDue => 'Latest due',
-                HomeworkSort.subjectAZ => 'Subject A–Z',
+                HomeworkSort.nearestDue => _t(context, 'nearestDue'),
+                HomeworkSort.latestDue => _t(context, 'latestDue'),
+                HomeworkSort.subjectAZ => _t(context, 'subjectAZ'),
               },
               style: TextStyle(
                 fontSize: 13.5,
@@ -790,7 +802,7 @@ class _SortChip extends StatelessWidget {
             const Icon(LucideIcons.chevronsUpDown, size: 16, color: _kText),
             const SizedBox(width: 6),
             Text(
-              _label(sort),
+              _label(context, sort),
               style: const TextStyle(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w800,
@@ -856,10 +868,10 @@ class _TabStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tabs = [
-      _TabSpec('All', LucideIcons.layoutDashboard, _kBlue),
-      _TabSpec('Pending', LucideIcons.clock3, _kOrange),
-      _TabSpec('Done', LucideIcons.badgeCheck, _kGreen),
-      _TabSpec('Overdue', LucideIcons.circleAlert, _kRed),
+      _TabSpec(_t(context, 'all'), LucideIcons.layoutDashboard, _kBlue),
+      _TabSpec(_t(context, 'pending'), LucideIcons.clock3, _kOrange),
+      _TabSpec(_t(context, 'done'), LucideIcons.badgeCheck, _kGreen),
+      _TabSpec(_t(context, 'overdue'), LucideIcons.circleAlert, _kRed),
     ];
 
     return SingleChildScrollView(
@@ -966,12 +978,6 @@ class _HomeworkCard extends StatelessWidget {
     HomeworkVisual.overdue => _kRed,
   };
 
-  String get _statusLabel => switch (visual) {
-    HomeworkVisual.done => 'Done',
-    HomeworkVisual.pending => 'Pending',
-    HomeworkVisual.overdue => 'Overdue',
-  };
-
   IconData get _statusIcon => switch (visual) {
     HomeworkVisual.done => LucideIcons.badgeCheck,
     HomeworkVisual.pending => LucideIcons.clock3,
@@ -1033,7 +1039,7 @@ class _HomeworkCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               _StatusBadge(
-                label: _statusLabel,
+                label: _homeworkVisualLabel(context, visual),
                 icon: _statusIcon,
                 color: _statusColor,
               ),
@@ -1059,24 +1065,24 @@ class _HomeworkCard extends StatelessWidget {
             children: [
               _MetaChip(
                 icon: LucideIcons.bookOpen,
-                label: 'Grade',
+                label: _t(context, 'grade'),
                 value: item.grade,
               ),
               _MetaChip(
                 icon: LucideIcons.slidersHorizontal,
-                label: 'Total',
+                label: _t(context, 'total'),
                 value: item.totalScore == null
                     ? '—'
                     : _fmtScore(item.totalScore!),
               ),
               _MetaChip(
                 icon: LucideIcons.inbox,
-                label: 'Received',
+                label: _t(context, 'received'),
                 value: item.sentAt == null ? '—' : _fmtTime(item.sentAt!),
               ),
               _MetaChip(
                 icon: LucideIcons.calendarDays,
-                label: 'Due Date',
+                label: _t(context, 'dueDate'),
                 value: _fmtDate(item.deadline),
                 valueColor: visual == HomeworkVisual.overdue ? _kRed : _kText,
               ),
@@ -1119,8 +1125,8 @@ class _HomeworkCard extends StatelessWidget {
                         const SizedBox(width: 8),
                         Text(
                           visual == HomeworkVisual.done
-                              ? 'View homework details'
-                              : 'Submit homework',
+                              ? _t(context, 'viewHomeworkDetails')
+                              : _t(context, 'submitHomework'),
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w900,
@@ -1164,7 +1170,7 @@ class _ScoreContainer extends StatelessWidget {
     final color = isGraded ? _kGreen : _kOrange;
     final value = isGraded
         ? '${_format(item.yourScore!)}${item.totalScore == null ? '' : ' / ${_format(item.totalScore!)}'}'
-        : 'Pending';
+        : _t(context, 'pending');
 
     return Container(
       width: double.infinity,
@@ -1186,10 +1192,10 @@ class _ScoreContainer extends StatelessWidget {
             child: Icon(LucideIcons.award, size: 20, color: color),
           ),
           const SizedBox(width: 11),
-          const Expanded(
+          Expanded(
             child: Text(
-              'Your Score',
-              style: TextStyle(
+              _t(context, 'yourScore'),
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w900,
                 color: _kText,
@@ -1336,19 +1342,19 @@ class _EmptyCard extends StatelessWidget {
             child: const Icon(LucideIcons.circleCheck, size: 22, color: _kBlue),
           ),
           const SizedBox(height: 10),
-          const Text(
-            'Nothing here',
-            style: TextStyle(
+          Text(
+            _t(context, 'nothingHere'),
+            style: const TextStyle(
               fontSize: 14.5,
               fontWeight: FontWeight.w800,
               color: _kText,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'No homework matches the current filter.',
+          Text(
+            _t(context, 'noHomeworkMatchesFilter'),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: _kMuted,
@@ -1404,9 +1410,9 @@ class _ErrorState extends StatelessWidget {
               child: const Icon(LucideIcons.wifiOff, size: 24, color: _kRed),
             ),
             const SizedBox(height: 12),
-            const Text(
-              "Couldn't load homework",
-              style: TextStyle(
+            Text(
+              _t(context, 'couldNotLoadHomework'),
+              style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
                 color: _kText,
@@ -1436,9 +1442,9 @@ class _ErrorState extends StatelessWidget {
                   color: _kBlue,
                   borderRadius: BorderRadius.circular(13),
                 ),
-                child: const Text(
-                  'Try again',
-                  style: TextStyle(
+                child: Text(
+                  _t(context, 'tryAgain'),
+                  style: const TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w800,
                     color: Colors.white,
@@ -1478,19 +1484,19 @@ class _NoStudentState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'No student selected',
-              style: TextStyle(
+            Text(
+              _t(context, 'noStudentSelected'),
+              style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
                 color: _kText,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              "Pick a student from the home screen — we'll show only the homework assigned to their class.",
+            Text(
+              _t(context, 'pickStudentHomeworkHint'),
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
                 color: _kMuted,

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_icons.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../../core/localization/app_localizations.dart';
 import '../../../../../shared/models/student_card_item.dart';
 import 'attendance_model.dart';
 import 'attendance_service.dart';
@@ -17,6 +20,30 @@ const _background = Color(0xFFF7F9FC);
 
 enum _AttendanceFilter { present, absent }
 
+String _t(BuildContext context, String key) =>
+    AppLocalizations.of(context).t(key);
+
+String _monthName(BuildContext context, int month) {
+  const keys = [
+    'monthJanuary',
+    'monthFebruary',
+    'monthMarch',
+    'monthApril',
+    'monthMay',
+    'monthJune',
+    'monthJuly',
+    'monthAugust',
+    'monthSeptember',
+    'monthOctober',
+    'monthNovember',
+    'monthDecember',
+  ];
+  return _t(context, keys[month - 1]);
+}
+
+String _monthYear(BuildContext context, DateTime date) =>
+    '${_monthName(context, date.month)} ${date.year}';
+
 class AttendancePage extends StatefulWidget {
   const AttendancePage({super.key, required this.selectedStudent});
 
@@ -30,19 +57,82 @@ class _AttendancePageState extends State<AttendancePage> {
   final _service = AttendanceService();
   DateTime? _month;
   _AttendanceFilter? _filter;
-  Future<List<AttendanceRecord>>? _future;
+  List<AttendanceRecord> _records = const [];
+  bool _loading = true;
+  bool _error = false;
+  int _loadToken = 0;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
   }
 
-  void _load() {
+  @override
+  void didUpdateWidget(covariant AttendancePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_studentKey(oldWidget.selectedStudent) !=
+        _studentKey(widget.selectedStudent)) {
+      unawaited(_load());
+    }
+  }
+
+  Future<void> _load({bool preferCache = true}) async {
+    final token = ++_loadToken;
     final student = widget.selectedStudent;
-    _future = student == null
-        ? Future.value(const [])
-        : _service.fetchHistory(student, month: _month);
+    if (student == null) {
+      if (!mounted) return;
+      setState(() {
+        _records = const [];
+        _loading = false;
+        _error = false;
+      });
+      return;
+    }
+
+    var hasCache = false;
+    if (preferCache) {
+      final cached = await _service.readCachedHistory(student, month: _month);
+      if (!mounted || token != _loadToken) return;
+      if (cached != null) {
+        hasCache = true;
+        setState(() {
+          _records = cached;
+          _loading = false;
+          _error = false;
+        });
+      }
+    }
+
+    if (!hasCache) {
+      setState(() {
+        _records = const [];
+        _loading = true;
+        _error = false;
+      });
+    }
+
+    try {
+      final records = await _service.fetchHistory(student, month: _month);
+      if (!mounted || token != _loadToken) return;
+      setState(() {
+        _records = records;
+        _loading = false;
+        _error = false;
+      });
+    } catch (_) {
+      if (!mounted || token != _loadToken) return;
+      setState(() {
+        _loading = false;
+        _error = _records.isEmpty;
+      });
+    }
+  }
+
+  String _studentKey(StudentCardItem? student) {
+    if (student == null) return '';
+    final internalId = student.id?.trim() ?? '';
+    return internalId.isNotEmpty ? internalId : student.studentId.trim();
   }
 
   Future<void> _selectMonth() async {
@@ -60,8 +150,8 @@ class _AttendancePageState extends State<AttendancePage> {
     if (picked == null || !mounted) return;
     setState(() {
       _month = DateTime(picked.year, picked.month);
-      _load();
     });
+    unawaited(_load());
   }
 
   @override
@@ -79,39 +169,26 @@ class _AttendancePageState extends State<AttendancePage> {
                 Expanded(
                   child: student == null
                       ? const _NoStudent()
-                      : FutureBuilder<List<AttendanceRecord>>(
-                          future: _future,
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState !=
-                                ConnectionState.done) {
-                              return const Center(
-                                child: CircularProgressIndicator(color: _blue),
-                              );
-                            }
-                            if (snapshot.hasError) {
-                              return _ErrorState(
-                                onRetry: () => setState(_load),
-                              );
-                            }
-                            return _Content(
-                              student: student,
-                              records: snapshot.data ?? const [],
-                              filter: _filter,
-                              month: _month,
-                              onPickMonth: _selectMonth,
-                              onClearMonth: () => setState(() {
-                                _month = null;
-                                _load();
-                              }),
-                              onRefresh: () async {
-                                setState(_load);
-                                await _future;
-                              },
-                              onFilterChanged: (filter) => setState(() {
-                                _filter = _filter == filter ? null : filter;
-                              }),
-                            );
+                      : _error
+                      ? _ErrorState(onRetry: () => unawaited(_load()))
+                      : _loading && _records.isEmpty
+                      ? const Center(
+                          child: CircularProgressIndicator(color: _blue),
+                        )
+                      : _Content(
+                          student: student,
+                          records: _records,
+                          filter: _filter,
+                          month: _month,
+                          onPickMonth: _selectMonth,
+                          onClearMonth: () {
+                            setState(() => _month = null);
+                            unawaited(_load());
                           },
+                          onRefresh: () => _load(preferCache: false),
+                          onFilterChanged: (filter) => setState(() {
+                            _filter = _filter == filter ? null : filter;
+                          }),
                         ),
                 ),
               ],
@@ -171,10 +248,10 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
           const SizedBox(height: 18),
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Select month',
-                  style: TextStyle(
+                  _t(context, 'selectMonth'),
+                  style: const TextStyle(
                     color: _text,
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
@@ -252,7 +329,7 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
                     border: Border.all(color: selected ? _blue : _border),
                   ),
                   child: Text(
-                    DateFormat('MMM').format(DateTime(_year, month)),
+                    _monthName(context, month),
                     style: TextStyle(
                       color: selected ? Colors.white : _text,
                       fontSize: 14,
@@ -289,11 +366,11 @@ class _Header extends StatelessWidget {
               foregroundColor: _blue,
             ),
           ),
-          const Expanded(
+          Expanded(
             child: Text(
-              'ຕິດຕາມການມາໂຮງຮຽນ',
+              _t(context, 'attendanceTracking'),
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 color: _text,
                 fontSize: 21,
                 fontWeight: FontWeight.w900,
@@ -386,7 +463,7 @@ class _StudentBar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Student: ${student.name}',
+                '${_t(context, 'student')}: ${student.name}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -397,7 +474,7 @@ class _StudentBar extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'Class: ${(student.className ?? '').trim().isEmpty ? '-' : student.className}',
+                '${_t(context, 'classroomLabel')}: ${(student.className ?? '').trim().isEmpty ? '-' : student.className}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -412,7 +489,7 @@ class _StudentBar extends StatelessWidget {
         Container(width: 1, height: 24, color: _border),
         const SizedBox(width: 12),
         Text(
-          'ID: ${student.studentId}',
+          '${_t(context, 'studentIdLabel')}: ${student.studentId}',
           style: const TextStyle(
             color: _blue,
             fontSize: 14,
@@ -467,8 +544,8 @@ class _Summary extends StatelessWidget {
               Expanded(
                 child: Text(
                   month == null
-                      ? 'All months'
-                      : DateFormat('MMMM yyyy').format(month!),
+                      ? _t(context, 'allMonths')
+                      : _monthYear(context, month!),
                   style: const TextStyle(
                     color: _text,
                     fontSize: 15,
@@ -487,9 +564,9 @@ class _Summary extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-        const Text(
-          'Track student attendance',
-          style: TextStyle(
+        Text(
+          _t(context, 'trackStudentAttendance'),
+          style: const TextStyle(
             color: _text,
             fontSize: 17,
             fontWeight: FontWeight.w900,
@@ -500,7 +577,7 @@ class _Summary extends StatelessWidget {
           children: [
             Expanded(
               child: _Stat(
-                label: 'Attended',
+                label: _t(context, 'attended'),
                 value: present,
                 color: _green,
                 icon: LucideIcons.check,
@@ -511,7 +588,7 @@ class _Summary extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: _Stat(
-                label: 'Absent',
+                label: _t(context, 'absent'),
                 value: absent,
                 color: _red,
                 icon: LucideIcons.x,
@@ -607,9 +684,9 @@ class _Stat extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 3),
-                const Text(
-                  'Day(s)',
-                  style: TextStyle(
+                Text(
+                  _t(context, 'daysCountLabel'),
+                  style: const TextStyle(
                     color: _muted,
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
@@ -635,24 +712,30 @@ class _AttendanceList extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(10, 14, 10, 10),
     child: Column(
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              Expanded(flex: 11, child: _Head('Date')),
-              Expanded(flex: 10, child: _Head('Reason')),
-              Expanded(flex: 10, child: _Head('Note')),
-              Expanded(flex: 12, child: _Head('Status', right: true)),
+              Expanded(flex: 11, child: _Head(_t(context, 'date'))),
+              Expanded(flex: 10, child: _Head(_t(context, 'reason'))),
+              Expanded(flex: 10, child: _Head(_t(context, 'attendanceNote'))),
+              Expanded(
+                flex: 12,
+                child: _Head(_t(context, 'status'), right: true),
+              ),
             ],
           ),
         ),
         const SizedBox(height: 10),
         if (records.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 34),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 34),
             child: Text(
-              'No attendance records',
-              style: TextStyle(color: _muted, fontWeight: FontWeight.w700),
+              _t(context, 'noAttendanceRecords'),
+              style: const TextStyle(
+                color: _muted,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           )
         else
@@ -676,10 +759,10 @@ class _RecordRow extends StatelessWidget {
     final reason =
         record.reason ??
         (record.isLate
-            ? 'Late'
+            ? _t(context, 'late')
             : record.isPresent
-            ? 'Normal'
-            : 'Absent');
+            ? _t(context, 'normal')
+            : _t(context, 'absent'));
     final time = record.checkIn;
 
     return Container(
@@ -718,7 +801,9 @@ class _RecordRow extends StatelessWidget {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    record.isPresent ? 'Attended' : 'Absent',
+                    record.isPresent
+                        ? _t(context, 'attended')
+                        : _t(context, 'absent'),
                     style: TextStyle(
                       color: color,
                       fontSize: 11.5,
@@ -729,7 +814,7 @@ class _RecordRow extends StatelessWidget {
                 if (time != null) ...[
                   const SizedBox(height: 5),
                   Text(
-                    'Check-in ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
+                    '${_t(context, 'checkIn')}: ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
                     style: const TextStyle(
                       color: _muted,
                       fontSize: 10.5,
@@ -803,10 +888,10 @@ class _Cell extends StatelessWidget {
 class _NoStudent extends StatelessWidget {
   const _NoStudent();
   @override
-  Widget build(BuildContext context) => const Center(
+  Widget build(BuildContext context) => Center(
     child: Text(
-      'Please select a student first.',
-      style: TextStyle(color: _muted, fontWeight: FontWeight.w700),
+      _t(context, 'pleaseSelectStudentFirst'),
+      style: const TextStyle(color: _muted, fontWeight: FontWeight.w700),
     ),
   );
 }
@@ -820,7 +905,7 @@ class _ErrorState extends StatelessWidget {
     child: FilledButton(
       onPressed: onRetry,
       style: FilledButton.styleFrom(backgroundColor: _blue),
-      child: const Text('Try again'),
+      child: Text(_t(context, 'tryAgain')),
     ),
   );
 }

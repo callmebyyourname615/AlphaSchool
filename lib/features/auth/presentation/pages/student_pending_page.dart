@@ -102,10 +102,7 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
       if (!mounted) return;
       final record = _studentRecord(res);
       final status = _approvalStatus(record);
-      final active =
-          status == 'approved' ||
-          record['is_active'] == true ||
-          record['isActive'] == true;
+      final active = status == 'approved';
       if (active) {
         // Approved — the cached draft for this student is no longer needed.
         await StudentDraftStore.clear(widget.studentId);
@@ -213,8 +210,13 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
         ?.toString()
         .trim()
         .toLowerCase();
-    if (raw == 'approved' || raw == 'rejected' || raw == 'pending') {
-      return raw!;
+    if (raw == 'rejected') return 'rejected';
+    if (record['is_active'] == true || record['isActive'] == true) {
+      return 'approved';
+    }
+    if (raw == 'approved' || raw == 'pending') return raw!;
+    if (record['is_active'] == false || record['isActive'] == false) {
+      return 'pending';
     }
     return '';
   }

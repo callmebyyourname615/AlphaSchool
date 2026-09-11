@@ -4,6 +4,7 @@ import '../../../../../core/theme/app_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../../core/localization/app_localizations.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/services/global_alert_service.dart';
@@ -21,6 +22,9 @@ const _kCardBg = Color(0xFFFFFFFF);
 const _kBorder = Color(0xFFE3E9F2);
 const _kMuted = Color(0xFF647594);
 const _kText = Color(0xFF082653);
+
+String _t(BuildContext context, String key) =>
+    AppLocalizations.of(context).t(key);
 
 class SavingPage extends StatefulWidget {
   const SavingPage({super.key, required this.selectedStudent});
@@ -53,10 +57,6 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _tab = TabController(length: 2, vsync: this);
-
-    final now = DateTime.now();
-    _toDate = DateTime(now.year, now.month, now.day);
-    _fromDate = _toDate!.subtract(const Duration(days: 30));
 
     _load();
   }
@@ -108,10 +108,9 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
   }
 
   void _resetRange() {
-    final now = DateTime.now();
     setState(() {
-      _toDate = DateTime(now.year, now.month, now.day);
-      _fromDate = _toDate!.subtract(const Duration(days: 30));
+      _fromDate = null;
+      _toDate = null;
     });
   }
 
@@ -123,7 +122,7 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
     if (id.isEmpty) {
       setState(() {
         _loading = false;
-        _error = 'Student ID is unavailable. Please select the student again.';
+        _error = _t(context, 'studentIdUnavailableSelectStudentAgain');
       });
       return;
     }
@@ -159,12 +158,13 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
     final id = (txn.payReceiveId ?? '').trim();
     if (id.isEmpty) return;
     final studentName = (widget.selectedStudent?.name ?? '').trim();
+    final childFallback = _t(context, 'yourChild');
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => WithdrawalPendingPage(
           payReceiveId: id,
           amount: txn.outAmount,
-          studentName: studentName.isEmpty ? 'Your child' : studentName,
+          studentName: studentName.isEmpty ? childFallback : studentName,
           initialStatus: txn.payReceiveStatus ?? 'pending',
         ),
       ),
@@ -186,22 +186,46 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
 
   Future<void> _onWithdrawPressed() async {
     final available = _personalAvailableBalance;
+    final unableToWithdrawTitle = _t(context, 'unableToWithdraw');
+    final noAvailableBalanceMessage = _t(
+      context,
+      'noAvailableBalanceToWithdraw',
+    );
+    final loadingWithdrawalReasonsMessage = _t(
+      context,
+      'loadingWithdrawalReasons',
+    );
+    final noActiveWithdrawalReasonMessage = _t(
+      context,
+      'noActiveWithdrawalReason',
+    );
+    final withdrawBarrierLabel = _t(context, 'withdraw');
+    final amountNotAvailableTitle = _t(context, 'amountNotAvailable');
+    final youCanWithdrawUpToOnlyMessage = _t(context, 'youCanWithdrawUpToOnly');
+    final confirmWithdrawalTitle = _t(context, 'confirmWithdrawal');
+    final requestWithdrawalOfMessage = _t(context, 'requestWithdrawalOf');
+    final submittingWithdrawalRequestMessage = _t(
+      context,
+      'submittingWithdrawalRequest',
+    );
+    final withdrawalFailedTitle = _t(context, 'withdrawalFailed');
+    final childFallback = _t(context, 'yourChild');
     if (available <= 0) {
       GlobalAlert.showWarning(
-        title: 'Unable to withdraw',
-        message: 'There is no available balance to withdraw yet.',
+        title: unableToWithdrawTitle,
+        message: noAvailableBalanceMessage,
       );
       return;
     }
     List<WithdrawalReason> reasons;
-    GlobalAlert.showLoading(message: 'Loading withdrawal reasons...');
+    GlobalAlert.showLoading(message: loadingWithdrawalReasonsMessage);
     try {
       reasons = await _service.fetchWithdrawalReasons();
       GlobalAlert.dismiss();
     } catch (error) {
       GlobalAlert.dismiss();
       GlobalAlert.showError(
-        title: 'Unable to withdraw',
+        title: unableToWithdrawTitle,
         message: error.toString(),
       );
       return;
@@ -209,8 +233,8 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
     if (!mounted) return;
     if (reasons.isEmpty) {
       GlobalAlert.showWarning(
-        title: 'Unable to withdraw',
-        message: 'No active withdrawal reason is configured by the school.',
+        title: unableToWithdrawTitle,
+        message: noActiveWithdrawalReasonMessage,
       );
       return;
     }
@@ -220,7 +244,7 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
           ({double amount, String reasonId, String note})
         >(
           context: context,
-          barrierLabel: 'Withdraw',
+          barrierLabel: withdrawBarrierLabel,
           barrierDismissible: true,
           barrierColor: const Color(0xFF071B55).withValues(alpha: .45),
           transitionDuration: const Duration(milliseconds: 280),
@@ -247,19 +271,23 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
     if (request == null || !mounted) return;
     if (request.amount > available) {
       GlobalAlert.showWarning(
-        title: 'Amount not available',
-        message:
-            'You can withdraw up to ${NumberFormat('#,##0').format(available)} only.',
+        title: amountNotAvailableTitle,
+        message: youCanWithdrawUpToOnlyMessage.replaceAll(
+          '{amount}',
+          NumberFormat('#,##0').format(available),
+        ),
       );
       return;
     }
     final confirmed = await GlobalAlert.showConfirmation(
-      title: 'Confirm withdrawal',
-      message:
-          'Request withdrawal of ${NumberFormat('#,##0').format(request.amount)}?',
+      title: confirmWithdrawalTitle,
+      message: requestWithdrawalOfMessage.replaceAll(
+        '{amount}',
+        NumberFormat('#,##0').format(request.amount),
+      ),
     );
     if (confirmed != true) return;
-    GlobalAlert.showLoading(message: 'Submitting withdrawal request...');
+    GlobalAlert.showLoading(message: submittingWithdrawalRequestMessage);
     try {
       final created = await _service.requestWithdrawal(
         studentId: widget.selectedStudent!.id!,
@@ -282,7 +310,7 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
           builder: (_) => WithdrawalPendingPage(
             payReceiveId: payReceiveId,
             amount: request.amount,
-            studentName: studentName.isEmpty ? 'Your child' : studentName,
+            studentName: studentName.isEmpty ? childFallback : studentName,
             initialStatus: initialStatus,
             note: request.note.isEmpty ? null : request.note,
           ),
@@ -293,7 +321,7 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
     } catch (error) {
       GlobalAlert.dismiss();
       GlobalAlert.showError(
-        title: 'Withdrawal failed',
+        title: withdrawalFailedTitle,
         message: error.toString(),
       );
     }
@@ -464,7 +492,10 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
                                           ),
                                           onWithdraw: _onWithdrawPressed,
                                           onPendingTap: _openPendingWithdrawal,
-                                          typeLabel: "ສ່ວນບຸກຄົນ",
+                                          typeLabel: _t(
+                                            context,
+                                            'personalSavings',
+                                          ),
                                           availableBalance:
                                               _personalAvailableBalance,
                                           nonAvailableBalance:
@@ -481,7 +512,10 @@ class _SavingPageState extends State<SavingPage> with TickerProviderStateMixin {
                                             _classBalance,
                                           ),
                                           onWithdraw: null,
-                                          typeLabel: "ຫ້ອງຮຽນ",
+                                          typeLabel: _t(
+                                            context,
+                                            'classroomSavings',
+                                          ),
                                           availableBalance: _classBalance,
                                           nonAvailableBalance: 0,
                                         ),
@@ -542,8 +576,8 @@ class _SavingHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Savings',
+                Text(
+                  _t(context, 'savings'),
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
@@ -553,7 +587,9 @@ class _SavingHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 1),
                 Text(
-                  cleanName.isEmpty ? 'Student saving activity' : cleanName,
+                  cleanName.isEmpty
+                      ? _t(context, 'studentSavingActivity')
+                      : cleanName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -642,7 +678,7 @@ class _SavingErrorCard extends StatelessWidget {
           FilledButton.icon(
             onPressed: onRetry,
             icon: const Icon(LucideIcons.refreshCw, size: 16),
-            label: const Text('Retry'),
+            label: Text(_t(context, 'retry')),
             style: FilledButton.styleFrom(
               backgroundColor: _kBlue,
               foregroundColor: Colors.white,
@@ -720,8 +756,10 @@ class _RangeBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final df = _numericDateFmt();
 
-    final fromText = from == null ? "Any" : df.format(from!);
-    final toText = to == null ? "Any" : df.format(to!);
+    final rangeText = from == null && to == null
+        ? _t(context, 'allTransactions')
+        : '${from == null ? _t(context, 'anyDate') : df.format(from!)}  →  '
+              '${to == null ? _t(context, 'anyDate') : df.format(to!)}';
 
     return InkWell(
       onTap: onTap,
@@ -740,7 +778,7 @@ class _RangeBar extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                "$fromText  →  $toText",
+                rangeText,
                 style: TextStyle(
                   color: textPrimary,
                   fontWeight: FontWeight.w700,
@@ -749,9 +787,9 @@ class _RangeBar extends StatelessWidget {
                 ),
               ),
             ),
-            const Text(
-              "ຄົ້ນຫາ",
-              style: TextStyle(
+            Text(
+              _t(context, 'search'),
+              style: const TextStyle(
                 color: _kBlue,
                 fontWeight: FontWeight.w700,
                 fontSize: 13,
@@ -811,9 +849,9 @@ class _CleanTabBar extends StatelessWidget {
           fontSize: 13,
           letterSpacing: .2,
         ),
-        tabs: const [
-          Tab(height: 36, text: "ສ່ວນບຸກຄົນ"),
-          Tab(height: 36, text: "ຫ້ອງຮຽນ"),
+        tabs: [
+          Tab(height: 36, text: _t(context, 'personalSavings')),
+          Tab(height: 36, text: _t(context, 'classroomSavings')),
         ],
       ),
     );
@@ -976,10 +1014,10 @@ class _TableHeader extends StatelessWidget {
         color: const Color(0xFFF8FAFC),
         border: Border(bottom: BorderSide(color: border)),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Expanded(child: Text("Transaction", style: headerStyle)),
-          Text("Amount / Balance", style: headerStyle),
+          Expanded(child: Text(_t(context, 'transaction'), style: headerStyle)),
+          Text(_t(context, 'amountBalance'), style: headerStyle),
         ],
       ),
     );
@@ -1032,20 +1070,20 @@ class _SavingEmptyState extends StatelessWidget {
               child: const Icon(LucideIcons.wallet, color: _kBlue, size: 22),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'No data in selected range',
+            Text(
+              _t(context, 'noDataInSelectedRange'),
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 color: _kText,
                 fontWeight: FontWeight.w900,
                 fontSize: 15,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Try another date range or refresh this page.',
+            Text(
+              _t(context, 'tryAnotherDateRangeOrRefresh'),
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 color: _kMuted,
                 fontWeight: FontWeight.w600,
                 fontSize: 12.5,
@@ -1113,8 +1151,8 @@ class _TableRowItem extends StatelessWidget {
 
     final rowBg = pending ? _amberSoft : Colors.transparent;
     final label = pending
-        ? 'Pending withdrawal'
-        : (isDeposit ? 'Deposit' : 'Withdrawal');
+        ? _t(context, 'pendingWithdrawal')
+        : (isDeposit ? _t(context, 'deposit') : _t(context, 'withdrawal'));
     final iconColor = pending ? _amberDeep : (isDeposit ? _green : _red);
     final iconBg = pending ? Colors.white : (isDeposit ? _greenSoft : _redSoft);
     final icon = isDeposit
@@ -1283,7 +1321,7 @@ class _SavingDetailPremiumState extends State<_SavingDetailPremium> {
                 child: Row(
                   children: [
                     Text(
-                      "ລາຍລະອຽດ ",
+                      _t(context, 'details'),
                       style: const TextStyle(
                         color: _kNavy,
                         fontWeight: FontWeight.w900,
@@ -1327,7 +1365,7 @@ class _SavingDetailPremiumState extends State<_SavingDetailPremium> {
                       child: Column(
                         children: [
                           _DetailLine(
-                            label: "ປະເພດ :",
+                            label: '${_t(context, 'type')} :',
                             value: typeLabel,
                             labelColor: _kMuted,
                             valueColor: _kText,
@@ -1341,7 +1379,7 @@ class _SavingDetailPremiumState extends State<_SavingDetailPremium> {
                             ),
                           ),
                           _DetailLine(
-                            label: "ຍອດຍົກມາ :",
+                            label: '${_t(context, 'latestDeposit')} :',
                             value: latestText,
                             labelColor: _kMuted,
                             valueColor: _kText,
@@ -1355,7 +1393,7 @@ class _SavingDetailPremiumState extends State<_SavingDetailPremium> {
                             ),
                           ),
                           _DetailLine(
-                            label: "ຍອດເຄື່ອນໄຫວຝາກ :",
+                            label: '${_t(context, 'depositMovement')} :',
                             value: totalInText,
                             labelColor: _kMuted,
                             valueColor: _kText,
@@ -1369,7 +1407,7 @@ class _SavingDetailPremiumState extends State<_SavingDetailPremium> {
                             ),
                           ),
                           _DetailLine(
-                            label: "ຍອດເຄື່ອນໄຫວຖອນ :",
+                            label: '${_t(context, 'withdrawalMovement')} :',
                             value: totalOutText,
                             labelColor: _kMuted,
                             valueColor: _kText,
@@ -1383,7 +1421,7 @@ class _SavingDetailPremiumState extends State<_SavingDetailPremium> {
                             ),
                           ),
                           _DetailLine(
-                            label: "Available :",
+                            label: '${_t(context, 'available')} :',
                             value: availableText,
                             labelColor: _kMuted,
                             valueColor: _kGreen,
@@ -1397,7 +1435,7 @@ class _SavingDetailPremiumState extends State<_SavingDetailPremium> {
                             ),
                           ),
                           _DetailLine(
-                            label: "Non available :",
+                            label: '${_t(context, 'nonAvailable')} :',
                             value: nonAvailableText,
                             labelColor: _kMuted,
                             valueColor: _kRed,
@@ -1413,7 +1451,7 @@ class _SavingDetailPremiumState extends State<_SavingDetailPremium> {
                           Row(
                             children: [
                               Text(
-                                "ຍອດເຫຼືອທ້າຍ :",
+                                '${_t(context, 'endingBalance')} :',
                                 style: const TextStyle(
                                   color: _kMuted,
                                   fontWeight: FontWeight.w800,
@@ -1510,12 +1548,12 @@ class _BigWithdrawButton extends StatelessWidget {
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(LucideIcons.handCoins, color: Colors.white, size: 17),
-              SizedBox(width: 9),
+            children: [
+              const Icon(LucideIcons.handCoins, color: Colors.white, size: 17),
+              const SizedBox(width: 9),
               Text(
-                "Withdraw money",
-                style: TextStyle(
+                _t(context, 'withdrawMoney'),
+                style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
                   letterSpacing: .2,
@@ -1670,9 +1708,9 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
     if (_amountController.text.trim().isEmpty) {
       err = null;
     } else if (v <= 0) {
-      err = 'Enter an amount greater than zero';
+      err = _t(context, 'enterAmountGreaterThanZero');
     } else if (v > widget.available) {
-      err = 'Exceeds your available balance';
+      err = _t(context, 'exceedsAvailableBalance');
     }
     // Always rebuild on input changes — the Continue button's enabled state
     // and the live meter both depend on the current amount, so reacting only
@@ -1737,13 +1775,13 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                 const SizedBox(height: 22),
                 _buildWalletSummary(),
                 const SizedBox(height: 24),
-                _label('Amount to withdraw'),
+                _label(_t(context, 'amountToWithdraw')),
                 const SizedBox(height: 10),
                 _buildAmountField(),
                 const SizedBox(height: 14),
                 _buildQuickChips(),
                 const SizedBox(height: 22),
-                _label('Note', optional: true),
+                _label(_t(context, 'attendanceNote'), optional: true),
                 const SizedBox(height: 8),
                 _buildNoteField(),
                 const SizedBox(height: 24),
@@ -1760,12 +1798,12 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Withdraw money',
+                _t(context, 'withdrawMoney'),
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
@@ -1773,10 +1811,14 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                   letterSpacing: -.3,
                 ),
               ),
-              SizedBox(height: 3),
+              const SizedBox(height: 3),
               Text(
-                'Tell the school how much to release.',
-                style: TextStyle(fontSize: 13, color: _muted, height: 1.35),
+                _t(context, 'tellSchoolWithdrawalAmount'),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: _muted,
+                  height: 1.35,
+                ),
               ),
             ],
           ),
@@ -1815,7 +1857,7 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
               Expanded(
                 child: _walletStat(
                   dotColor: _blue,
-                  label: 'Available',
+                  label: _t(context, 'available'),
                   value: widget.available,
                   valueColor: _navy,
                 ),
@@ -1824,7 +1866,7 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                 Expanded(
                   child: _walletStat(
                     dotColor: _rose,
-                    label: 'Non-available',
+                    label: _t(context, 'nonAvailable'),
                     value: widget.nonAvailable,
                     valueColor: _rose,
                   ),
@@ -1863,9 +1905,12 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Non-available funds are deposits not yet confirmed '
-                    'by the bank and can\'t be withdrawn yet.',
-                    style: TextStyle(fontSize: 11, color: _muted, height: 1.3),
+                    _t(context, 'nonAvailableFundsHelp'),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: _muted,
+                      height: 1.3,
+                    ),
                   ),
                 ),
               ],
@@ -1935,9 +1980,9 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
         ),
         if (optional) ...[
           const SizedBox(width: 6),
-          const Text(
-            'OPTIONAL',
-            style: TextStyle(
+          Text(
+            _t(context, 'optional'),
+            style: const TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w800,
               color: _muted,
@@ -2034,7 +2079,10 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
           ),
           const SizedBox(width: 8),
           Text(
-            '${(_percent * 100).round()}% of available',
+            _t(
+              context,
+              'percentOfAvailable',
+            ).replaceAll('{percent}', '${(_percent * 100).round()}'),
             style: const TextStyle(
               fontSize: 11,
               color: _muted,
@@ -2113,7 +2161,7 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
         fontWeight: FontWeight.w500,
       ),
       decoration: InputDecoration(
-        hintText: 'Anything the school should know?',
+        hintText: _t(context, 'anythingSchoolShouldKnow'),
         hintStyle: const TextStyle(color: _muted, fontSize: 13),
         filled: true,
         fillColor: _slate50,
@@ -2157,7 +2205,7 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              child: const Text('Cancel'),
+              child: Text(_t(context, 'cancel')),
             ),
           ),
         ),
@@ -2187,12 +2235,12 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('Continue'),
-                  SizedBox(width: 6),
-                  Icon(LucideIcons.arrowRight, size: 16),
+                  Text(_t(context, 'continueAction')),
+                  const SizedBox(width: 6),
+                  const Icon(LucideIcons.arrowRight, size: 16),
                 ],
               ),
             ),

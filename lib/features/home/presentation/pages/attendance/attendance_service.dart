@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../../../../core/network/api_client.dart';
 import '../../../../../shared/models/student_card_item.dart';
 import 'attendance_model.dart';
@@ -7,6 +11,7 @@ class AttendanceService {
     : _apiClient = apiClient ?? ApiClient();
 
   final ApiClient _apiClient;
+  static const _cachePrefix = 'attendance_history_v1';
 
   /// Fetches [student]'s attendance for today.
   ///
@@ -25,22 +30,37 @@ class AttendanceService {
     final code = student.studentId.trim();
     if (internalId.isEmpty && code.isEmpty) return null;
 
-    final response = await _apiClient.get('/attendances');
+    final today = _date(DateTime.now());
+    final classId = student.classId?.trim() ?? '';
+    final response = await _apiClient.get(
+      '/attendances',
+      queryParameters: {
+        'start_date': today,
+        'end_date': today,
+        if (classId.isNotEmpty) 'class_id': classId,
+      },
+    );
 
     for (final record in _extractRecords(response)) {
-      if (internalId.isNotEmpty &&
-          record['student_id']?.toString().trim() == internalId) {
+      if (_matchesStudent(record, internalId: internalId, code: code)) {
         return TodayAttendance.fromJson(record);
       }
+    }
 
-      final studentJson = record['student'];
-      if (studentJson is! Map) continue;
-      if (code.isEmpty ||
-          studentJson['student_id']?.toString().trim() != code) {
-        continue;
+    if (classId.isEmpty) return null;
+
+    final fallbackResponse = await _apiClient.get(
+      '/attendances',
+      queryParameters: {
+        'start_date': today,
+        'end_date': today,
+      },
+    );
+
+    for (final record in _extractRecords(fallbackResponse)) {
+      if (_matchesStudent(record, internalId: internalId, code: code)) {
+        return TodayAttendance.fromJson(record);
       }
-
-      return TodayAttendance.fromJson(record);
     }
 
     return null;
@@ -82,11 +102,71 @@ class AttendanceService {
             .map(AttendanceRecord.fromJson)
             .toList()
           ..sort((a, b) => b.date.compareTo(a.date));
+    await cacheHistory(student, records, month: month);
     return records;
+  }
+
+  Future<List<AttendanceRecord>?> readCachedHistory(
+    StudentCardItem student, {
+    DateTime? month,
+  }) async {
+    final key = _cacheKey(student, month: month);
+    if (key == null) return null;
+
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(key);
+    if (raw == null || raw.trim().isEmpty) return null;
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return null;
+      final records =
+          decoded
+              .whereType<Map>()
+              .map(
+                (record) => AttendanceRecord.fromJson(
+                  Map<String, dynamic>.from(record),
+                ),
+              )
+              .toList()
+            ..sort((a, b) => b.date.compareTo(a.date));
+      return records;
+    } catch (_) {
+      await prefs.remove(key);
+      return null;
+    }
+  }
+
+  Future<void> cacheHistory(
+    StudentCardItem student,
+    List<AttendanceRecord> records, {
+    DateTime? month,
+  }) async {
+    final key = _cacheKey(student, month: month);
+    if (key == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      key,
+      jsonEncode(records.map((record) => record.toJson()).toList()),
+    );
   }
 
   static String _date(DateTime value) =>
       '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+
+  String? _cacheKey(StudentCardItem student, {DateTime? month}) {
+    final internalId = student.id?.trim() ?? '';
+    final code = student.studentId.trim();
+    final studentKey = internalId.isNotEmpty ? internalId : code;
+    if (studentKey.isEmpty) return null;
+
+    final classId = student.classId?.trim() ?? '';
+    final period = month == null
+        ? 'rolling'
+        : '${month.year}-${month.month.toString().padLeft(2, '0')}';
+    return '$_cachePrefix:$studentKey:$classId:$period';
+  }
 
   /// Same defensive shape-handling as other feature services: the backend
   /// may answer with a bare array, `{data: [...]}`, `{results: [...]}`, or
@@ -113,5 +193,24 @@ class AttendanceService {
         .whereType<Map>()
         .map((record) => Map<String, dynamic>.from(record))
         .toList();
+  }
+
+  bool _matchesStudent(
+    Map<String, dynamic> record, {
+    required String internalId,
+    required String code,
+  }) {
+    final recordStudentId = record['student_id']?.toString().trim() ?? '';
+    if (internalId.isNotEmpty && recordStudentId == internalId) return true;
+    if (code.isNotEmpty && recordStudentId == code) return true;
+
+    final studentJson = record['student'];
+    if (studentJson is! Map) return false;
+
+    final nestedId = studentJson['id']?.toString().trim() ?? '';
+    final nestedCode = studentJson['student_id']?.toString().trim() ?? '';
+
+    return (internalId.isNotEmpty && nestedId == internalId) ||
+        (code.isNotEmpty && nestedCode == code);
   }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_icons.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../core/localization/app_locale_controller.dart';
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 
@@ -13,7 +15,7 @@ class YearPickerPage extends StatefulWidget {
 }
 
 class _YearPickerPageState extends State<YearPickerPage> {
-  static const _years = ['2024-2025', '2025-2026', '2026-2027'];
+  static const _years = ['2026-2027'];
   int? _selectedIndex;
   bool _navigating = false;
 
@@ -50,6 +52,9 @@ class _YearPickerPageState extends State<YearPickerPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final languageCode = Localizations.localeOf(context).languageCode;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -61,18 +66,31 @@ class _YearPickerPageState extends State<YearPickerPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: AppColors.blue300,
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: const Icon(LucideIcons.school, color: Colors.white),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: AppColors.blue300,
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        child: const Icon(
+                          LucideIcons.school,
+                          color: Colors.white,
+                        ),
+                      ),
+                      _LanguageSwitcher(
+                        selectedLanguageCode: languageCode,
+                        disabled: _navigating,
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 28),
                   Text(
-                    'Choose academic year',
+                    l10n.t('chooseAcademicYearTitle'),
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       color: AppColors.dark,
                       fontWeight: FontWeight.w800,
@@ -80,9 +98,9 @@ class _YearPickerPageState extends State<YearPickerPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Select the school year you want to access.',
-                    style: TextStyle(
+                  Text(
+                    l10n.t('chooseAcademicYearSubtitle'),
+                    style: const TextStyle(
                       color: AppColors.gray,
                       fontSize: 15,
                       height: 1.45,
@@ -120,6 +138,141 @@ class _YearPickerPageState extends State<YearPickerPage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _LanguageSwitcher extends StatelessWidget {
+  final String selectedLanguageCode;
+  final bool disabled;
+
+  const _LanguageSwitcher({
+    required this.selectedLanguageCode,
+    required this.disabled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final current = _LanguageOption.fromCode(selectedLanguageCode);
+
+    return PopupMenuButton<String>(
+      enabled: !disabled,
+      tooltip: l10n.t('language'),
+      color: Colors.white,
+      elevation: 8,
+      offset: const Offset(0, 48),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFE3E9F2)),
+      ),
+      onSelected: (code) => AppLocaleController.setLocale(Locale(code)),
+      itemBuilder: (context) {
+        return _LanguageOption.options.map((option) {
+          final selected = option.code == selectedLanguageCode;
+          return PopupMenuItem<String>(
+            value: option.code,
+            child: Row(
+              children: [
+                _FlagImage(asset: option.asset, size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    l10n.t(option.labelKey),
+                    style: TextStyle(
+                      color: AppColors.dark,
+                      fontSize: 14,
+                      fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (selected)
+                  const Icon(
+                    LucideIcons.check,
+                    size: 18,
+                    color: AppColors.blue300,
+                  ),
+              ],
+            ),
+          );
+        }).toList();
+      },
+      child: Container(
+        height: 48,
+        padding: const EdgeInsets.only(left: 8, right: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AppColors.dark, width: 1.4),
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _FlagImage(asset: current.asset, size: 34),
+            const SizedBox(width: 10),
+            Text(
+              l10n.t(current.labelKey),
+              style: const TextStyle(
+                color: AppColors.dark,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(
+              LucideIcons.chevronDown,
+              size: 19,
+              color: AppColors.dark,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LanguageOption {
+  final String code;
+  final String labelKey;
+  final String asset;
+
+  const _LanguageOption({
+    required this.code,
+    required this.labelKey,
+    required this.asset,
+  });
+
+  static const options = <_LanguageOption>[
+    _LanguageOption(
+      code: 'lo',
+      labelKey: 'lao',
+      asset: 'assets/images/flags/laos.png',
+    ),
+    _LanguageOption(
+      code: 'en',
+      labelKey: 'english',
+      asset: 'assets/images/flags/english.png',
+    ),
+  ];
+
+  static _LanguageOption fromCode(String code) {
+    for (final option in options) {
+      if (option.code == code) return option;
+    }
+    return options.last;
+  }
+}
+
+class _FlagImage extends StatelessWidget {
+  final String asset;
+  final double size;
+
+  const _FlagImage({required this.asset, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipOval(
+      child: Image.asset(asset, width: size, height: size, fit: BoxFit.cover),
     );
   }
 }

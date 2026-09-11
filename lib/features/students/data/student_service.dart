@@ -252,9 +252,10 @@ class StudentService {
   /// Mirrors `AuthService._isActive`: missing/null counts as active.
   bool _isActive(Map<String, dynamic> json) {
     final approvalStatus = _approvalStatus(json);
-    if (approvalStatus == 'rejected' || approvalStatus == 'pending') {
+    if (approvalStatus == 'rejected') {
       return false;
     }
+    if (approvalStatus == 'pending') return false;
     final value = json['is_active'] ?? json['isActive'];
     return value != false;
   }

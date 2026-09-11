@@ -5,12 +5,17 @@ class SessionService {
   static const _kUsername = 'session_admin_username';
   static const _kEmail = 'session_admin_email';
   static const _kBranchId = 'session_branch_id';
+  static const _kAccessToken = 'session_access_token';
 
   Future<void> save(Map<String, dynamic> adminJson) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kId, adminJson['id']?.toString() ?? '');
     await prefs.setString(_kUsername, adminJson['username']?.toString() ?? '');
     await prefs.setString(_kEmail, adminJson['email']?.toString() ?? '');
+    await prefs.setString(
+      _kAccessToken,
+      adminJson['access_token']?.toString() ?? '',
+    );
     final branch = adminJson['branch'];
     final branchId =
         (adminJson['branch_id'] ??
@@ -32,6 +37,7 @@ class SessionService {
       username: username,
       email: email,
       branchId: prefs.getString(_kBranchId) ?? '',
+      accessToken: prefs.getString(_kAccessToken) ?? '',
     );
   }
 
@@ -41,6 +47,7 @@ class SessionService {
     await prefs.remove(_kUsername);
     await prefs.remove(_kEmail);
     await prefs.remove(_kBranchId);
+    await prefs.remove(_kAccessToken);
   }
 }
 
@@ -49,11 +56,13 @@ class SessionData {
   final String username;
   final String email;
   final String branchId;
+  final String accessToken;
 
   const SessionData({
     required this.id,
     required this.username,
     required this.email,
     this.branchId = '',
+    this.accessToken = '',
   });
 }

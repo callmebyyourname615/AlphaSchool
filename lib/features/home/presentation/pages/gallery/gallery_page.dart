@@ -1,10 +1,57 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../../../../core/localization/app_localizations.dart';
 import '../../../../../core/services/session_service.dart';
 import 'gallery_detail/gallery_detail_page.dart';
 import 'gallery_models.dart';
 import 'gallery_service.dart';
+
+String _t(BuildContext context, String key) =>
+    AppLocalizations.of(context).t(key);
+
+const _galleryTabs = ['allPosts', 'publicPosts', 'individualPosts'];
+
+String _galleryShortDate(BuildContext context, DateTime? value) {
+  if (value == null) return _t(context, 'justNow');
+  const months = [
+    'monthJanShort',
+    'monthFebShort',
+    'monthMarShort',
+    'monthAprShort',
+    'monthMayShort',
+    'monthJunShort',
+    'monthJulShort',
+    'monthAugShort',
+    'monthSepShort',
+    'monthOctShort',
+    'monthNovShort',
+    'monthDecShort',
+  ];
+  final month = _t(context, months[value.month - 1]);
+  final isLao = Localizations.localeOf(context).languageCode == 'lo';
+  if (isLao) return '${value.day} $month ${value.year}';
+  return '$month ${value.day}, ${value.year}';
+}
+
+String _galleryRelativeTime(BuildContext context, DateTime? value) {
+  if (value == null) return _t(context, 'justNow');
+  final elapsed = DateTime.now().difference(value);
+  if (elapsed.inMinutes < 1) return _t(context, 'justNow');
+  if (elapsed.inHours < 1) {
+    return _t(
+      context,
+      'minutesAgo',
+    ).replaceAll('{count}', '${elapsed.inMinutes}');
+  }
+  if (elapsed.inDays < 1) {
+    return _t(context, 'hoursAgo').replaceAll('{count}', '${elapsed.inHours}');
+  }
+  if (elapsed.inDays < 7) {
+    return _t(context, 'daysAgo').replaceAll('{count}', '${elapsed.inDays}');
+  }
+  return _galleryShortDate(context, value);
+}
 
 class GalleryPage extends StatefulWidget {
   const GalleryPage({super.key, this.backgroundAsset, this.selectedStudentId});
@@ -17,10 +64,9 @@ class GalleryPage extends StatefulWidget {
 }
 
 class _GalleryPageState extends State<GalleryPage> {
-  static const _tabs = ['All Post', 'Public Post', 'Individual Post'];
   final _searchController = TextEditingController();
   final _galleryService = GalleryService();
-  String _activeTab = _tabs.first;
+  String _activeTab = _galleryTabs.first;
   String _query = '';
   String _parentId = '';
   bool _loading = true;
@@ -55,7 +101,7 @@ class _GalleryPageState extends State<GalleryPage> {
       setState(() => _posts = posts);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'We could not load the gallery right now.');
+      setState(() => _error = _t(context, 'couldNotLoadGallery'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -65,8 +111,8 @@ class _GalleryPageState extends State<GalleryPage> {
     final query = _query.trim().toLowerCase();
     return _scopedPosts.where((post) {
       final inTab = switch (_activeTab) {
-        'Public Post' => !post.isPrivate,
-        'Individual Post' => post.isPrivate,
+        'publicPosts' => !post.isPrivate,
+        'individualPosts' => post.isPrivate,
         _ => true,
       };
       final inSearch =
@@ -104,7 +150,7 @@ class _GalleryPageState extends State<GalleryPage> {
               const SliverToBoxAdapter(child: _GalleryHero()),
               SliverToBoxAdapter(
                 child: _TabBar(
-                  tabs: _tabs,
+                  tabs: _galleryTabs,
                   active: _activeTab,
                   onSelected: (tab) => setState(() => _activeTab = tab),
                 ),
@@ -115,7 +161,7 @@ class _GalleryPageState extends State<GalleryPage> {
                   onChanged: (value) => setState(() => _query = value),
                 ),
               ),
-              if (_activeTab == 'Individual Post')
+              if (_activeTab == 'individualPosts')
                 const SliverToBoxAdapter(child: _PrivateNotice()),
               if (_loading)
                 const SliverFillRemaining(
@@ -197,12 +243,12 @@ class _GalleryHero extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Gallery',
+                  _t(context, 'gallery'),
                   style: TextStyle(
                     fontSize: 30,
                     height: 1.1,
@@ -255,7 +301,7 @@ class _TabBar extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  tab,
+                  _t(context, tab),
                   style: TextStyle(
                     color: selected
                         ? const Color(0xFF2563EB)
@@ -291,12 +337,15 @@ class _SearchBox extends StatelessWidget {
         child: TextField(
           controller: controller,
           onChanged: onChanged,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             border: InputBorder.none,
-            prefixIcon: Icon(Icons.search_rounded, color: Color(0xFF92A0B8)),
-            hintText: 'Search posts, events, or albums...',
-            hintStyle: TextStyle(color: Color(0xFF92A0B8), fontSize: 14),
-            contentPadding: EdgeInsets.symmetric(vertical: 13),
+            prefixIcon: const Icon(
+              Icons.search_rounded,
+              color: Color(0xFF92A0B8),
+            ),
+            hintText: _t(context, 'searchPostsEventsAlbums'),
+            hintStyle: const TextStyle(color: Color(0xFF92A0B8), fontSize: 14),
+            contentPadding: const EdgeInsets.symmetric(vertical: 13),
           ),
         ),
       ),
@@ -316,14 +365,14 @@ class _PrivateNotice extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE3D5FE)),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.lock_outline_rounded, color: Color(0xFF7C3AED)),
-          SizedBox(width: 10),
+          const Icon(Icons.lock_outline_rounded, color: Color(0xFF7C3AED)),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Private photos are shared by teachers only with your family.',
-              style: TextStyle(
+              _t(context, 'privatePhotosSharedWithFamily'),
+              style: const TextStyle(
                 color: Color(0xFF5B6680),
                 fontSize: 13,
                 height: 1.35,
@@ -346,6 +395,9 @@ class _GalleryPostCard extends StatelessWidget {
     final accent = post.isPrivate
         ? const Color(0xFF7C3AED)
         : const Color(0xFF2563EB);
+    final postTitle = post.title.isEmpty
+        ? _t(context, 'schoolMoment')
+        : post.title;
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(20),
@@ -388,7 +440,7 @@ class _GalleryPostCard extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                post.title,
+                                postTitle,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -403,7 +455,7 @@ class _GalleryPostCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          '${post.authorName} · ${galleryRelativeTime(post.createdAt)}',
+                          '${post.authorName} · ${_galleryRelativeTime(context, post.createdAt)}',
                           style: const TextStyle(
                             fontSize: 12.5,
                             color: Color(0xFF7B88A2),
@@ -445,8 +497,11 @@ class _GalleryPostCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       post.isPrivate
-                          ? 'Shared privately with your family'
-                          : '${post.taggedStudentIds.length} students tagged',
+                          ? _t(context, 'sharedPrivatelyWithFamily')
+                          : _t(context, 'studentsTagged').replaceAll(
+                              '{count}',
+                              '${post.taggedStudentIds.length}',
+                            ),
                       style: const TextStyle(
                         fontSize: 12.5,
                         color: Color(0xFF65738C),
@@ -496,7 +551,7 @@ class _VisibilityChip extends StatelessWidget {
           ),
           const SizedBox(width: 3),
           Text(
-            post.isPrivate ? 'Private' : 'Public',
+            post.isPrivate ? _t(context, 'private') : _t(context, 'public'),
             style: TextStyle(
               color: color,
               fontWeight: FontWeight.w700,
@@ -605,7 +660,10 @@ class _EmptyGallery extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Text(
-            'No ${tab.toLowerCase()} yet',
+            _t(
+              context,
+              'noGalleryPostsYet',
+            ).replaceAll('{tab}', _t(context, tab).toLowerCase()),
             style: const TextStyle(
               fontSize: 18,
               color: Color(0xFF172A52),
@@ -613,10 +671,10 @@ class _EmptyGallery extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'New school moments will appear here.',
+          Text(
+            _t(context, 'newSchoolMomentsAppearHere'),
             textAlign: TextAlign.center,
-            style: TextStyle(color: Color(0xFF71809A)),
+            style: const TextStyle(color: Color(0xFF71809A)),
           ),
         ],
       ),
@@ -647,7 +705,7 @@ class _GalleryError extends StatelessWidget {
             style: const TextStyle(color: Color(0xFF5C6B84)),
           ),
           const SizedBox(height: 12),
-          TextButton(onPressed: onRetry, child: const Text('Try again')),
+          TextButton(onPressed: onRetry, child: Text(_t(context, 'tryAgain'))),
         ],
       ),
     ),

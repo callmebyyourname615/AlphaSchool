@@ -5,6 +5,7 @@ import '../../../../../core/theme/app_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:table_calendar/table_calendar.dart';
 
+import '../../../../../core/localization/app_localizations.dart';
 import '../../../../../core/widgets/app_page_template.dart';
 import 'calendar_page.dart';
 
@@ -17,6 +18,75 @@ import 'calendar_page.dart';
 /// =======================
 
 enum CalendarEventType { event, task, holiday }
+
+String _t(BuildContext context, String key) =>
+    AppLocalizations.of(context).t(key);
+
+String _monthName(BuildContext context, int month) {
+  const keys = [
+    'monthJanuary',
+    'monthFebruary',
+    'monthMarch',
+    'monthApril',
+    'monthMay',
+    'monthJune',
+    'monthJuly',
+    'monthAugust',
+    'monthSeptember',
+    'monthOctober',
+    'monthNovember',
+    'monthDecember',
+  ];
+  return _t(context, keys[month - 1]);
+}
+
+String _monthNameShort(BuildContext context, int month) {
+  const keys = [
+    'monthJanShort',
+    'monthFebShort',
+    'monthMarShort',
+    'monthAprShort',
+    'monthMayShort',
+    'monthJunShort',
+    'monthJulShort',
+    'monthAugShort',
+    'monthSepShort',
+    'monthOctShort',
+    'monthNovShort',
+    'monthDecShort',
+  ];
+  return _t(context, keys[month - 1]);
+}
+
+String _weekdayTiny(BuildContext context, int weekday) {
+  const keys = [
+    'weekdayMonTiny',
+    'weekdayTueTiny',
+    'weekdayWedTiny',
+    'weekdayThuTiny',
+    'weekdayFriTiny',
+    'weekdaySatTiny',
+    'weekdaySunTiny',
+  ];
+  return _t(context, keys[weekday - 1]);
+}
+
+String _formatDateLong(BuildContext context, DateTime date) {
+  final month = _monthName(context, date.month);
+  final isLao = Localizations.localeOf(context).languageCode == 'lo';
+  if (isLao) return '${date.day} $month ${date.year}';
+  return '$month ${date.day}, ${date.year}';
+}
+
+String _eventCount(BuildContext context, int count) => _t(
+  context,
+  count == 1 ? 'eventCountOne' : 'eventCountMany',
+).replaceAll('{count}', '$count');
+
+String _calendarEventText(BuildContext context, String value) {
+  if (!value.startsWith('demoCalendar')) return value;
+  return _t(context, value);
+}
 
 class CalendarEventModel {
   final String id;
@@ -131,7 +201,7 @@ class _YearCalendarPageState extends State<YearCalendarPage> {
     final today = _today;
 
     return AppPageTemplate(
-      title: 'Year Calendar',
+      title: _t(context, 'yearCalendar'),
       backgroundAsset: widget.backgroundAsset,
       animate: true,
       premiumDark: true,
@@ -172,10 +242,11 @@ class _YearCalendarPageState extends State<YearCalendarPage> {
               ),
           const SizedBox(height: 14),
           _SectionTitle(
-                title: 'Events Today • ${_formatDateLong(today)}',
+                title:
+                    '${_t(context, 'eventsToday')} • ${_formatDateLong(context, today)}',
                 subtitle: _eventsForToday.isEmpty
-                    ? 'No events'
-                    : '${_eventsForToday.length} event${_eventsForToday.length == 1 ? '' : 's'}',
+                    ? _t(context, 'noEvents')
+                    : _eventCount(context, _eventsForToday.length),
               )
               .animate()
               .fadeIn(delay: 120.ms, duration: 220.ms)
@@ -189,7 +260,7 @@ class _YearCalendarPageState extends State<YearCalendarPage> {
           if (_eventsForToday.isEmpty)
             _EmptyEventsCard(
                   isDark: isDark,
-                  hint: 'This screen is preview-only.',
+                  hint: _t(context, 'previewOnlyHint'),
                 )
                 .animate()
                 .fadeIn(delay: 160.ms, duration: 240.ms)
@@ -225,88 +296,70 @@ class _YearCalendarPageState extends State<YearCalendarPage> {
   static String _formatDateShort(DateTime d) =>
       '${_two(d.day)}/${_two(d.month)}/${d.year}';
 
-  static String _formatDateLong(DateTime d) {
-    const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    return '${months[d.month - 1]} ${d.day}, ${d.year}';
-  }
-
   static List<CalendarEventModel> _demoEventsForYear(int year) {
     DateTime d(int m, int day) => DateTime(year, m, day);
     return [
       CalendarEventModel(
         id: 'e1',
         date: d(1, 12),
-        title: 'Parent Meeting',
-        note: 'Room 2A • 09:00',
+        title: 'demoCalendarParentMeeting',
+        note: 'demoCalendarParentMeetingNote',
         type: CalendarEventType.event,
       ),
       CalendarEventModel(
         id: 'e2',
         date: d(2, 2),
-        title: 'Design Review',
-        note: 'Banner drafts',
+        title: 'demoCalendarDesignReview',
+        note: 'demoCalendarDesignReviewNote',
         type: CalendarEventType.task,
       ),
       CalendarEventModel(
         id: 'e3',
         date: d(3, 8),
-        title: 'Sports Day',
-        note: 'Bring sports uniform',
+        title: 'demoCalendarSportsDay',
+        note: 'demoCalendarSportsDayNote',
         type: CalendarEventType.event,
       ),
       CalendarEventModel(
         id: 'e4',
         date: d(4, 13),
-        title: 'Holiday',
-        note: 'School closed',
+        title: 'demoCalendarHoliday',
+        note: 'demoCalendarHolidayNote',
         type: CalendarEventType.holiday,
       ),
       CalendarEventModel(
         id: 'e5',
         date: d(6, 5),
-        title: 'Vaccination Check',
-        note: 'Bring health book',
+        title: 'demoCalendarVaccinationCheck',
+        note: 'demoCalendarVaccinationCheckNote',
         type: CalendarEventType.event,
       ),
       CalendarEventModel(
         id: 'e6',
         date: d(8, 18),
-        title: 'System Maintenance',
-        note: 'Firebase deploy',
+        title: 'demoCalendarSystemMaintenance',
+        note: 'demoCalendarSystemMaintenanceNote',
         type: CalendarEventType.task,
       ),
       CalendarEventModel(
         id: 'e7',
         date: d(10, 1),
-        title: 'New Term Begins',
-        note: 'Welcome back!',
+        title: 'demoCalendarNewTermBegins',
+        note: 'demoCalendarNewTermBeginsNote',
         type: CalendarEventType.event,
       ),
       CalendarEventModel(
         id: 'e8',
         date: d(12, 24),
-        title: 'Year-End Celebration',
-        note: 'Auditorium • 15:00',
+        title: 'demoCalendarYearEndCelebration',
+        note: 'demoCalendarYearEndCelebrationNote',
         type: CalendarEventType.event,
       ),
       CalendarEventModel(
         id: 'e9',
         date: d(12, 24),
-        title: 'Decoration Setup',
-        note: 'Front Office',
+        title: 'demoCalendarDecorationSetup',
+        note: 'demoCalendarDecorationSetupNote',
         type: CalendarEventType.task,
       ),
     ];
@@ -360,7 +413,7 @@ class _YearHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$year (Preview)',
+                  '$year (${_t(context, 'preview')})',
                   style: t.textTheme.titleMedium?.copyWith(
                     color: titleColor,
                     fontWeight: FontWeight.w900,
@@ -369,7 +422,7 @@ class _YearHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Today: ${_YearCalendarPageState._formatDateShort(today)} • $totalEventsToday event(s)',
+                  '${_t(context, 'today')}: ${_YearCalendarPageState._formatDateShort(today)} • ${_eventCount(context, totalEventsToday)}',
                   style: t.textTheme.bodySmall?.copyWith(
                     color: muted,
                     fontWeight: FontWeight.w800,
@@ -603,7 +656,7 @@ class _MiniMonthCardPreview extends StatelessWidget {
         ? Colors.white
         : (isDark ? Colors.white : Colors.black.withOpacity(.88));
 
-    final monthTitle = _monthNameShort(month);
+    final monthTitle = _monthName(context, month);
 
     final firstDay = DateTime(year, month, 1);
     final lastDay = DateTime(year, month + 1, 0);
@@ -662,15 +715,21 @@ class _MiniMonthCardPreview extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      monthTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: t.textTheme.labelLarge?.copyWith(
-                        color: headerTextColor,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -.1,
-                        height: 1.0,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          monthTitle,
+                          maxLines: 1,
+                          style: t.textTheme.labelLarge?.copyWith(
+                            color: headerTextColor,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0,
+                            height: 1.0,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -683,14 +742,14 @@ class _MiniMonthCardPreview extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Row(
-              children: const [
-                _Wd('M'),
-                _Wd('T'),
-                _Wd('W'),
-                _Wd('T'),
-                _Wd('F'),
-                _Wd('S'),
-                _Wd('S'),
+              children: [
+                _Wd(_weekdayTiny(context, 1)),
+                _Wd(_weekdayTiny(context, 2)),
+                _Wd(_weekdayTiny(context, 3)),
+                _Wd(_weekdayTiny(context, 4)),
+                _Wd(_weekdayTiny(context, 5)),
+                _Wd(_weekdayTiny(context, 6)),
+                _Wd(_weekdayTiny(context, 7)),
               ],
             ),
             const SizedBox(height: 6),
@@ -734,24 +793,6 @@ class _MiniMonthCardPreview extends StatelessWidget {
 
   static bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
-
-  static String _monthNameShort(int m) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return months[m - 1];
-  }
 }
 
 class _DayCell extends StatelessWidget {
@@ -884,21 +925,6 @@ class _MonthCalendarPageState extends State<MonthCalendarPage> {
             ? Colors.white.withOpacity(.10)
             : Colors.black.withOpacity(.06);
 
-        const months = [
-          'Jan',
-          'Feb',
-          'Mar',
-          'Apr',
-          'May',
-          'Jun',
-          'Jul',
-          'Aug',
-          'Sep',
-          'Oct',
-          'Nov',
-          'Dec',
-        ];
-
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
@@ -916,7 +942,7 @@ class _MonthCalendarPageState extends State<MonthCalendarPage> {
                     children: [
                       Expanded(
                         child: Text(
-                          'Pick Month',
+                          _t(ctx, 'pickMonth'),
                           style: t.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w900,
                           ),
@@ -924,7 +950,7 @@ class _MonthCalendarPageState extends State<MonthCalendarPage> {
                       ),
                       TextButton(
                         onPressed: () => Navigator.pop(ctx),
-                        child: const Text('Cancel'),
+                        child: Text(_t(ctx, 'cancel')),
                       ),
                     ],
                   ),
@@ -968,7 +994,7 @@ class _MonthCalendarPageState extends State<MonthCalendarPage> {
                           ),
                           alignment: Alignment.center,
                           child: Text(
-                            months[i],
+                            _monthNameShort(ctx2, m),
                             style: t.textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w900,
                             ),
@@ -985,7 +1011,7 @@ class _MonthCalendarPageState extends State<MonthCalendarPage> {
       },
     );
 
-    if (picked == null) return;
+    if (picked == null || !mounted) return;
 
     // ✅ iPhone-like zoom transition (replace current page)
     Navigator.of(context).pushReplacement(
@@ -1010,7 +1036,7 @@ class _MonthCalendarPageState extends State<MonthCalendarPage> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final title = '${_monthNameLong(widget.month)} ${widget.year}';
+    final title = '${_monthName(context, widget.month)} ${widget.year}';
     final firstDay = DateTime(widget.year, widget.month, 1);
     final lastDay = DateTime(widget.year, widget.month + 1, 0);
 
@@ -1062,10 +1088,11 @@ class _MonthCalendarPageState extends State<MonthCalendarPage> {
               ),
           const SizedBox(height: 14),
           _SectionTitle(
-                title: 'Events on ${_formatDateLong(_selected)}',
+                title:
+                    '${_t(context, 'eventsOn')} ${_formatDateLong(context, _selected)}',
                 subtitle: _eventsForSelected.isEmpty
-                    ? 'No events'
-                    : '${_eventsForSelected.length} event${_eventsForSelected.length == 1 ? '' : 's'}',
+                    ? _t(context, 'noEvents')
+                    : _eventCount(context, _eventsForSelected.length),
               )
               .animate()
               .fadeIn(delay: 120.ms, duration: 220.ms)
@@ -1079,7 +1106,7 @@ class _MonthCalendarPageState extends State<MonthCalendarPage> {
           if (_eventsForSelected.isEmpty)
             _EmptyEventsCard(
                   isDark: isDark,
-                  hint: 'Tap a day above to see events.',
+                  hint: _t(context, 'tapDayAboveHint'),
                 )
                 .animate()
                 .fadeIn(delay: 160.ms, duration: 240.ms)
@@ -1106,42 +1133,6 @@ class _MonthCalendarPageState extends State<MonthCalendarPage> {
 
   static bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
-
-  static String _formatDateLong(DateTime d) {
-    const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    return '${months[d.month - 1]} ${d.day}, ${d.year}';
-  }
-
-  static String _monthNameLong(int m) {
-    const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    return months[m - 1];
-  }
 }
 
 class _MonthHeaderCard extends StatelessWidget {
@@ -1209,7 +1200,7 @@ class _MonthHeaderCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Selected: ${selected.day}/${selected.month}/${selected.year}',
+                  '${_t(context, 'selected')}: ${selected.day}/${selected.month}/${selected.year}',
                   style: t.textTheme.bodySmall?.copyWith(
                     color: muted,
                     fontWeight: FontWeight.w800,
@@ -1292,9 +1283,13 @@ class _MonthCalendarCard extends StatelessWidget {
         lastDay: lastDay,
         focusedDay: focused,
         startingDayOfWeek: StartingDayOfWeek.monday,
-        headerStyle: const HeaderStyle(
+        headerStyle: HeaderStyle(
           titleCentered: true,
           formatButtonVisible: false,
+          titleTextFormatter: (date, _) => _monthName(context, date.month),
+        ),
+        daysOfWeekStyle: DaysOfWeekStyle(
+          dowTextFormatter: (date, _) => _weekdayTiny(context, date.weekday),
         ),
         calendarFormat: CalendarFormat.month,
         availableGestures: AvailableGestures.horizontalSwipe,
@@ -1445,7 +1440,7 @@ class _EmptyEventsCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'No events',
+            _t(context, 'noEvents'),
             style: t.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w900,
             ),
@@ -1504,11 +1499,11 @@ class _EventsTable extends StatelessWidget {
             color: headBg,
             child: Row(
               children: [
-                _Th(text: 'Type', flex: 2, color: muted),
+                _Th(text: _t(context, 'type'), flex: 2, color: muted),
                 const SizedBox(width: 10),
-                _Th(text: 'Title', flex: 5, color: muted),
+                _Th(text: _t(context, 'title'), flex: 5, color: muted),
                 const SizedBox(width: 10),
-                _Th(text: 'Note', flex: 6, color: muted),
+                _Th(text: _t(context, 'attendanceNote'), flex: 6, color: muted),
               ],
             ),
           ),
@@ -1535,7 +1530,7 @@ class _EventsTable extends StatelessWidget {
                   Expanded(
                     flex: 5,
                     child: Text(
-                      rows[i].title,
+                      _calendarEventText(context, rows[i].title),
                       style: TextStyle(
                         color: textColor,
                         fontWeight: FontWeight.w900,
@@ -1548,7 +1543,9 @@ class _EventsTable extends StatelessWidget {
                   Expanded(
                     flex: 6,
                     child: Text(
-                      (rows[i].note ?? '-'),
+                      rows[i].note == null
+                          ? '-'
+                          : _calendarEventText(context, rows[i].note!),
                       style: TextStyle(
                         color: muted,
                         fontWeight: FontWeight.w800,
@@ -1599,7 +1596,7 @@ class _TypePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = _typeColor(type);
-    final label = _typeText(type);
+    final label = _typeText(context, type);
     final icon = _typeIcon(type);
 
     final bg = isDark ? Colors.white.withOpacity(.10) : c.withOpacity(.10);
@@ -1644,14 +1641,14 @@ class _TypePill extends StatelessWidget {
     }
   }
 
-  static String _typeText(CalendarEventType t) {
+  static String _typeText(BuildContext context, CalendarEventType t) {
     switch (t) {
       case CalendarEventType.event:
-        return 'Event';
+        return _t(context, 'event');
       case CalendarEventType.task:
-        return 'Task';
+        return _t(context, 'task');
       case CalendarEventType.holiday:
-        return 'Holiday';
+        return _t(context, 'holiday');
     }
   }
 

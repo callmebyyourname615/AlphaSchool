@@ -3,11 +3,18 @@ import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../../../../core/localization/app_locale_controller.dart';
+import '../../../../../core/localization/app_localizations.dart';
 import '../../../../../core/network/api_client.dart';
 import '../../../../../core/services/global_alert_service.dart';
+import '../../../../../core/services/session_service.dart';
 // ✅ same AppTheme.mode as Year Picker
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../shared/models/student_card_item.dart';
+import '../year_picker_page.dart';
+
+String _t(BuildContext context, String key) =>
+    AppLocalizations.of(context).t(key);
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({
@@ -32,10 +39,9 @@ class _SettingsPageState extends State<SettingsPage> {
   static const _chevColor = Color(0xFF9CA3AF);
   static const _divider = Color(0xFFF1F5F9);
 
-  /// 'lo' or 'en'
-  String _lang = 'lo';
   final ApiClient _api = ApiClient();
   bool _loadingEmergency = false;
+  bool _loggingOut = false;
   String _emergencyError = '';
   List<_EmergencyContactInfo> _emergencyContacts = const [];
 
@@ -70,26 +76,27 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (context, mode, _) {
         final isDarkMode = mode == ThemeMode.dark;
         final p = _SettingsPalette.from(isDarkMode);
+        final languageCode = Localizations.localeOf(context).languageCode;
 
         final tiles = <Widget>[
           _SettingsTile(
             icon: LucideIcons.user,
-            label: 'Account',
+            label: _t(context, 'account'),
             trailing: Icon(
               LucideIcons.chevronRight,
               size: 26,
               color: p.chevColor,
             ),
             onTap: _openProfile,
-            iconColor: p.iconColor.withOpacity(.75),
+            iconColor: p.iconColor.withValues(alpha: .75),
             textColor: p.textColor,
           ),
           const SizedBox(height: 14),
 
           _SettingsTile(
             icon: LucideIcons.heartPulse,
-            label: 'Emergency contact',
-            valueText: _emergencyValueText,
+            label: _t(context, 'emergencyContact'),
+            valueText: _emergencyValueText(context),
             trailing: _loadingEmergency
                 ? SizedBox(
                     width: 20,
@@ -101,31 +108,31 @@ class _SettingsPageState extends State<SettingsPage> {
                   )
                 : Icon(LucideIcons.chevronRight, size: 26, color: p.chevColor),
             onTap: _openEmergencyPage,
-            iconColor: p.iconColor.withOpacity(.75),
+            iconColor: p.iconColor.withValues(alpha: .75),
             textColor: p.textColor,
           ),
           const SizedBox(height: 14),
 
           _SettingsTile(
             icon: LucideIcons.globe,
-            label: 'Language',
-            valueText: _lang == 'lo' ? 'Laos' : 'English',
+            label: _t(context, 'language'),
+            valueText: languageCode == 'lo'
+                ? _t(context, 'lao')
+                : _t(context, 'english'),
             trailing: Icon(
               LucideIcons.chevronRight,
               size: 26,
               color: p.chevColor,
             ),
             onTap: _openLanguageSheet,
-            iconColor: p.iconColor.withOpacity(.75),
+            iconColor: p.iconColor.withValues(alpha: .75),
             textColor: p.textColor,
           ),
 
           const SizedBox(height: 18),
 
           _LogoutButton(
-            onTap: () {
-              // TODO: your logout logic
-            },
+            onTap: _confirmLogout,
             bgColor: p.logoutBg,
             borderColor: p.logoutBorder,
           ),
@@ -139,7 +146,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Padding(
                       padding: const EdgeInsets.fromLTRB(14, 8, 14, 6),
                       child: _TopBar(
-                        title: widget.title,
+                        title: _t(context, 'settings'),
                         onBack: _back,
                         titleColor: p.titleColor,
                       ),
@@ -187,9 +194,38 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Future<void> _confirmLogout() async {
+    if (_loggingOut) return;
+
+    final confirmed = await GlobalAlert.showConfirmation(
+      title: _t(context, 'logout'),
+      message: _t(context, 'logoutConfirmMessage'),
+      confirmText: _t(context, 'logout'),
+      cancelText: _t(context, 'cancel'),
+      confirmColor: const Color(0xFFE11D48),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _loggingOut = true);
+    try {
+      await SessionService().clear();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const YearPickerPage()),
+        (_) => false,
+      );
+    } finally {
+      if (mounted) setState(() => _loggingOut = false);
+    }
+  }
+
   void _openLanguageSheet() {
     final isDarkMode = AppTheme.mode.value == ThemeMode.dark;
     final p = _SettingsPalette.from(isDarkMode);
+    final selectedLanguageCode = Localizations.localeOf(context).languageCode;
+    final selectLanguageText = _t(context, 'selectLanguage');
+    final laoText = _t(context, 'lao');
+    final englishText = _t(context, 'english');
 
     showModalBottomSheet(
       context: context,
@@ -199,18 +235,18 @@ class _SettingsPageState extends State<SettingsPage> {
         final items = [
           _LangItem(
             code: 'lo',
-            title: 'Laos',
+            title: laoText,
             flag: const Text('🇱🇦', style: TextStyle(fontSize: 22)),
           ),
           _LangItem(
             code: 'en',
-            title: 'English',
+            title: englishText,
             flag: const Text('🇬🇧', style: TextStyle(fontSize: 22)),
           ),
         ];
 
         return _BottomSheetShell(
-          title: 'Select language',
+          title: selectLanguageText,
           bgColor: p.sheetBg,
           borderColor: p.sheetBorder,
           titleColor: p.sheetTitle,
@@ -221,10 +257,11 @@ class _SettingsPageState extends State<SettingsPage> {
               for (int i = 0; i < items.length; i++)
                 _LanguageRow(
                       item: items[i],
-                      selected: _lang == items[i].code,
+                      selected: selectedLanguageCode == items[i].code,
                       onTap: () {
-                        setState(() => _lang = items[i].code);
+                        final code = items[i].code;
                         Navigator.of(context).pop();
+                        AppLocaleController.setLocale(Locale(code));
                       },
                       selectedBorder: p.langSelectedBorder,
                       border: p.langBorder,
@@ -250,11 +287,17 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  String? get _emergencyValueText {
-    if (_loadingEmergency) return 'Loading';
-    if (_emergencyError.isNotEmpty) return 'Error';
-    if (_emergencyContacts.isEmpty) return 'None';
-    return '${_emergencyContacts.length} contact${_emergencyContacts.length == 1 ? '' : 's'}';
+  String? _emergencyValueText(BuildContext context) {
+    if (_loadingEmergency) return _t(context, 'loading');
+    if (_emergencyError.isNotEmpty) return _t(context, 'error');
+    if (_emergencyContacts.isEmpty) return _t(context, 'none');
+    final key = _emergencyContacts.length == 1
+        ? 'contactCountOne'
+        : 'contactCountMany';
+    return _t(
+      context,
+      key,
+    ).replaceAll('{count}', '${_emergencyContacts.length}');
   }
 
   Future<void> _loadEmergencyContacts() async {
@@ -286,7 +329,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (!mounted) return;
       setState(() {
         _loadingEmergency = false;
-        _emergencyError = 'Could not load emergency contact.';
+        _emergencyError = _t(context, 'couldNotLoadEmergencyContact');
         _emergencyContacts = const [];
       });
     }
@@ -385,7 +428,7 @@ class _EmergencyContactPageState extends State<_EmergencyContactPage> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = 'Could not load emergency contact.';
+        _error = _t(context, 'couldNotLoadEmergencyContact');
         _contacts = const [];
       });
     }
@@ -416,12 +459,12 @@ class _EmergencyContactPageState extends State<_EmergencyContactPage> {
       if (!mounted) return false;
       setState(() {
         _saving = false;
-        _error = 'Could not save emergency contact.';
+        _error = _t(context, 'couldNotSaveEmergencyContact');
       });
       GlobalAlert.showError(
-        title: 'Save failed',
-        message: 'Could not save emergency contact. Please try again.',
-        buttonText: 'OK',
+        title: _t(context, 'saveFailed'),
+        message: _t(context, 'couldNotSaveEmergencyContactTryAgain'),
+        buttonText: _t(context, 'ok'),
       );
       return false;
     }
@@ -430,9 +473,9 @@ class _EmergencyContactPageState extends State<_EmergencyContactPage> {
   Future<void> _addContact() async {
     if (_contacts.length >= _maxEmergencyContacts) {
       GlobalAlert.showWarning(
-        title: 'Limit reached',
-        message: 'You can add up to 5 emergency contacts only.',
-        buttonText: 'OK',
+        title: _t(context, 'limitReached'),
+        message: _t(context, 'maxEmergencyContactsOnly'),
+        buttonText: _t(context, 'ok'),
       );
       return;
     }
@@ -443,15 +486,15 @@ class _EmergencyContactPageState extends State<_EmergencyContactPage> {
     if (created == null || !mounted) return;
     if (_contacts.length >= _maxEmergencyContacts) {
       GlobalAlert.showWarning(
-        title: 'Limit reached',
-        message: 'You can add up to 5 emergency contacts only.',
-        buttonText: 'OK',
+        title: _t(context, 'limitReached'),
+        message: _t(context, 'maxEmergencyContactsOnly'),
+        buttonText: _t(context, 'ok'),
       );
       return;
     }
 
     final saved = await _saveContacts([..._contacts, created]);
-    if (saved && mounted) _showSaved('Emergency contact added.');
+    if (saved && mounted) _showSaved(_t(context, 'emergencyContactAdded'));
   }
 
   Future<void> _editContact(int index) async {
@@ -465,20 +508,26 @@ class _EmergencyContactPageState extends State<_EmergencyContactPage> {
     final saved = await _saveContacts(next);
     if (saved && mounted) {
       GlobalAlert.showSuccess(
-        title: 'Contact updated',
-        message: 'Emergency contact information has been saved.',
-        buttonText: 'OK',
+        title: _t(context, 'contactUpdated'),
+        message: _t(context, 'emergencyContactSaved'),
+        buttonText: _t(context, 'ok'),
       );
     }
   }
 
   Future<void> _deleteContact(int index) async {
     final removed = _contacts[index];
+    final removedName = removed.fullname.isEmpty
+        ? _t(context, 'emergencyContact')
+        : removed.fullname;
     final confirmed = await GlobalAlert.showConfirmation(
-      title: 'Delete contact?',
-      message: 'Remove ${removed.fullnameOrFallback} from emergency contacts.',
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
+      title: _t(context, 'deleteContactQuestion'),
+      message: _t(
+        context,
+        'removeEmergencyContactMessage',
+      ).replaceAll('{name}', removedName),
+      confirmText: _t(context, 'delete'),
+      cancelText: _t(context, 'cancel'),
       confirmColor: const Color(0xFFE11D48),
     );
     if (confirmed != true || !mounted) return;
@@ -487,9 +536,12 @@ class _EmergencyContactPageState extends State<_EmergencyContactPage> {
     final saved = await _saveContacts(next);
     if (!saved || !mounted) return;
     GlobalAlert.showSuccess(
-      title: 'Contact deleted',
-      message: '${removed.fullnameOrFallback} has been removed.',
-      buttonText: 'OK',
+      title: _t(context, 'contactDeleted'),
+      message: _t(
+        context,
+        'contactRemovedMessage',
+      ).replaceAll('{name}', removedName),
+      buttonText: _t(context, 'ok'),
     );
   }
 
@@ -499,11 +551,15 @@ class _EmergencyContactPageState extends State<_EmergencyContactPage> {
     final item = next.removeAt(from);
     next.insert(to, item);
     final saved = await _saveContacts(next);
-    if (saved && mounted) _showSaved('Priority updated.');
+    if (saved && mounted) _showSaved(_t(context, 'priorityUpdated'));
   }
 
   void _showSaved(String message) {
-    GlobalAlert.showSuccess(title: 'Saved', message: message, buttonText: 'OK');
+    GlobalAlert.showSuccess(
+      title: _t(context, 'saved'),
+      message: message,
+      buttonText: _t(context, 'ok'),
+    );
   }
 
   Map<String, dynamic> _studentRecord(dynamic response) {
@@ -546,7 +602,7 @@ class _EmergencyContactPageState extends State<_EmergencyContactPage> {
                     alignment: Alignment.center,
                     children: [
                       _TopBar(
-                        title: 'Emergency contact',
+                        title: _t(context, 'emergencyContact'),
                         onBack: () => Navigator.of(context).maybePop(),
                         titleColor: p.titleColor,
                       ),
@@ -570,7 +626,7 @@ class _EmergencyContactPageState extends State<_EmergencyContactPage> {
                               : const Icon(LucideIcons.plus),
                           color: p.titleColor,
                           splashRadius: 22,
-                          tooltip: 'Add emergency contact',
+                          tooltip: _t(context, 'addEmergencyContact'),
                         ),
                       ),
                     ],
@@ -679,9 +735,6 @@ class _EmergencyContactInfo {
   final String hospital;
   final String doctorName;
   final String doctorContact;
-
-  String get fullnameOrFallback =>
-      fullname.isEmpty ? 'Emergency contact' : fullname;
 
   bool get hasAnyValue =>
       fullname.isNotEmpty ||
@@ -811,9 +864,9 @@ class _EmergencyContactEditPageState extends State<_EmergencyContactEditPage> {
 
     if (contact.fullname.isEmpty || contact.phone1.isEmpty) {
       GlobalAlert.showWarning(
-        title: 'Missing information',
-        message: 'Name and Phone #1 are required.',
-        buttonText: 'OK',
+        title: _t(context, 'missingInformation'),
+        message: _t(context, 'nameAndPhoneRequired'),
+        buttonText: _t(context, 'ok'),
       );
       return;
     }
@@ -834,7 +887,9 @@ class _EmergencyContactEditPageState extends State<_EmergencyContactEditPage> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(14, 8, 14, 6),
                   child: _TopBar(
-                    title: _isEditing ? 'Edit contact' : 'Add contact',
+                    title: _isEditing
+                        ? _t(context, 'editContact')
+                        : _t(context, 'addContact'),
                     onBack: () => Navigator.of(context).maybePop(),
                     titleColor: p.titleColor,
                   ),
@@ -852,40 +907,43 @@ class _EmergencyContactEditPageState extends State<_EmergencyContactEditPage> {
                           children: [
                             _EmergencyTextField(
                               controller: _name,
-                              label: 'Full name',
+                              label: _t(context, 'fullName'),
                               required: true,
                             ),
                             _EmergencyTextField(
                               controller: _relationship,
-                              label: 'Relationship with student',
+                              label: _t(context, 'relationshipToStudent'),
                             ),
                             _EmergencyTextField(
                               controller: _phone1,
-                              label: 'Phone #1',
+                              label: _t(context, 'phone1Label'),
                               required: true,
                               keyboardType: TextInputType.phone,
                             ),
                             _EmergencyTextField(
                               controller: _phone2,
-                              label: 'Phone #2',
+                              label: _t(context, 'phone2Label'),
                               keyboardType: TextInputType.phone,
                             ),
-                            _EmergencyTextField(controller: _job, label: 'Job'),
+                            _EmergencyTextField(
+                              controller: _job,
+                              label: _t(context, 'job'),
+                            ),
                             _EmergencyTextField(
                               controller: _workingPlace,
-                              label: 'Working place',
+                              label: _t(context, 'workingPlace'),
                             ),
                             _EmergencyTextField(
                               controller: _hospital,
-                              label: 'Hospital',
+                              label: _t(context, 'hospital'),
                             ),
                             _EmergencyTextField(
                               controller: _doctorName,
-                              label: 'Doctor',
+                              label: _t(context, 'doctor'),
                             ),
                             _EmergencyTextField(
                               controller: _doctorContact,
-                              label: 'Doctor contact',
+                              label: _t(context, 'doctorContact'),
                               keyboardType: TextInputType.phone,
                             ),
                           ],
@@ -902,7 +960,11 @@ class _EmergencyContactEditPageState extends State<_EmergencyContactEditPage> {
                     child: ElevatedButton.icon(
                       onPressed: _save,
                       icon: const Icon(LucideIcons.check, size: 17),
-                      label: Text(_isEditing ? 'Save changes' : 'Add contact'),
+                      label: Text(
+                        _isEditing
+                            ? _t(context, 'saveChanges')
+                            : _t(context, 'addContact'),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0756D1),
                         foregroundColor: const Color(0xFFF8FBFF),
@@ -1086,7 +1148,7 @@ class _EmergencyContactContentState extends State<_EmergencyContactContent> {
               TextButton.icon(
                 onPressed: widget.onRetry,
                 icon: const Icon(LucideIcons.refreshCw, size: 16),
-                label: const Text('Try again'),
+                label: Text(_t(context, 'tryAgain')),
               ),
             ],
           ),
@@ -1110,7 +1172,7 @@ class _EmergencyContactContentState extends State<_EmergencyContactContent> {
               Icon(LucideIcons.heartPulse, color: widget.mutedColor, size: 30),
               const SizedBox(height: 12),
               Text(
-                'No emergency contact found.',
+                _t(context, 'noEmergencyContactFound'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: widget.textColor,
@@ -1124,7 +1186,7 @@ class _EmergencyContactContentState extends State<_EmergencyContactContent> {
                 child: ElevatedButton.icon(
                   onPressed: widget.onAdd,
                   icon: const Icon(LucideIcons.plus, size: 16),
-                  label: const Text('Add contact'),
+                  label: Text(_t(context, 'addContact')),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0756D1),
                     foregroundColor: const Color(0xFFF8FBFF),
@@ -1275,8 +1337,9 @@ class _EmergencyContactCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final name = contact.fullname.isEmpty
-        ? 'Emergency contact'
+        ? l10n.t('emergencyContact')
         : contact.fullname;
     final primaryPhone = contact.phone1.isNotEmpty
         ? contact.phone1
@@ -1284,20 +1347,32 @@ class _EmergencyContactCard extends StatelessWidget {
     final detailRows = [
       _ContactInfoData(
         LucideIcons.phone,
-        'Phone #2',
+        l10n.t('phone2Label'),
         contact.phone2 == primaryPhone ? '' : contact.phone2,
       ),
-      _ContactInfoData(LucideIcons.briefcaseBusiness, 'Job', contact.job),
+      _ContactInfoData(
+        LucideIcons.briefcaseBusiness,
+        l10n.t('job'),
+        contact.job,
+      ),
       _ContactInfoData(
         LucideIcons.building,
-        'Working place',
+        l10n.t('workingPlace'),
         contact.workingPlace,
       ),
-      _ContactInfoData(LucideIcons.hospital, 'Hospital', contact.hospital),
-      _ContactInfoData(LucideIcons.syringe, 'Doctor', contact.doctorName),
+      _ContactInfoData(
+        LucideIcons.hospital,
+        l10n.t('hospital'),
+        contact.hospital,
+      ),
+      _ContactInfoData(
+        LucideIcons.syringe,
+        l10n.t('doctor'),
+        contact.doctorName,
+      ),
       _ContactInfoData(
         LucideIcons.phone,
-        'Doctor contact',
+        l10n.t('doctorContact'),
         contact.doctorContact,
       ),
     ].where((row) => row.value.trim().isNotEmpty).toList(growable: false);
@@ -1338,28 +1413,28 @@ class _EmergencyContactCard extends StatelessWidget {
                     icon: LucideIcons.arrowUpRight,
                     onTap: saving ? null : onMoveUp,
                     color: mutedColor,
-                    tooltip: 'Move higher priority',
+                    tooltip: l10n.t('moveHigherPriority'),
                   ),
                   const SizedBox(width: 6),
                   _IconChipButton(
                     icon: LucideIcons.arrowDownToLine,
                     onTap: saving ? null : onMoveDown,
                     color: mutedColor,
-                    tooltip: 'Move lower priority',
+                    tooltip: l10n.t('moveLowerPriority'),
                   ),
                   const SizedBox(width: 6),
                   _IconChipButton(
                     icon: LucideIcons.squarePen,
                     onTap: saving ? null : onEdit,
                     color: const Color(0xFF0756D1),
-                    tooltip: 'Edit',
+                    tooltip: l10n.t('edit'),
                   ),
                   const SizedBox(width: 6),
                   _IconChipButton(
                     icon: LucideIcons.trash2,
                     onTap: saving ? null : onDelete,
                     color: const Color(0xFFE11D48),
-                    tooltip: 'Delete',
+                    tooltip: l10n.t('delete'),
                   ),
                 ],
               ),
@@ -1601,7 +1676,7 @@ class _EmergencyDetails extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.only(top: 14),
         child: Text(
-          'No additional details.',
+          _t(context, 'noAdditionalDetails'),
           style: TextStyle(
             color: mutedColor,
             fontSize: 13,
@@ -1809,25 +1884,25 @@ class _SettingsPalette {
     // ✅ Dark colors only (layout remains identical)
     return _SettingsPalette(
       bg: const Color(0xFF0B1220),
-      titleColor: Colors.white.withOpacity(.95),
-      textColor: Colors.white.withOpacity(.75),
-      iconColor: Colors.white.withOpacity(.90),
-      chevColor: Colors.white.withOpacity(.55),
-      divider: Colors.white.withOpacity(.10),
+      titleColor: Colors.white.withValues(alpha: .95),
+      textColor: Colors.white.withValues(alpha: .75),
+      iconColor: Colors.white.withValues(alpha: .90),
+      chevColor: Colors.white.withValues(alpha: .55),
+      divider: Colors.white.withValues(alpha: .10),
       cardBg: const Color(0xFF0F172A),
-      cardBorder: Colors.white.withOpacity(.10),
-      cardShadow: Colors.black.withOpacity(.35),
+      cardBorder: Colors.white.withValues(alpha: .10),
+      cardShadow: Colors.black.withValues(alpha: .35),
       sheetBg: const Color(0xFF0F172A),
-      sheetBorder: Colors.white.withOpacity(.12),
-      sheetTitle: Colors.white.withOpacity(.92),
-      sheetClose: Colors.white.withOpacity(.60),
-      sheetDrag: Colors.white.withOpacity(.18),
-      langSelectedBorder: Colors.white.withOpacity(.85),
-      langBorder: Colors.white.withOpacity(.12),
-      langSelectedBg: Colors.white.withOpacity(.06),
+      sheetBorder: Colors.white.withValues(alpha: .12),
+      sheetTitle: Colors.white.withValues(alpha: .92),
+      sheetClose: Colors.white.withValues(alpha: .60),
+      sheetDrag: Colors.white.withValues(alpha: .18),
+      langSelectedBorder: Colors.white.withValues(alpha: .85),
+      langBorder: Colors.white.withValues(alpha: .12),
+      langSelectedBg: Colors.white.withValues(alpha: .06),
       langBg: const Color(0xFF0F172A),
-      langText: Colors.white.withOpacity(.92),
-      langCheck: Colors.white.withOpacity(.90),
+      langText: Colors.white.withValues(alpha: .92),
+      langCheck: Colors.white.withValues(alpha: .90),
       logoutBg: const Color(0xFF2A0F14),
       logoutBorder: const Color(0xFF5B1B25),
     );
@@ -2008,14 +2083,18 @@ class _LogoutButton extends StatelessWidget {
                 color: bgColor,
                 border: Border.all(color: borderColor),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(LucideIcons.logOut, size: 18, color: Color(0xFFDC2626)),
-                  SizedBox(width: 10),
+                  const Icon(
+                    LucideIcons.logOut,
+                    size: 18,
+                    color: Color(0xFFDC2626),
+                  ),
+                  const SizedBox(width: 10),
                   Text(
-                    'Logout',
-                    style: TextStyle(
+                    _t(context, 'logout'),
+                    style: const TextStyle(
                       color: Color(0xFFDC2626),
                       fontSize: 16,
                       fontWeight: FontWeight.w900,

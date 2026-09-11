@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_icons.dart';
-import 'package:intl/intl.dart';
 
+import '../../../../../core/localization/app_localizations.dart';
 import '../../../../../shared/models/student_card_item.dart';
 import 'classroom_timetable_model.dart';
 import 'classroom_timetable_service.dart';
@@ -13,6 +13,40 @@ const _muted = Color(0xFF85899A);
 const _border = Color(0xFFE7E8EE);
 const _purple = Color(0xFF3B82F6);
 const _orange = Color(0xFFF5B15E);
+
+String _t(BuildContext context, String key) =>
+    AppLocalizations.of(context).t(key);
+
+String _classroomMonthName(BuildContext context, int month) {
+  const keys = [
+    'monthJanuary',
+    'monthFebruary',
+    'monthMarch',
+    'monthApril',
+    'monthMay',
+    'monthJune',
+    'monthJuly',
+    'monthAugust',
+    'monthSeptember',
+    'monthOctober',
+    'monthNovember',
+    'monthDecember',
+  ];
+  return _t(context, keys[month - 1]);
+}
+
+String _classroomWeekday(BuildContext context, int weekday) {
+  const keys = [
+    'weekdayMonCalendar',
+    'weekdayTueCalendar',
+    'weekdayWedCalendar',
+    'weekdayThuCalendar',
+    'weekdayFriCalendar',
+    'weekdaySatCalendar',
+    'weekdaySunCalendar',
+  ];
+  return _t(context, keys[weekday - 1]);
+}
 
 class ClassroomPage extends StatefulWidget {
   const ClassroomPage({super.key, this.selectedStudent});
@@ -103,10 +137,10 @@ class _ClassroomPageState extends State<ClassroomPage> {
                   future: _future,
                   builder: (context, snapshot) {
                     if ((widget.selectedStudent?.classId ?? '').isEmpty) {
-                      return const SliverToBoxAdapter(
+                      return SliverToBoxAdapter(
                         child: _ClassroomState(
                           icon: LucideIcons.userSearch,
-                          message: 'Please select a student first.',
+                          message: _t(context, 'pleaseSelectStudentFirst'),
                         ),
                       );
                     }
@@ -121,7 +155,7 @@ class _ClassroomPageState extends State<ClassroomPage> {
                       return SliverToBoxAdapter(
                         child: _ClassroomState(
                           icon: LucideIcons.wifiOff,
-                          message: 'Could not load timetable.',
+                          message: _t(context, 'couldNotLoadTimetable'),
                           action: () => setState(_load),
                         ),
                       );
@@ -133,7 +167,7 @@ class _ClassroomPageState extends State<ClassroomPage> {
                       return SliverToBoxAdapter(
                         child: _ClassroomState(
                           icon: LucideIcons.calendarCheck,
-                          message: 'No classes scheduled for this day.',
+                          message: _t(context, 'noClassesScheduledForThisDay'),
                         ),
                       );
                     }
@@ -188,7 +222,7 @@ class _CalendarHeader extends StatelessWidget {
             ),
             const SizedBox(width: 14),
             Text(
-              DateFormat('MMM').format(selectedDate),
+              _classroomMonthName(context, selectedDate.month),
               style: const TextStyle(
                 color: _text,
                 fontSize: 25,
@@ -198,7 +232,7 @@ class _CalendarHeader extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Text(
-              DateFormat('yyyy').format(selectedDate),
+              '${selectedDate.year}',
               style: const TextStyle(
                 color: _muted,
                 fontSize: 16,
@@ -212,9 +246,9 @@ class _CalendarHeader extends StatelessWidget {
                 foregroundColor: _purple,
                 minimumSize: const Size(52, 44),
               ),
-              child: const Text(
-                'Today',
-                style: TextStyle(fontWeight: FontWeight.w800),
+              child: Text(
+                _t(context, 'today'),
+                style: const TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
           ],
@@ -272,12 +306,16 @@ class _DayButton extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Text(
-              DateFormat('E').format(date).characters.first,
-              style: TextStyle(
-                color: selected ? Colors.white70 : const Color(0xFFB5B7C0),
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                _classroomWeekday(context, date.weekday),
+                maxLines: 1,
+                style: TextStyle(
+                  color: selected ? Colors.white70 : const Color(0xFFB5B7C0),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             const SizedBox(height: 5),
@@ -347,7 +385,7 @@ class _TimelineLesson extends StatelessWidget {
                   const Icon(LucideIcons.clock3, size: 13, color: _purple),
                   const SizedBox(width: 4),
                   Text(
-                    _formatDuration(lesson.durationMinutes),
+                    _formatDuration(context, lesson.durationMinutes),
                     style: const TextStyle(
                       color: _purple,
                       fontSize: 11.5,
@@ -381,7 +419,7 @@ class _TimelineLesson extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                lesson.note ?? widgetFallbackSubtitle,
+                lesson.note ?? _t(context, 'classTimetable'),
                 style: const TextStyle(
                   color: _muted,
                   fontSize: 12,
@@ -398,7 +436,7 @@ class _TimelineLesson extends StatelessWidget {
               _InfoLine(
                 icon: LucideIcons.mapPin,
                 title: lesson.className,
-                subtitle: 'Classroom',
+                subtitle: _t(context, 'classroomTab'),
               ),
             ],
           ),
@@ -411,9 +449,8 @@ class _TimelineLesson extends StatelessWidget {
     return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
 
-  static String _formatDuration(int minutes) => '$minutes min';
-
-  static const widgetFallbackSubtitle = 'Class timetable';
+  static String _formatDuration(BuildContext context, int minutes) =>
+      _t(context, 'minutesShort').replaceAll('{count}', '$minutes');
 }
 
 class _InfoLine extends StatelessWidget {
@@ -497,7 +534,7 @@ class _ClassroomState extends StatelessWidget {
           ),
           if (action != null) ...[
             const SizedBox(height: 14),
-            TextButton(onPressed: action, child: const Text('Try again')),
+            TextButton(onPressed: action, child: Text(_t(context, 'tryAgain'))),
           ],
         ],
       ),

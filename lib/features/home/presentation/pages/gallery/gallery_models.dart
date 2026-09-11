@@ -60,9 +60,9 @@ class GalleryPostModel {
       id: json['id']?.toString() ?? '',
       title: (json['title']?.toString().trim().isNotEmpty ?? false)
           ? json['title'].toString().trim()
-          : 'School moment',
+          : '',
       description: json['description']?.toString().trim() ?? '',
-      category: json['category']?.toString().trim() ?? 'School activity',
+      category: json['category']?.toString().trim() ?? '',
       visibility: json['visibility']?.toString().trim() ?? 'public',
       authorName:
           '${safeAuthorType[0].toUpperCase()}${safeAuthorType.substring(1)}',
@@ -146,33 +146,4 @@ class GalleryCommentModel {
       replyToId: json['reply_to_id']?.toString(),
     );
   }
-}
-
-String galleryShortDate(DateTime? value) {
-  if (value == null) return 'Just now';
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-  return '${months[value.month - 1]} ${value.day}, ${value.year}';
-}
-
-String galleryRelativeTime(DateTime? value) {
-  if (value == null) return 'Just now';
-  final elapsed = DateTime.now().difference(value);
-  if (elapsed.inMinutes < 1) return 'Just now';
-  if (elapsed.inHours < 1) return '${elapsed.inMinutes}m ago';
-  if (elapsed.inDays < 1) return '${elapsed.inHours}h ago';
-  if (elapsed.inDays < 7) return '${elapsed.inDays}d ago';
-  return galleryShortDate(value);
 }

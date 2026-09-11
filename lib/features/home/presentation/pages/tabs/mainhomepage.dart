@@ -3,13 +3,12 @@ import 'dart:ui';
 import 'home_skeleton.dart';
 import 'menu_reads_service.dart';
 
+import 'package:alpha_school/core/localization/app_localizations.dart';
 import 'package:alpha_school/core/widgets/scanqrcode/scan_qr_code_page.dart';
-import 'package:alpha_school/features/demo/DemoTest.dart';
 import 'package:alpha_school/features/home/presentation/pages/appointment/appointment_page.dart';
 import 'package:alpha_school/features/home/presentation/pages/appointment/appointment_service.dart';
 import 'package:alpha_school/features/home/presentation/pages/attendance/attendance_page.dart';
 import 'package:alpha_school/features/home/presentation/pages/attendance/attendance_service.dart';
-import 'package:alpha_school/features/home/presentation/pages/calendar/calendar_page.dart';
 import 'package:alpha_school/features/home/presentation/pages/calendar/calendar_year.dart';
 import 'package:alpha_school/features/home/presentation/pages/contact/contact_page.dart';
 import 'package:alpha_school/features/home/presentation/pages/gallery/gallery_page.dart';
@@ -28,8 +27,10 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
 import 'package:remixicon/remixicon.dart';
 
-import '../../../../../core/theme/app_colors.dart';
 import '../../../../../shared/models/student_card_item.dart';
+
+String _homeT(BuildContext context, String key) =>
+    AppLocalizations.of(context).t(key);
 
 class ExplorePage extends StatefulWidget {
   final StudentCardItem? selectedStudent;
@@ -76,37 +77,7 @@ class _ExplorePageState extends State<ExplorePage> {
     _loadLatestParticipantScore();
     _loadMenuUnreadCounts();
 
-    final now = DateTime.now();
-    _notifications = [
-      _NotificationItem(
-        sender: "Alpha School",
-        title: "ປະກາດສຳຄັນ",
-        body: "ພົບກັນໃນການປະຊຸມຜູ້ປົກຄອງວັນສຸກ 15:00",
-        time: now.subtract(const Duration(minutes: 18)),
-        isUnread: true,
-      ),
-      _NotificationItem(
-        sender: "Teacher - Ms. Lina",
-        title: "ວຽກບ້ານ",
-        body: "ສົ່ງວຽກບ້ານຄະນິດສາດ ກ່ອນ 18:00",
-        time: now.subtract(const Duration(hours: 9)),
-        isUnread: true,
-      ),
-      _NotificationItem(
-        sender: "Finance Office",
-        title: "ແຈ້ງເຕືອນຄ່າຮຽນ",
-        body: "ກະລຸນາຊຳລະຄ່າຮຽນກ່ອນວັນທີ 28",
-        time: now.subtract(const Duration(days: 1, hours: 3)),
-        isUnread: false,
-      ),
-      _NotificationItem(
-        sender: "Library",
-        title: "ຄືນປຶ້ມ",
-        body: "ປຶ້ມທີ່ຢືມຈະຄົບກຳນົດໃນ 2 ມື້",
-        time: now.subtract(const Duration(days: 3, hours: 2)),
-        isUnread: false,
-      ),
-    ];
+    _notifications = const [];
   }
 
   String get _studentReadKey =>
@@ -284,9 +255,9 @@ class _ExplorePageState extends State<ExplorePage> {
     final items = _notifications
         .map(
           (n) => NotificationEntry.fromPopup(
-            sender: n.sender,
-            title: n.title,
-            body: n.body,
+            sender: _homeT(context, n.sender),
+            title: _homeT(context, n.title),
+            body: _homeT(context, n.body),
             time: n.time,
             isUnread: n.isUnread,
           ),
@@ -301,7 +272,7 @@ class _ExplorePageState extends State<ExplorePage> {
   void _showNotificationPopup() {
     final overlay = Overlay.of(context);
     final renderBox = _bellKey.currentContext?.findRenderObject() as RenderBox?;
-    if (overlay == null || renderBox == null) return;
+    if (renderBox == null) return;
 
     final overlayBox = overlay.context.findRenderObject() as RenderBox;
     final bellSize = renderBox.size;
@@ -357,10 +328,10 @@ class _ExplorePageState extends State<ExplorePage> {
     final student = widget.selectedStudent;
     final studentName = student?.name.trim().isNotEmpty == true
         ? student!.name.trim()
-        : "Student";
+        : _homeT(context, 'student');
     final studentClass = student?.className?.trim().isNotEmpty == true
         ? student!.className!.trim()
-        : "Class not assigned";
+        : _homeT(context, 'classNotAssigned');
 
     void go(Widget page) {
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
@@ -720,7 +691,10 @@ class _ExplorePageState extends State<ExplorePage> {
                                       scale: s,
                                       isSmallPhone: isSmallPhone,
                                       isTablet: isTablet || isLargeTablet,
-                                      eventText: "ປີໃໝ່ລາວ 2026",
+                                      eventText: _homeT(
+                                        context,
+                                        'laoNewYear2026',
+                                      ),
                                     ),
                                   )
                                   .animate()
@@ -1031,6 +1005,7 @@ class _NotificationPopupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final border = tok.line;
 
     final viewAllBg = tok.isDark
@@ -1078,7 +1053,7 @@ class _NotificationPopupCard extends StatelessWidget {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          "Notifications",
+                          l10n.t('notifications'),
                           style: TextStyle(
                             color: tok.title,
                             fontWeight: FontWeight.w900,
@@ -1103,7 +1078,7 @@ class _NotificationPopupCard extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                "View all",
+                                l10n.t('viewAll'),
                                 style: TextStyle(
                                   color: tok.blue,
                                   fontWeight: FontWeight.w900,
@@ -1147,34 +1122,74 @@ class _NotificationPopupCard extends StatelessWidget {
                 ),
                 Container(height: 1, color: tok.line),
                 Flexible(
-                  child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                    itemCount: items.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (context, i) {
-                      final it = items[i];
-                      final label = _timeGroupLabel(it.time);
-                      final timeText = _fmtTime(it.time);
+                  child: items.isEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.fromLTRB(18, 26, 18, 30),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                FontAwesomeIcons.bellSlash,
+                                size: 26,
+                                color: tok.sub,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                l10n.t('noNotifications'),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: tok.title,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                l10n.t('noNotificationsHint'),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: tok.sub,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                          itemCount: items.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, i) {
+                            final it = items[i];
+                            final groupKey = _timeGroupKey(it.time);
+                            final label = l10n.t(groupKey);
+                            final timeText = _fmtTime(it.time);
 
-                      return _NotificationTile(
-                            sender: it.sender,
-                            title: it.title,
-                            body: it.body,
-                            timeText: timeText,
-                            groupLabel: label,
-                            unread: it.isUnread,
-                            tok: tok,
-                          )
-                          .animate()
-                          .fadeIn(delay: (40 + i * 45).ms, duration: 200.ms)
-                          .slideX(
-                            begin: .05,
-                            end: 0,
-                            duration: 240.ms,
-                            curve: Curves.easeOutCubic,
-                          );
-                    },
-                  ),
+                            return _NotificationTile(
+                                  sender: l10n.t(it.sender),
+                                  title: l10n.t(it.title),
+                                  body: l10n.t(it.body),
+                                  timeText: timeText,
+                                  groupKey: groupKey,
+                                  groupLabel: label,
+                                  unread: it.isUnread,
+                                  tok: tok,
+                                )
+                                .animate()
+                                .fadeIn(
+                                  delay: (40 + i * 45).ms,
+                                  duration: 200.ms,
+                                )
+                                .slideX(
+                                  begin: .05,
+                                  end: 0,
+                                  duration: 240.ms,
+                                  curve: Curves.easeOutCubic,
+                                );
+                          },
+                        ),
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -1182,7 +1197,7 @@ class _NotificationPopupCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          "Tap outside to close",
+                          l10n.t('tapOutsideToClose'),
                           style: TextStyle(
                             color: tok.sub,
                             fontWeight: FontWeight.w700,
@@ -1203,7 +1218,7 @@ class _NotificationPopupCard extends StatelessWidget {
                           border: Border.all(color: tok.line),
                         ),
                         child: Text(
-                          "Recent: ${_recentScopeLabel(items)}",
+                          "${l10n.t('recent')}: ${l10n.t(_recentScopeKey(items))}",
                           style: TextStyle(
                             color: tok.sub,
                             fontWeight: FontWeight.w800,
@@ -1228,24 +1243,24 @@ class _NotificationPopupCard extends StatelessWidget {
     return "$hh:$mm";
   }
 
-  static String _timeGroupLabel(DateTime dt) {
+  static String _timeGroupKey(DateTime dt) {
     final now = DateTime.now();
     final d0 = DateTime(now.year, now.month, now.day);
     final d1 = DateTime(dt.year, dt.month, dt.day);
     final diffDays = d0.difference(d1).inDays;
 
-    if (diffDays == 0) return "Today";
-    if (diffDays == 1) return "Yesterday";
-    if (diffDays <= 7) return "This week";
-    return "Earlier";
+    if (diffDays == 0) return 'today';
+    if (diffDays == 1) return 'yesterday';
+    if (diffDays <= 7) return 'thisWeek';
+    return 'earlier';
   }
 
-  static String _recentScopeLabel(List<_NotificationItem> items) {
-    if (items.isEmpty) return "-";
+  static String _recentScopeKey(List<_NotificationItem> items) {
+    if (items.isEmpty) return 'none';
     final latest = items
         .map((e) => e.time)
         .reduce((a, b) => a.isAfter(b) ? a : b);
-    return _timeGroupLabel(latest);
+    return _timeGroupKey(latest);
   }
 }
 
@@ -1254,6 +1269,7 @@ class _NotificationTile extends StatelessWidget {
   final String title;
   final String body;
   final String timeText;
+  final String groupKey;
   final String groupLabel;
   final bool unread;
   final _PopTokens tok;
@@ -1263,6 +1279,7 @@ class _NotificationTile extends StatelessWidget {
     required this.title,
     required this.body,
     required this.timeText,
+    required this.groupKey,
     required this.groupLabel,
     required this.unread,
     required this.tok,
@@ -1282,7 +1299,7 @@ class _NotificationTile extends StatelessWidget {
         ? (unread ? _PopTokens._o(tok.blue, 0.30) : tok.line)
         : (unread ? _PopTokens._o(tok.blue, 0.18) : tok.line);
 
-    final pill = _pillStyle(groupLabel, tok);
+    final pill = _pillStyle(groupKey, tok);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
@@ -1393,22 +1410,22 @@ class _NotificationTile extends StatelessWidget {
     );
   }
 
-  static _PillStyle _pillStyle(String groupLabel, _PopTokens tok) {
-    if (groupLabel == "Today") {
+  static _PillStyle _pillStyle(String groupKey, _PopTokens tok) {
+    if (groupKey == 'today') {
       return _PillStyle(
         _PopTokens._o(tok.blue, tok.isDark ? 0.18 : 0.12),
         _PopTokens._o(tok.blue, tok.isDark ? 0.32 : 0.25),
         tok.blue,
       );
     }
-    if (groupLabel == "Yesterday") {
+    if (groupKey == 'yesterday') {
       return _PillStyle(
         _PopTokens._o(tok.amber, tok.isDark ? 0.18 : 0.14),
         _PopTokens._o(tok.amber, tok.isDark ? 0.32 : 0.25),
         tok.amber,
       );
     }
-    if (groupLabel == "This week") {
+    if (groupKey == 'thisWeek') {
       return _PillStyle(
         _PopTokens._o(tok.green, tok.isDark ? 0.16 : 0.12),
         _PopTokens._o(tok.green, tok.isDark ? 0.30 : 0.22),
@@ -1563,10 +1580,10 @@ class _AttendanceCalendarCard extends StatelessWidget {
         ? Colors.greenAccent
         : Colors.redAccent;
     final statusText = isLate
-        ? "Check-in Late"
+        ? _homeT(context, 'checkInLate')
         : checkedIn
-        ? "Checked-In"
-        : "Not Checked-In";
+        ? _homeT(context, 'checkedIn')
+        : _homeT(context, 'notCheckedIn');
     // Local copy so the null check below promotes it to a non-nullable
     // `TimeOfDay` for `_fmtTime` (the field itself can't be promoted).
     final checkinTime = this.checkinTime;
@@ -1613,7 +1630,7 @@ class _AttendanceCalendarCard extends StatelessWidget {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              "ຕິດຕາມການມາໂຮງຮຽນ",
+                              _homeT(context, 'attendanceTracking'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -1735,7 +1752,10 @@ class _AttendanceCalendarCard extends StatelessWidget {
                                               const SizedBox(width: 8),
                                               Expanded(
                                                 child: Text(
-                                                  "ຄະແນນການມີສ່ວນຮ່ວມ",
+                                                  _homeT(
+                                                    context,
+                                                    'participationScore',
+                                                  ),
                                                   maxLines: 1,
                                                   overflow:
                                                       TextOverflow.ellipsis,
@@ -1853,19 +1873,19 @@ class _MonthCalendarGlassState extends State<_MonthCalendarGlass> {
   late final CalendarController _ctrl;
   late DateTime _display;
 
-  static const _months = <String>[
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
+  static const _monthKeys = <String>[
+    'monthJanuary',
+    'monthFebruary',
+    'monthMarch',
+    'monthApril',
+    'monthMay',
+    'monthJune',
+    'monthJuly',
+    'monthAugust',
+    'monthSeptember',
+    'monthOctober',
+    'monthNovember',
+    'monthDecember',
   ];
 
   @override
@@ -1888,6 +1908,7 @@ class _MonthCalendarGlassState extends State<_MonthCalendarGlass> {
   @override
   Widget build(BuildContext context) {
     final headerH = widget.isSmallPhone ? 30.0 : 34.0;
+    final monthName = _homeT(context, _monthKeys[_display.month - 1]);
 
     return Column(
       children: [
@@ -1910,7 +1931,7 @@ class _MonthCalendarGlassState extends State<_MonthCalendarGlass> {
           ),
           child: Center(
             child: Text(
-              "${_months[_display.month - 1]} ${_display.year}",
+              "$monthName ${_display.year}",
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
@@ -2062,7 +2083,7 @@ class _MiniInfoCard extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        "Event & Announcement",
+                        _homeT(context, 'eventAndAnnouncement'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -2086,7 +2107,7 @@ class _MiniInfoCard extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        "Today",
+                        _homeT(context, 'today'),
                         style: TextStyle(
                           color: Colors.white.withOpacity(.92),
                           fontWeight: FontWeight.w800,
@@ -2348,7 +2369,7 @@ class _WalletSheet extends StatelessWidget {
     final items = <_QuickMenuItem>[
       _QuickMenuItem(
         icon: FontAwesomeIcons.headset,
-        label: "ຕິດຕໍ່ໂຮງຮຽນ",
+        label: _homeT(context, 'schoolContact'),
         onTap: () {
           Navigator.push(
             context,
@@ -2360,7 +2381,7 @@ class _WalletSheet extends StatelessWidget {
       ),
       _QuickMenuItem(
         icon: FontAwesomeIcons.piggyBank,
-        label: "ເງິນຝາກປະຍັດ",
+        label: _homeT(context, 'savingDeposit'),
         onTap: () {
           Navigator.push(
             context,
@@ -2372,7 +2393,7 @@ class _WalletSheet extends StatelessWidget {
       ),
       _QuickMenuItem(
         icon: FontAwesomeIcons.newspaper,
-        label: "ຂ່າວ ແລະ ກິດຈະກຳ",
+        label: _homeT(context, 'newsAndActivities'),
         onTap: () {
           Navigator.push(
             context,
@@ -2382,7 +2403,7 @@ class _WalletSheet extends StatelessWidget {
       ),
       _QuickMenuItem(
         icon: FontAwesomeIcons.images,
-        label: "ຄັງຮູບພາບ",
+        label: _homeT(context, 'photoGallery'),
         onTap: () {
           Navigator.push(
             context,
@@ -2395,7 +2416,7 @@ class _WalletSheet extends StatelessWidget {
       ),
       _QuickMenuItem(
         icon: FontAwesomeIcons.userClock,
-        label: "ນັດໝາຍ",
+        label: _homeT(context, 'appointments'),
         unreadCount: unreadAppointments,
         onTap: () async {
           // Fire-and-forget so the menu opens instantly even on slow networks.
@@ -2409,7 +2430,7 @@ class _WalletSheet extends StatelessWidget {
       ),
       _QuickMenuItem(
         icon: FontAwesomeIcons.book,
-        label: "ວຽກບ້ານ",
+        label: _homeT(context, 'homework'),
         unreadCount: unreadHomework,
         onTap: () async {
           unawaited(onMenuRead('homework'));
@@ -2424,7 +2445,7 @@ class _WalletSheet extends StatelessWidget {
       ),
       _QuickMenuItem(
         icon: FontAwesomeIcons.plus,
-        label: "ວຽກພິເສດ",
+        label: _homeT(context, 'specialTasks'),
         onTap: () {
           Navigator.push(
             context,
@@ -2437,7 +2458,7 @@ class _WalletSheet extends StatelessWidget {
       ),
       _QuickMenuItem(
         icon: FontAwesomeIcons.fileAlt,
-        label: "ລາຍງານ",
+        label: _homeT(context, 'reports'),
         onTap: () {},
       ),
     ];
@@ -2502,7 +2523,7 @@ class _WalletSheet extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  "ເມນູທັງຫມົດ",
+                                  _homeT(context, 'allMenus'),
                                   style: TextStyle(
                                     color: Colors.white.withOpacity(.95),
                                     fontWeight: FontWeight.w900,
@@ -2558,14 +2579,12 @@ class _QuickMenuItem {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  final bool enabled;
   final int unreadCount;
 
   _QuickMenuItem({
     required this.icon,
     required this.label,
     required this.onTap,
-    this.enabled = true,
     this.unreadCount = 0,
   });
 }
@@ -2585,20 +2604,18 @@ class _QuickMenuTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final enabled = item.enabled;
+    final ring = Colors.white.withOpacity(.85);
+    final circleBg = Colors.white.withOpacity(.08);
 
-    final ring = Colors.white.withOpacity(enabled ? .85 : .35);
-    final circleBg = Colors.white.withOpacity(enabled ? .08 : .04);
-
-    final iconC = Colors.white.withOpacity(enabled ? .95 : .40);
-    final textC = Colors.white.withOpacity(enabled ? .92 : .40);
+    final iconC = Colors.white.withOpacity(.95);
+    final textC = Colors.white.withOpacity(.92);
 
     final double circle = isTablet ? 72.0 : (isSmallPhone ? 56.0 : 66.0);
     final double iconSize = isTablet ? 24.0 : (isSmallPhone ? 20.0 : 22.0);
     final double labelSize = isTablet ? 12.0 : (isSmallPhone ? 10.8 : 11.5);
 
     return InkResponse(
-      onTap: enabled ? item.onTap : null,
+      onTap: item.onTap,
       radius: circle,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
@@ -2617,7 +2634,7 @@ class _QuickMenuTile extends StatelessWidget {
                     BoxShadow(
                       blurRadius: 18,
                       offset: const Offset(0, 10),
-                      color: Colors.black.withOpacity(enabled ? .18 : .08),
+                      color: Colors.black.withOpacity(.18),
                     ),
                   ],
                 ),
@@ -2691,13 +2708,8 @@ class _GlowBlob extends StatelessWidget {
 class _TapScale extends StatefulWidget {
   final Widget child;
   final VoidCallback onTap;
-  final bool enabled;
 
-  const _TapScale({
-    required this.child,
-    required this.onTap,
-    this.enabled = true,
-  });
+  const _TapScale({required this.child, required this.onTap});
 
   @override
   State<_TapScale> createState() => _TapScaleState();
@@ -2708,8 +2720,6 @@ class _TapScaleState extends State<_TapScale> {
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.enabled) return widget.child;
-
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: widget.onTap,
@@ -2735,7 +2745,7 @@ class AttendanceCalendarPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Attendance & Calendar")),
+      appBar: AppBar(title: Text(_homeT(context, 'attendanceAndCalendar'))),
       body: const Center(child: Text("AttendanceCalendarPage()")),
     );
   }
@@ -2747,7 +2757,7 @@ class EventAnnouncementPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Event & Announcement")),
+      appBar: AppBar(title: Text(_homeT(context, 'eventAndAnnouncement'))),
       body: const Center(child: Text("EventAnnouncementPage()")),
     );
   }

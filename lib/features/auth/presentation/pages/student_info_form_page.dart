@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/theme/app_icons.dart';
 
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/global_alert_service.dart';
@@ -64,6 +65,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
   static const _slate200 = Color(0xFFE2E8F0);
   static const _slate100 = Color(0xFFEFF2F8);
   static const _rose500 = Color(0xFFE11D48);
+  static const bool _disableRequiredValidationForTesting = false;
 
   static const _steps = [
     _StepMeta(1, 'Student', LucideIcons.user),
@@ -75,17 +77,6 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
   ];
 
   static const _genders = ['Male', 'Female', 'Other'];
-  static const _yearLevels = [
-    'K1',
-    'K2',
-    'K3',
-    'Grade 1',
-    'Grade 2',
-    'Grade 3',
-    'Grade 4',
-    'Grade 5',
-    'Grade 6',
-  ];
   static const _educationLevels = [
     'Primary',
     'Secondary',
@@ -120,6 +111,373 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
   List<BranchInfo> _branches = const [];
   bool _branchesLoading = false;
   String? _branchId;
+
+  String _t(String key) => AppLocalizations.of(context).t(key);
+
+  String _stepOfLabel() => _t('studentStepOf').replaceAll('{step}', '$_step');
+
+  String _stepTitle() {
+    switch (_step) {
+      case 1:
+        return _t('student');
+      case 2:
+        return _t('addressInformation');
+      case 3:
+        return _t('education');
+      case 4:
+        return _t('sibling');
+      case 5:
+        return _t('liveWith');
+      case 6:
+      default:
+        return _t('emergency');
+    }
+  }
+
+  String _optionLabel(String option) {
+    switch (option) {
+      case 'Male':
+        return _t('male');
+      case 'Female':
+        return _t('female');
+      case 'Other':
+        return _t('other');
+      case 'Primary':
+        return _t('primarySchool');
+      case 'Secondary':
+        return _t('secondarySchool');
+      case 'High School':
+        return _t('highSchool');
+      case 'Bachelor':
+        return _t('bachelorsDegree');
+      case 'Master':
+        return _t('mastersDegree');
+      case 'PhD':
+        return _t('doctorate');
+      default:
+        return option;
+    }
+  }
+
+  String _healthTitleLabel(String title) {
+    switch (title) {
+      case StudentPhysicalDisabilitySelection.optionTitle:
+        return _t('physicalMobilityDisabilities');
+      case StudentPhysicalDisabilitySelection.sensoryOptionTitle:
+        return _t('sensoryDisabilities');
+      case StudentPhysicalDisabilitySelection.intellectualOptionTitle:
+        return _t('intellectualCognitiveDisabilities');
+      case StudentPhysicalDisabilitySelection.neurodevelopmentalOptionTitle:
+        return _t('neurodevelopmentalLearningDisabilities');
+      case StudentPhysicalDisabilitySelection.psychiatricOptionTitle:
+        return _t('psychiatricMentalHealthDisabilities');
+      case StudentPhysicalDisabilitySelection.chronicIllnessOptionTitle:
+        return _t('chronicInvisibleDisabilities');
+      default:
+        return title;
+    }
+  }
+
+  String _uiText(String text) {
+    switch (text) {
+      case 'Required':
+        return _t('fieldRequiredError');
+      case 'Enter a valid email':
+        return _t('validEmailError');
+      case 'Place of Birth':
+        return _t('placeOfBirth');
+      case 'Village of Birth':
+        return _t('villageOfBirth');
+      case 'Province of Birth':
+        return _t('provinceOfBirth');
+      case 'District of Birth':
+        return _t('districtOfBirth');
+      case 'Current Address':
+        return _t('currentAddress');
+      case 'Village':
+        return _t('village');
+      case 'Province':
+        return _t('province');
+      case 'District':
+        return _t('district');
+      case 'Enter village':
+        return _t('enterVillage');
+      case 'Loading provinces...':
+        return _t('loadingProvinces');
+      case 'Select province':
+        return _t('selectProvince');
+      case 'Select province first':
+        return _t('selectProvinceFirst');
+      case 'Select district':
+        return _t('selectDistrict');
+      case 'Education History — Kindergarten':
+        return _t('educationHistoryKindergarten');
+      case 'Primary History':
+        return _t('primaryHistory');
+      case 'Academic Year':
+        return _t('academicYear');
+      case 'Year / Level':
+        return _t('yearLevel');
+      case 'School':
+        return _t('school');
+      case 'Enter school name':
+        return _t('enterSchoolName');
+      case 'Add a sibling':
+        return _t('addSibling');
+      case 'Add another sibling':
+        return _t('addAnotherSibling');
+      case 'No siblings added yet':
+        return _t('noSiblingsAddedYet');
+      case 'Add brothers or sisters who are direct relatives of the student, or skip this step.':
+        return _t('siblingsEmptyHint');
+      case 'SIBLING':
+        return _t('siblingUpper');
+      case 'First Name (Lao)':
+        return _t('firstNameLao');
+      case 'First Name (English)':
+        return _t('firstNameEnglish');
+      case 'Middle Name (Lao)':
+        return _t('middleNameLao');
+      case 'Middle Name (English)':
+        return _t('middleNameEnglish');
+      case 'Last Name (Lao)':
+        return _t('lastNameLao');
+      case 'Last Name (English)':
+        return _t('lastNameEnglish');
+      case 'Enter (Lao)':
+        return _t('enterLao');
+      case 'Enter (English)':
+        return _t('enterEnglish');
+      case 'Full Name':
+        return _t('fullName');
+      case 'Enter full name':
+        return _t('enterFullName');
+      case 'Nickname':
+        return _t('nickname');
+      case 'Enter nickname':
+        return _t('enterNickname');
+      case 'Date of Birth':
+        return _t('dateOfBirth');
+      case 'Current School Name':
+        return _t('currentSchoolName');
+      case 'Enter current school':
+        return _t('enterCurrentSchool');
+      case 'Enter phone 1':
+        return _t('enterPhone1');
+      case 'Enter phone 2':
+        return _t('enterPhone2');
+      case 'YYYY-MM-DD':
+        return _t('dateFormatPlaceholder');
+      case 'e.g. 2019-2020':
+        return _t('exampleAcademicYearKindergarten');
+      case 'e.g. K1':
+        return _t('exampleKindergartenLevel');
+      case 'e.g. 2022-2023':
+        return _t('exampleAcademicYearPrimary');
+      case 'e.g. Grade 1':
+        return _t('examplePrimaryLevel');
+      case 'Remove':
+        return _t('remove');
+      case 'Add a person living with student':
+        return _t('addPersonLivingWithStudent');
+      case 'Add another person':
+        return _t('addAnotherPerson');
+      case 'At least one person is required':
+        return _t('onePersonRequired');
+      case 'No one added yet':
+        return _t('noOneAddedYet');
+      case 'Add at least one person who lives with the student.':
+        return _t('livingWithEmptyHint');
+      case 'PERSON LIVING WITH STUDENT':
+        return _t('personLivingWithStudentUpper');
+      case 'Tap to expand':
+        return _t('tapToExpand');
+      case 'Education Level':
+        return _t('educationLevel');
+      case 'Select level':
+        return _t('selectLevel');
+      case 'Occupation':
+        return _t('occupation');
+      case 'Enter occupation':
+        return _t('enterOccupation');
+      case 'Workplace':
+        return _t('workplace');
+      case 'Enter workplace':
+        return _t('enterWorkplace');
+      case 'Email':
+        return _t('email');
+      case 'Enter email':
+        return _t('enterEmail');
+      case 'Phone No. 1':
+        return _t('phoneNo1');
+      case 'Phone No. 2':
+        return _t('phoneNo2');
+      case 'ID Card No.':
+        return _t('idCardNo');
+      case 'Enter ID card no.':
+        return _t('enterIdCardNumber');
+      case 'Passport No.':
+        return _t('passportNo');
+      case 'Enter passport no.':
+        return _t('enterPassportNumber');
+      case 'Family Book No.':
+        return _t('familyBookNo');
+      case 'Enter family book no.':
+        return _t('enterFamilyBookNumber');
+      case 'Nationality':
+        return _t('nationality');
+      case 'Enter nationality':
+        return _t('enterNationality');
+      case 'Ethnicity':
+        return _t('ethnicity');
+      case 'Enter ethnicity':
+        return _t('enterEthnicity');
+      case 'Religion':
+        return _t('religion');
+      case 'Enter religion':
+        return _t('enterReligion');
+      case 'House No.':
+        return _t('homeNo');
+      case 'Enter house no.':
+        return _t('enterHomeNumber');
+      case 'House Unit':
+        return _t('homeUnit');
+      case 'Enter unit / room':
+        return _t('enterUnitRoom');
+      case 'Add an emergency contact':
+        return _t('addEmergencyContact');
+      case 'Add another emergency contact':
+        return _t('addAnotherEmergencyContact');
+      case 'At least one emergency contact is required':
+        return _t('oneEmergencyContactRequired');
+      case 'No emergency contact added yet':
+        return _t('noEmergencyContactAddedYet');
+      case 'Add one or more emergency contacts the school can reach if needed.':
+        return _t('emergencyEmptyHint');
+      case 'EMERGENCY CONTACT':
+        return _t('emergencyContactUpper');
+      case 'Relationship to Student':
+        return _t('relationshipToStudent');
+      case 'Enter relationship':
+        return _t('enterRelationship');
+      case 'Hospital':
+        return _t('hospital');
+      case 'Enter hospital name':
+        return _t('enterHospitalName');
+      case 'Doctor Name':
+        return _t('doctorName');
+      case 'Enter doctor name':
+        return _t('enterDoctorName');
+      case 'Doctor Contact':
+        return _t('doctorContact');
+      case 'Enter doctor contact':
+        return _t('enterDoctorContact');
+      case 'Mobility disability':
+        return _t('mobilityDisability');
+      case 'Difficulty walking or using stairs':
+        return _t('difficultyWalkingStairs');
+      case 'Often requiring wheelchairs, walkers, or canes.':
+        return _t('requiresMobilityAids');
+      case 'Amputation and Limb Differences':
+        return _t('amputationLimbDifferences');
+      case 'Missing limbs from birth, accidents, or medical procedures.':
+        return _t('missingLimbsDetail');
+      case 'Neuromuscular Conditions':
+        return _t('neuromuscularConditions');
+      case 'Cerebral Palsy':
+        return _t('cerebralPalsy');
+      case 'Muscular Dystrophy':
+        return _t('muscularDystrophy');
+      case 'Multiple Sclerosis':
+        return _t('multipleSclerosis');
+      case 'Spinal Cord Injuries':
+        return _t('spinalCordInjuries');
+      case 'Trauma to the spine resulting in partial pain':
+        return _t('partialSpinalTrauma');
+      case 'Trauma to the spine resulting in full paralysis':
+        return _t('fullSpinalParalysis');
+      case 'Visual differences':
+        return _t('visualDifferences');
+      case 'Low vision not correctable by glasses':
+        return _t('lowVisionDetail');
+      case 'Legal blindness':
+        return _t('legalBlindness');
+      case 'Total blindness':
+        return _t('totalBlindness');
+      case 'Colourblindness':
+        return _t('colourblindness');
+      case 'Albinism or aniridia':
+        return _t('albinismAniridia');
+      case 'Hearing loss':
+        return _t('hearingLoss');
+      case 'Mild hearing loss (cannot hear soft sounds)':
+        return _t('mildHearingLoss');
+      case 'Moderate hearing loss (struggles to hear normal speech)':
+        return _t('moderateHearingLoss');
+      case 'Severe hearing loss (cannot hear speech)':
+        return _t('severeHearingLoss');
+      case 'Profound deafness (cannot hear speech and only detects very loud sounds)':
+        return _t('profoundDeafness');
+      case 'Sensory Processing Differences':
+        return _t('sensoryProcessingDifferences');
+      case 'Interoception (Internal Senses): Processing internal bodily signals like heart rate, hunger, thirst, and the need to use the restroom.':
+        return _t('interoceptionDetail');
+      case 'Mild intellectual disability':
+        return _t('mildIntellectualDisability');
+      case 'Moderate intellectual disability':
+        return _t('moderateIntellectualDisability');
+      case 'Severe intellectual disability':
+        return _t('severeIntellectualDisability');
+      case 'Traumatic Brain Injuries (TBI)':
+        return _t('traumaticBrainInjuries');
+      case 'Hypoxic/Anoxic Brain Injury':
+        return _t('hypoxicAnoxicBrainInjury');
+      case 'Stroke':
+        return _t('stroke');
+      case 'Specific Learning Disabilities':
+        return _t('specificLearningDisabilities');
+      case 'Difficulties with specific academic skills, such as':
+        return _t('specificLearningDescription');
+      case 'Dyslexia (reading)':
+        return _t('dyslexiaReading');
+      case 'Dyscalculia (math)':
+        return _t('dyscalculiaMath');
+      case 'Dysgraphia (writing)':
+        return _t('dysgraphiaWriting');
+      case 'Autism Spectrum Disorder (ASD)':
+        return _t('autismSpectrumDisorder');
+      case 'ADHD':
+        return _t('adhd');
+      case 'Foetal alcohol spectrum disorders':
+        return _t('foetalAlcoholSpectrumDisorders');
+      case 'Developmental language disorder':
+        return _t('developmentalLanguageDisorder');
+      case 'Mood Disorders':
+        return _t('moodDisorders');
+      case 'Major Depressive Disorder':
+        return _t('majorDepressiveDisorder');
+      case 'Bipolar Disorder.':
+        return _t('bipolarDisorder');
+      case 'Anxiety Disorders':
+        return _t('anxietyDisorders');
+      case 'Severe anxiety':
+        return _t('severeAnxiety');
+      case 'Panic Disorder':
+        return _t('panicDisorder');
+      case 'Obsessive-Compulsive Disorder (OCD)':
+        return _t('obsessiveCompulsiveDisorder');
+      case 'Post-Traumatic Stress Disorder (PTSD)':
+        return _t('postTraumaticStressDisorder');
+      case 'Respiratory and Cardiovascular Conditions':
+        return _t('respiratoryCardiovascularConditions');
+      case 'Severe':
+        return _t('severe');
+      case 'Asthma':
+        return _t('asthma');
+      default:
+        return text;
+    }
+  }
 
   @override
   void initState() {
@@ -505,22 +863,28 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
 
   bool _validate() {
     _errors.clear();
+    if (_disableRequiredValidationForTesting) {
+      setState(() {});
+      return true;
+    }
+
+    final required = _t('fieldRequiredError');
     switch (_step) {
       case 1:
-        if ((_branchId ?? '').trim().isEmpty) _err('Branch', 'Required');
-        if (_s.firstNameLao.trim().isEmpty) _err('Firstname_Lao', 'Required');
-        if (_s.firstNameEng.trim().isEmpty) _err('Firstname_Eng', 'Required');
-        if (_s.middleNameLao.trim().isEmpty) _err('Midlename_Lao', 'Required');
-        if (_s.middleNameEng.trim().isEmpty) _err('Midlename_Eng', 'Required');
-        if (_s.lastNameLao.trim().isEmpty) _err('Lastname_Lao', 'Required');
-        if (_s.lastNameEng.trim().isEmpty) _err('Lastname_Eng', 'Required');
-        if (_s.nickname.trim().isEmpty) _err('Nickname', 'Required');
-        if (_s.dob.trim().isEmpty) _err('DateofBirth', 'Required');
-        if (_s.gender.trim().isEmpty) _err('Gender', 'Required');
-        if (_s.nationality.trim().isEmpty) _err('Nationality', 'Required');
-        if (_s.ethnicity.trim().isEmpty) _err('Ethnicity', 'Required');
-        if (_s.religion.trim().isEmpty) _err('Religion', 'Required');
-        if (_s.passportNo.trim().isEmpty) _err('Passport_no', 'Required');
+        if ((_branchId ?? '').trim().isEmpty) _err('Branch', required);
+        if (_s.firstNameLao.trim().isEmpty) _err('Firstname_Lao', required);
+        if (_s.firstNameEng.trim().isEmpty) _err('Firstname_Eng', required);
+        if (_s.middleNameLao.trim().isEmpty) _err('Midlename_Lao', required);
+        if (_s.middleNameEng.trim().isEmpty) _err('Midlename_Eng', required);
+        if (_s.lastNameLao.trim().isEmpty) _err('Lastname_Lao', required);
+        if (_s.lastNameEng.trim().isEmpty) _err('Lastname_Eng', required);
+        if (_s.nickname.trim().isEmpty) _err('Nickname', required);
+        if (_s.dob.trim().isEmpty) _err('DateofBirth', required);
+        if (_s.gender.trim().isEmpty) _err('Gender', required);
+        if (_s.nationality.trim().isEmpty) _err('Nationality', required);
+        if (_s.ethnicity.trim().isEmpty) _err('Ethnicity', required);
+        if (_s.religion.trim().isEmpty) _err('Religion', required);
+        if (_s.passportNo.trim().isEmpty) _err('Passport_no', required);
         break;
       case 2:
         if (_s.villageBirth.trim().isEmpty) _err('Village_Birth', 'Required');
@@ -904,13 +1268,13 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
             icon: const Icon(LucideIcons.arrowLeft, size: 18, color: _navy),
           ),
           const SizedBox(width: 8),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Student Information',
-                  style: TextStyle(
+                  _t('studentInformationTitle'),
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
                     color: _navy,
@@ -918,10 +1282,14 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                     letterSpacing: -.5,
                   ),
                 ),
-                SizedBox(height: 5),
+                const SizedBox(height: 5),
                 Text(
-                  'Tell us about your child. Fields marked * are required.',
-                  style: TextStyle(fontSize: 13, color: _muted, height: 1.35),
+                  _t('studentInformationSubtitle'),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: _muted,
+                    height: 1.35,
+                  ),
                 ),
               ],
             ),
@@ -984,7 +1352,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'STEP $_step OF 6',
+                    _stepOfLabel(),
                     style: const TextStyle(
                       fontSize: 12,
                       color: _blue,
@@ -994,7 +1362,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    _steps[_step - 1].title,
+                    _stepTitle(),
                     style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
@@ -1071,7 +1439,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                 child: OutlinedButton.icon(
                   onPressed: _submitting ? null : _onBack,
                   icon: const Icon(LucideIcons.chevronLeft, size: 18),
-                  label: const Text('Back'),
+                  label: Text(_t('back')),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: _navy,
                     side: const BorderSide(color: _slate200, width: 1.5),
@@ -1112,12 +1480,12 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                       ? Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(canSkipSiblings ? 'Skip' : 'Next'),
+                            Text(canSkipSiblings ? _t('skip') : _t('next')),
                             const SizedBox(width: 6),
                             const Icon(LucideIcons.chevronRight, size: 18),
                           ],
                         )
-                      : const Text('Submit application'),
+                      : Text(_t('submitApplication')),
                 ),
               ),
             ),
@@ -1162,27 +1530,27 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         children: [
           const Icon(LucideIcons.clipboardCheck, size: 20, color: _blue),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Use saved details',
-                  style: TextStyle(
+                  _t('useSavedDetails'),
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: _navy,
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
-                  'Fill household address, living-with and emergency contacts.',
-                  style: TextStyle(fontSize: 12, color: _muted),
+                  _t('useSavedDetailsSubtitle'),
+                  style: const TextStyle(fontSize: 12, color: _muted),
                 ),
               ],
             ),
           ),
-          TextButton(onPressed: _useSavedDetails, child: const Text('Use')),
+          TextButton(onPressed: _useSavedDetails, child: Text(_t('use'))),
         ],
       ),
     );
@@ -1191,7 +1559,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
   Widget _stepStudent() {
     return _section(
       1,
-      'Student Information',
+      _t('studentInformationTitle'),
       children: [
         if (_hasSavedDetails) ...[
           _buildSavedDetailsAction(),
@@ -1199,108 +1567,108 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         ],
         _branchSelect(),
         _input(
-          'First Name (Lao)',
+          _t('firstNameLao'),
           'Firstname_Lao',
           _s.firstNameLao,
           (v) => _s.firstNameLao = v,
           required: true,
-          placeholder: 'Enter (Lao)',
+          placeholder: _t('enterLao'),
         ),
         _input(
-          'First Name (English)',
+          _t('firstNameEnglish'),
           'Firstname_Eng',
           _s.firstNameEng,
           (v) => _s.firstNameEng = v,
           required: true,
-          placeholder: 'Enter (English)',
+          placeholder: _t('enterEnglish'),
         ),
         _input(
-          'Middle Name (Lao)',
+          _t('middleNameLao'),
           'Midlename_Lao',
           _s.middleNameLao,
           (v) => _s.middleNameLao = v,
           required: true,
-          placeholder: 'Enter (Lao)',
+          placeholder: _t('enterLao'),
         ),
         _input(
-          'Middle Name (English)',
+          _t('middleNameEnglish'),
           'Midlename_Eng',
           _s.middleNameEng,
           (v) => _s.middleNameEng = v,
           required: true,
-          placeholder: 'Enter (English)',
+          placeholder: _t('enterEnglish'),
         ),
         _input(
-          'Last Name (Lao)',
+          _t('lastNameLao'),
           'Lastname_Lao',
           _s.lastNameLao,
           (v) => _s.lastNameLao = v,
           required: true,
-          placeholder: 'Enter (Lao)',
+          placeholder: _t('enterLao'),
         ),
         _input(
-          'Last Name (English)',
+          _t('lastNameEnglish'),
           'Lastname_Eng',
           _s.lastNameEng,
           (v) => _s.lastNameEng = v,
           required: true,
-          placeholder: 'Enter (English)',
+          placeholder: _t('enterEnglish'),
         ),
         _input(
-          'Nickname',
+          _t('nickname'),
           'Nickname',
           _s.nickname,
           (v) => _s.nickname = v,
           required: true,
-          placeholder: 'Enter nickname',
+          placeholder: _t('enterNickname'),
         ),
         _dateInput(
-          'Date of Birth',
+          _t('dateOfBirth'),
           'DateofBirth',
           _s.dob,
           (v) => _s.dob = v,
           required: true,
         ),
         _select(
-          'Gender',
+          _t('gender'),
           'Gender',
           _s.gender,
           _genders,
           (v) => _s.gender = v,
           required: true,
-          placeholder: 'Select gender',
+          placeholder: _t('selectGender'),
         ),
         _input(
-          'Nationality',
+          _t('nationality'),
           'Nationality',
           _s.nationality,
           (v) => _s.nationality = v,
           required: true,
-          placeholder: 'Enter nationality',
+          placeholder: _t('enterNationality'),
         ),
         _input(
-          'Ethnicity',
+          _t('ethnicity'),
           'Ethnicity',
           _s.ethnicity,
           (v) => _s.ethnicity = v,
           required: true,
-          placeholder: 'Enter ethnicity',
+          placeholder: _t('enterEthnicity'),
         ),
         _input(
-          'Religion',
+          _t('religion'),
           'Religion',
           _s.religion,
           (v) => _s.religion = v,
           required: true,
-          placeholder: 'Enter religion',
+          placeholder: _t('enterReligion'),
         ),
         _input(
-          'Passport No.',
+          _t('passportNo'),
           'Passport_no',
           _s.passportNo,
           (v) => _s.passportNo = v,
           required: true,
-          placeholder: 'Enter passport number',
+          placeholder: _t('enterPassportNumber'),
         ),
         _studentHealthOptions(),
       ],
@@ -1311,7 +1679,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label('Student Health', false),
+        _label(_t('studentHealth'), false),
         _studentHealthMainOption(
           title: StudentPhysicalDisabilitySelection.optionTitle,
           icon: Icons.accessible_forward,
@@ -1396,7 +1764,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          title,
+                          _healthTitleLabel(title),
                           style: const TextStyle(
                             fontSize: 14,
                             color: _navy,
@@ -1405,9 +1773,9 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          'Select this option only if it applies to the student.',
-                          style: TextStyle(
+                        Text(
+                          _t('studentHealthOptionHint'),
+                          style: const TextStyle(
                             fontSize: 12,
                             color: _muted,
                             height: 1.35,
@@ -1486,7 +1854,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  title,
+                  _healthTitleLabel(title),
                   style: const TextStyle(
                     fontSize: 14,
                     color: _navy,
@@ -1558,7 +1926,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          category.title,
+                          _uiText(category.title),
                           style: const TextStyle(
                             fontSize: 13,
                             color: _navy,
@@ -1569,7 +1937,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                         if (category.description.isNotEmpty) ...[
                           const SizedBox(height: 3),
                           Text(
-                            category.description,
+                            _uiText(category.description),
                             style: const TextStyle(
                               fontSize: 11.5,
                               color: _muted,
@@ -1700,7 +2068,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                 child: Padding(
                   padding: const EdgeInsets.only(top: 5),
                   child: Text(
-                    detail,
+                    _uiText(detail),
                     style: TextStyle(
                       fontSize: 11.5,
                       color: selected ? _navy : _muted,
@@ -1813,7 +2181,9 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                 )
               : const Icon(LucideIcons.chevronDown, color: _muted),
           hint: Text(
-            _provincesLoading ? 'Loading provinces...' : 'Select province',
+            _provincesLoading
+                ? _uiText('Loading provinces...')
+                : _uiText('Select province'),
             style: const TextStyle(color: _slate400, fontSize: 14),
           ),
           style: const TextStyle(
@@ -1837,7 +2207,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              err,
+              _uiText(err),
               style: const TextStyle(
                 fontSize: 13,
                 color: _rose500,
@@ -1872,7 +2242,9 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           isExpanded: true,
           icon: const Icon(LucideIcons.chevronDown, color: _muted),
           hint: Text(
-            province == null ? 'Select province first' : 'Select district',
+            province == null
+                ? _uiText('Select province first')
+                : _uiText('Select district'),
             style: const TextStyle(color: _slate400, fontSize: 14),
           ),
           style: const TextStyle(
@@ -1896,7 +2268,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              err,
+              _uiText(err),
               style: const TextStyle(
                 fontSize: 13,
                 color: _rose500,
@@ -1917,7 +2289,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label('Province', true),
+        _label(_uiText('Province'), true),
         DropdownButtonFormField<String>(
           initialValue: value,
           isExpanded: true,
@@ -1932,7 +2304,9 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                 )
               : const Icon(LucideIcons.chevronDown, color: _muted),
           hint: Text(
-            _provincesLoading ? 'Loading provinces...' : 'Select province',
+            _provincesLoading
+                ? _uiText('Loading provinces...')
+                : _uiText('Select province'),
             style: const TextStyle(color: _slate400, fontSize: 14),
           ),
           style: const TextStyle(
@@ -1965,7 +2339,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              err,
+              _uiText(err),
               style: const TextStyle(
                 fontSize: 13,
                 color: _rose500,
@@ -1988,13 +2362,15 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label('District', true),
+        _label(_uiText('District'), true),
         DropdownButtonFormField<String>(
           initialValue: value,
           isExpanded: true,
           icon: const Icon(LucideIcons.chevronDown, color: _muted),
           hint: Text(
-            province == null ? 'Select province first' : 'Select district',
+            province == null
+                ? _uiText('Select province first')
+                : _uiText('Select district'),
             style: const TextStyle(color: _slate400, fontSize: 14),
           ),
           style: const TextStyle(
@@ -2023,7 +2399,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              err,
+              _uiText(err),
               style: const TextStyle(
                 fontSize: 13,
                 color: _rose500,
@@ -2050,14 +2426,13 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
               required: true,
               placeholder: 'e.g. 2019-2020',
             ),
-            _select(
+            _input(
               'Year / Level',
               'Year_Level1',
               _s.kindergarten.yearLevel,
-              _yearLevels,
               (v) => _s.kindergarten.yearLevel = v,
               required: true,
-              placeholder: 'Select level',
+              placeholder: 'e.g. K1',
             ),
             _input(
               'School',
@@ -2082,14 +2457,13 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
               required: true,
               placeholder: 'e.g. 2022-2023',
             ),
-            _select(
+            _input(
               'Year / Level',
               'Year_Level2',
               _s.primary.yearLevel,
-              _yearLevels,
               (v) => _s.primary.yearLevel = v,
               required: true,
-              placeholder: 'Select level',
+              placeholder: 'e.g. Grade 1',
             ),
             _input(
               'School',
@@ -2166,10 +2540,10 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                 ),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'SIBLING',
-                  style: TextStyle(
+                  _uiText('SIBLING'),
+                  style: const TextStyle(
                     fontSize: 12,
                     color: _blue,
                     fontWeight: FontWeight.w800,
@@ -2178,7 +2552,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                 ),
               ),
               IconButton(
-                tooltip: 'Remove',
+                tooltip: _uiText('Remove'),
                 onPressed: () => setState(() => _s.siblings.removeAt(i)),
                 icon: const Icon(LucideIcons.trash2, color: _rose500, size: 20),
                 visualDensity: VisualDensity.compact,
@@ -2341,9 +2715,9 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'PERSON LIVING WITH STUDENT',
-                          style: TextStyle(
+                        Text(
+                          _uiText('PERSON LIVING WITH STUDENT'),
+                          style: const TextStyle(
                             fontSize: 11,
                             color: _blue,
                             fontWeight: FontWeight.w800,
@@ -2352,7 +2726,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          summary.isEmpty ? 'Tap to expand' : summary,
+                          summary.isEmpty ? _uiText('Tap to expand') : summary,
                           style: TextStyle(
                             fontSize: 13,
                             color: summary.isEmpty ? _muted : _navy,
@@ -2363,7 +2737,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Remove',
+                    tooltip: _uiText('Remove'),
                     onPressed: () => setState(() {
                       _s.livingWith.removeAt(i);
                       _livingExpanded.remove(i);
@@ -2697,10 +3071,10 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                 ),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'EMERGENCY CONTACT',
-                  style: TextStyle(
+                  _uiText('EMERGENCY CONTACT'),
+                  style: const TextStyle(
                     fontSize: 12,
                     color: _blue,
                     fontWeight: FontWeight.w800,
@@ -2709,7 +3083,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                 ),
               ),
               IconButton(
-                tooltip: 'Remove',
+                tooltip: _uiText('Remove'),
                 onPressed: () =>
                     setState(() => _s.emergencyContacts.removeAt(i)),
                 icon: const Icon(LucideIcons.trash2, color: _rose500, size: 20),
@@ -2845,7 +3219,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    label,
+                    _uiText(label),
                     style: const TextStyle(
                       fontSize: 21,
                       fontWeight: FontWeight.w800,
@@ -2903,7 +3277,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
               ),
               const SizedBox(width: 10),
               Text(
-                label,
+                _uiText(label),
                 style: const TextStyle(
                   color: _blue,
                   fontWeight: FontWeight.w700,
@@ -2957,7 +3331,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  _uiText(title),
                   style: TextStyle(
                     fontSize: 13,
                     color: titleColor,
@@ -2966,7 +3340,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  body,
+                  _uiText(body),
                   style: const TextStyle(
                     fontSize: 12,
                     color: _muted,
@@ -2986,7 +3360,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
       padding: const EdgeInsets.only(bottom: 8),
       child: RichText(
         text: TextSpan(
-          text: text,
+          text: _uiText(text),
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w700,
@@ -3007,7 +3381,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
 
   InputDecoration _decoration(String? placeholder, String? error) {
     return InputDecoration(
-      hintText: placeholder,
+      hintText: placeholder == null ? null : _uiText(placeholder),
       hintStyle: const TextStyle(
         color: _slate400,
         fontSize: 14,
@@ -3039,7 +3413,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label('Branch', true),
+        _label(_t('branch'), true),
         DropdownButtonFormField<String>(
           initialValue: hasValue ? value : null,
           isExpanded: true,
@@ -3054,7 +3428,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                 )
               : const Icon(LucideIcons.chevronDown, color: _muted),
           hint: Text(
-            _branchesLoading ? 'Loading branches...' : 'Select branch',
+            _branchesLoading ? _t('loadingBranches') : _t('selectBranch'),
             style: const TextStyle(color: _slate400, fontSize: 14),
           ),
           style: const TextStyle(
@@ -3089,7 +3463,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              err,
+              _uiText(err),
               style: const TextStyle(
                 fontSize: 13,
                 color: _rose500,
@@ -3136,7 +3510,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              err,
+              _uiText(err),
               style: const TextStyle(
                 fontSize: 13,
                 color: _rose500,
@@ -3167,7 +3541,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           isExpanded: true,
           icon: const Icon(LucideIcons.chevronDown, color: _muted),
           hint: Text(
-            placeholder ?? 'Select...',
+            _uiText(placeholder ?? _t('selectPlaceholder')),
             style: const TextStyle(color: _slate400, fontSize: 14),
           ),
           style: const TextStyle(
@@ -3177,7 +3551,9 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           ),
           decoration: _decoration(null, err),
           items: options
-              .map((o) => DropdownMenuItem(value: o, child: Text(o)))
+              .map(
+                (o) => DropdownMenuItem(value: o, child: Text(_optionLabel(o))),
+              )
               .toList(),
           onChanged: (v) {
             if (v != null) {
@@ -3192,7 +3568,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              err,
+              _uiText(err),
               style: const TextStyle(
                 fontSize: 13,
                 color: _rose500,
@@ -3261,7 +3637,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
               ),
             ),
             child: Text(
-              value.isEmpty ? 'YYYY-MM-DD' : value,
+              value.isEmpty ? _uiText('YYYY-MM-DD') : value,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
@@ -3274,7 +3650,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              err,
+              _uiText(err),
               style: const TextStyle(
                 fontSize: 13,
                 color: _rose500,

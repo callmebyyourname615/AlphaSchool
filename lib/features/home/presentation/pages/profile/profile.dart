@@ -10,6 +10,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../../../../../core/localization/app_localizations.dart';
 import '../../../../../core/services/global_alert_service.dart';
 import '../../../../../core/services/session_service.dart';
 import '../../../../../shared/models/student_card_item.dart';
@@ -24,12 +25,6 @@ Color _o(Color c, double opacity) => c.withAlpha(_alpha(opacity));
 const Color _kSavingDarkBg = Color(0xFF0B1220);
 const Color _kSavingBtnColor = Color(0xFF3B5FD9);
 const Color _kSavingBtnGlow = Color(0xFF284A9D);
-
-const Gradient _kSavingPremiumGradient = LinearGradient(
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-  colors: [Color(0xFF0B2B5B), Color(0xFF071A33), Color(0xFF060B16)],
-);
 
 const Color _kLightPageBg = Color(0xFFF3F5F9);
 
@@ -97,6 +92,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final safeTop = MediaQuery.of(context).padding.top;
 
     // ✅ Follow current theme mode
@@ -111,21 +107,21 @@ class _ProfilePageState extends State<ProfilePage> {
 
     final menu =
         widget.items ??
-        const [
+        [
           ProfileMenuItem(
             icon: LucideIcons.circle,
-            title: 'Profile Settings',
-            subtitle: 'Update and modify your profile',
+            title: l10n.t('profileSettings'),
+            subtitle: l10n.t('profileSettingsSubtitle'),
           ),
           ProfileMenuItem(
             icon: LucideIcons.shieldCheck,
-            title: 'Privacy',
-            subtitle: 'Change your password',
+            title: l10n.t('privacy'),
+            subtitle: l10n.t('privacySubtitle'),
           ),
           ProfileMenuItem(
             icon: LucideIcons.bell,
-            title: 'Notifications',
-            subtitle: 'Change your notification settings',
+            title: l10n.t('notifications'),
+            subtitle: l10n.t('notificationsSubtitle'),
           ),
         ];
 
@@ -227,7 +223,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _CenteredTopBar(
-                        title: widget.title,
+                        title: widget.title == 'Profile'
+                            ? l10n.t('profile')
+                            : widget.title,
                         onBack: goBack,
                         onEdit: widget.onEdit,
                       )
@@ -272,7 +270,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               ? _o(Colors.white, .62)
                               : Colors.black.withAlpha(120);
                           return Text(
-                            'GENERAL',
+                            l10n.t('generalUpper'),
                             style: TextStyle(
                               color: fg,
                               fontWeight: FontWeight.w900,
@@ -667,8 +665,9 @@ class _StudentQrCardState extends State<_StudentQrCard> {
 
   Future<void> _saveQr() async {
     if (_saving) return;
+    final l10n = AppLocalizations.of(context);
     setState(() => _saving = true);
-    GlobalAlert.showLoading(message: 'Saving QR code...');
+    GlobalAlert.showLoading(message: l10n.t('savingQrCode'));
     // GlobalAlert.dismiss() pops whatever's on top of the root navigator —
     // if the loading dialog was already dismissed (to make way for the
     // native save dialog below) calling it again pops the page itself
@@ -679,7 +678,7 @@ class _StudentQrCardState extends State<_StudentQrCard> {
           _qrBoundaryKey.currentContext?.findRenderObject()
               as RenderRepaintBoundary?;
       if (boundary == null) {
-        throw Exception('QR code is not ready yet.');
+        throw Exception(l10n.t('qrCodeNotReady'));
       }
       final image = await boundary.toImage(pixelRatio: 3);
       final byteData = await image.toByteData(format: ImageByteFormat.png);
@@ -698,13 +697,13 @@ class _StudentQrCardState extends State<_StudentQrCard> {
         final saved = result is Map
             ? result['isSuccess'] == true || result['is_success'] == true
             : result != null;
-        if (!saved) throw Exception('The QR code could not be saved.');
+        if (!saved) throw Exception(l10n.t('qrCodeCouldNotBeSaved'));
       } else {
         GlobalAlert.dismiss();
         loadingDismissed = true;
         final location = await getSaveLocation(
           suggestedName: '$_fileBaseName.png',
-          acceptedTypeGroups: [
+          acceptedTypeGroups: const [
             XTypeGroup(label: 'Images', extensions: ['png']),
           ],
         );
@@ -722,16 +721,16 @@ class _StudentQrCardState extends State<_StudentQrCard> {
       if (!loadingDismissed) GlobalAlert.dismiss();
       if (!mounted) return;
       GlobalAlert.showSuccess(
-        title: 'QR code saved',
+        title: l10n.t('qrCodeSaved'),
         message: isMobile
-            ? 'The QR code was saved to your gallery.'
-            : 'The QR code was saved successfully.',
+            ? l10n.t('qrCodeSavedToGallery')
+            : l10n.t('qrCodeSavedSuccessfully'),
       );
     } catch (error) {
       if (!loadingDismissed) GlobalAlert.dismiss();
       if (!mounted) return;
       GlobalAlert.showError(
-        title: 'Could not save QR code',
+        title: l10n.t('couldNotSaveQrCode'),
         message: error.toString(),
       );
     } finally {
@@ -741,6 +740,7 @@ class _StudentQrCardState extends State<_StudentQrCard> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final student = widget.student;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final acc = _accent(context, isDark);
@@ -782,7 +782,7 @@ class _StudentQrCardState extends State<_StudentQrCard> {
                   Icon(LucideIcons.qrCode, size: 18, color: acc),
                   const SizedBox(width: 8),
                   Text(
-                    'Student QR Code',
+                    l10n.t('studentQrCode'),
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
@@ -867,7 +867,9 @@ class _StudentQrCardState extends State<_StudentQrCard> {
                           ),
                         )
                       : const Icon(LucideIcons.download, size: 18),
-                  label: Text(_saving ? 'Saving...' : 'Save QR code'),
+                  label: Text(
+                    _saving ? l10n.t('saving') : l10n.t('saveQrCode'),
+                  ),
                 ),
               ),
             ],

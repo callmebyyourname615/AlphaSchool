@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
+import '../services/session_service.dart';
 import 'api_config.dart';
 import 'api_exception.dart';
 
@@ -116,7 +117,12 @@ class ApiClient {
     Map<String, String>? headers,
   }) async {
     final request = http.MultipartRequest('POST', _buildUri(path, null));
-    request.headers.addAll({'Accept': 'application/json', ...?headers});
+    request.headers.addAll(
+      await _headers({
+        'Accept': 'application/json',
+        ...?headers,
+      }, includeSessionToken: !_isAuthPath(path)),
+    );
     request.fields.addAll(fields);
     if (fileBytes != null) {
       request.files.add(
@@ -161,7 +167,12 @@ class ApiClient {
     Map<String, String>? headers,
   }) async {
     final request = http.MultipartRequest('PUT', _buildUri(path, null));
-    request.headers.addAll({'Accept': 'application/json', ...?headers});
+    request.headers.addAll(
+      await _headers({
+        'Accept': 'application/json',
+        ...?headers,
+      }, includeSessionToken: !_isAuthPath(path)),
+    );
     request.fields.addAll(fields);
     for (final file in files) {
       request.files.add(
@@ -199,11 +210,13 @@ class ApiClient {
     final uri = _buildUri(path, queryParameters);
     final request = http.Request(method, uri);
 
-    request.headers.addAll({
-      'Accept': 'application/json',
-      if (body != null) 'Content-Type': 'application/json',
-      ...?headers,
-    });
+    request.headers.addAll(
+      await _headers({
+        'Accept': 'application/json',
+        if (body != null) 'Content-Type': 'application/json',
+        ...?headers,
+      }, includeSessionToken: !_isAuthPath(path)),
+    );
 
     if (body != null) {
       request.body = jsonEncode(body);
@@ -238,6 +251,29 @@ class ApiClient {
           if (entry.value != null) entry.key: entry.value.toString(),
       },
     );
+  }
+
+  Future<Map<String, String>> _headers(
+    Map<String, String> headers, {
+    bool includeSessionToken = true,
+  }) async {
+    if (!includeSessionToken) return headers;
+    if (_hasAuthorization(headers)) return headers;
+
+    final session = await SessionService().load();
+    final token = session?.accessToken.trim() ?? '';
+    if (token.isEmpty) return headers;
+
+    return {...headers, 'Authorization': 'Bearer $token'};
+  }
+
+  bool _isAuthPath(String path) {
+    final normalized = path.startsWith('/') ? path : '/$path';
+    return normalized.startsWith('/auth/');
+  }
+
+  bool _hasAuthorization(Map<String, String> headers) {
+    return headers.keys.any((key) => key.toLowerCase() == 'authorization');
   }
 
   MediaType _contentTypeForFilename(String? filename) {

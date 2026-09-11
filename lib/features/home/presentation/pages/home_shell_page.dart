@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_icons.dart';
 
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/services/session_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_bottom_nav.dart';
@@ -33,6 +34,8 @@ class _HomeShellPageState extends State<HomeShellPage>
   // ---- Helpers (avoid withOpacity deprecated style you use) ----
   int _alpha(double o) => (o * 255).round().clamp(0, 255);
   Color _o(Color c, double opacity) => c.withAlpha(_alpha(opacity));
+  String _t(BuildContext context, String key) =>
+      AppLocalizations.of(context).t(key);
 
   int _index = 0;
   bool _didInitFromArgs = false;
@@ -120,17 +123,17 @@ class _HomeShellPageState extends State<HomeShellPage>
                   const SizedBox(height: 12),
                   _SheetAction(
                     icon: LucideIcons.listTodo,
-                    title: "Create task",
+                    title: _t(ctx, 'homeCreateTask'),
                     onTap: () => Navigator.pop(ctx),
                   ),
                   _SheetAction(
                     icon: LucideIcons.banknote,
-                    title: "Quick payment",
+                    title: _t(ctx, 'homeQuickPayment'),
                     onTap: () => Navigator.pop(ctx),
                   ),
                   _SheetAction(
                     icon: LucideIcons.calendarCheck,
-                    title: "New appointment",
+                    title: _t(ctx, 'homeNewAppointment'),
                     onTap: () => Navigator.pop(ctx),
                   ),
                   const SizedBox(height: 6),
@@ -153,7 +156,7 @@ class _HomeShellPageState extends State<HomeShellPage>
       final parentId = session?.id.trim() ?? '';
       if (parentId.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not load parent session.')),
+          SnackBar(content: Text(_t(context, 'couldNotLoadParentSession'))),
         );
         return;
       }
@@ -163,7 +166,7 @@ class _HomeShellPageState extends State<HomeShellPage>
       final approved = students.where((student) => student.isApproved).toList();
       if (approved.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No approved students found.')),
+          SnackBar(content: Text(_t(context, 'noApprovedStudentsFound'))),
         );
       }
 
@@ -179,7 +182,9 @@ class _HomeShellPageState extends State<HomeShellPage>
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not load students: $error')),
+        SnackBar(
+          content: Text('${_t(context, 'couldNotLoadStudents')}: $error'),
+        ),
       );
     } finally {
       if (mounted) setState(() => _loadingStudents = false);
@@ -214,15 +219,24 @@ class _HomeShellPageState extends State<HomeShellPage>
       SettingsPage(selectedStudent: _selectedStudent),
     ];
 
-    final navItems = const [
-      AppBottomNavItem(icon: LucideIcons.house, label: "ໜ້າຫຼັກ"),
-      AppBottomNavItem(icon: LucideIcons.presentation, label: "ຫ້ອງຮຽນ"),
+    final navItems = [
+      AppBottomNavItem(icon: LucideIcons.house, label: _t(context, 'homeTab')),
+      AppBottomNavItem(
+        icon: LucideIcons.presentation,
+        label: _t(context, 'classroomTab'),
+      ),
       AppBottomNavItem(
         icon: LucideIcons.chartNoAxesCombined,
-        label: "ຜົນການຮຽນ",
+        label: _t(context, 'studyResultTab'),
       ),
-      AppBottomNavItem(icon: LucideIcons.walletMinimal, label: "ຄ່າທຳນຽມ"),
-      AppBottomNavItem(icon: LucideIcons.gear, label: "ຕັ້ງຄ່າ"),
+      AppBottomNavItem(
+        icon: LucideIcons.walletMinimal,
+        label: _t(context, 'feeTab'),
+      ),
+      AppBottomNavItem(
+        icon: LucideIcons.gear,
+        label: _t(context, 'settingsTab'),
+      ),
     ];
 
     return WillPopScope(

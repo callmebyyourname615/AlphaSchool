@@ -65,16 +65,30 @@ class AttendanceRecord {
           DateTime.tryParse(json['attendance_date']?.toString() ?? '') ??
           DateTime.now(),
       type: json['type']?.toString().toUpperCase() ?? 'ABSENT',
-      reason:
-          _clean(json['reason']) ??
-          (json['type']?.toString().toUpperCase() == 'LATE' ? 'Late' : null),
+      reason: _clean(json['reason']),
       note: _clean(json['remark']),
       checkIn: TodayAttendance._parseTime(json['check_in']),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'attendance_date': _date(date),
+      'type': type,
+      if (reason != null) 'reason': reason,
+      if (note != null) 'remark': note,
+      if (checkIn != null) 'check_in': _time(checkIn!),
+    };
   }
 
   static String? _clean(dynamic value) {
     final text = value?.toString().trim() ?? '';
     return text.isEmpty ? null : text;
   }
+
+  static String _date(DateTime value) =>
+      '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+
+  static String _time(TimeOfDay value) =>
+      '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}:00';
 }

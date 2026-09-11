@@ -2,9 +2,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:intl/intl.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
-import '../../../../../core/theme/app_colors.dart';
+import '../../../../../core/localization/app_localizations.dart';
+
+String _t(BuildContext context, String key) =>
+    AppLocalizations.of(context).t(key);
 
 class CalendarPage extends StatefulWidget {
   /// ✅ optional initial focus from CalendarYear
@@ -147,9 +149,8 @@ class _CalendarPageState extends State<CalendarPage> {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
-    final locale = Localizations.localeOf(context);
-    final monthTitle = _monthTitle(_visibleMonth, locale);
-    final yearTitle = _yearTitle(_visibleMonth, locale);
+    final monthTitle = _monthTitle(context, _visibleMonth);
+    final yearTitle = _yearTitle(context, _visibleMonth);
 
     return Scaffold(
       backgroundColor: t.scaffoldBackgroundColor,
@@ -220,10 +221,10 @@ class _CalendarPageState extends State<CalendarPage> {
                   ),
                 ),
 
-                // Weekday row (Sun..Sat like iPhone screenshot)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
-                  child: _WeekdayHeader(locale: locale),
+                // Weekday row starts on Sunday.
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(18, 0, 18, 10),
+                  child: _WeekdayHeader(),
                 ),
 
                 // =========================
@@ -253,8 +254,8 @@ class _CalendarPageState extends State<CalendarPage> {
                               if (monthLabelDate != null)
                                 _MonthDivider(
                                       text: _monthTitle(
+                                        context,
                                         _firstOfMonth(monthLabelDate),
-                                        locale,
                                       ),
                                     )
                                     .animate()
@@ -336,23 +337,28 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   // =========================
-  // Locale formatting (iPhone-like Thai support)
+  // Locale formatting
   // =========================
-  static String _monthTitle(DateTime d, Locale locale) {
-    final tag = locale.toString();
-    try {
-      return DateFormat('MMMM', tag).format(d);
-    } catch (_) {
-      return DateFormat('MMMM', 'en').format(d);
-    }
+  static String _monthTitle(BuildContext context, DateTime d) {
+    const keys = [
+      'monthJanuary',
+      'monthFebruary',
+      'monthMarch',
+      'monthApril',
+      'monthMay',
+      'monthJune',
+      'monthJuly',
+      'monthAugust',
+      'monthSeptember',
+      'monthOctober',
+      'monthNovember',
+      'monthDecember',
+    ];
+    return _t(context, keys[d.month - 1]);
   }
 
-  static String _yearTitle(DateTime d, Locale locale) {
-    // iPhone Thai shows Buddhist year (พ.ศ.)
-    if (locale.languageCode.toLowerCase() == 'th') {
-      return 'พ.ศ. ${d.year + 543}';
-    }
-    return 'ค.ศ. ${d.year}';
+  static String _yearTitle(BuildContext context, DateTime d) {
+    return '${_t(context, 'commonEraPrefix')} ${d.year}';
   }
 
   // =========================
@@ -448,15 +454,19 @@ class _GlassIconButton extends StatelessWidget {
 }
 
 class _WeekdayHeader extends StatelessWidget {
-  final Locale locale;
-  const _WeekdayHeader({required this.locale});
+  const _WeekdayHeader();
 
   @override
   Widget build(BuildContext context) {
-    // iPhone Thai month view: อา จ อ พ พฤ ศ ส
-    final labels = locale.languageCode.toLowerCase() == 'th'
-        ? const ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
-        : const ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    final labels = [
+      _t(context, 'weekdaySunShort'),
+      _t(context, 'weekdayMonShort'),
+      _t(context, 'weekdayTueShort'),
+      _t(context, 'weekdayWedShort'),
+      _t(context, 'weekdayThuShort'),
+      _t(context, 'weekdayFriShort'),
+      _t(context, 'weekdaySatShort'),
+    ];
 
     return Row(
       children: [

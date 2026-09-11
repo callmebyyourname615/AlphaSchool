@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../../../../core/localization/app_localizations.dart';
 import '../../../../../shared/models/student_card_item.dart';
 import 'participant_model.dart';
 import 'participant_service.dart';
@@ -19,6 +20,50 @@ const _kCardBg = Colors.white;
 const _kBorder = Color(0xFFE8ECF0);
 const _kMuted = Color(0xFF9CA3AF);
 const _kText = Color(0xFF1F2937);
+
+String _t(BuildContext context, String key) =>
+    AppLocalizations.of(context).t(key);
+
+String _shortWeekday(BuildContext context, int weekday) {
+  const keys = [
+    'weekdayMonShort',
+    'weekdayTueShort',
+    'weekdayWedShort',
+    'weekdayThuShort',
+    'weekdayFriShort',
+    'weekdaySatShort',
+    'weekdaySunShort',
+  ];
+  return _t(context, keys[weekday - 1]);
+}
+
+String _fullMonth(BuildContext context, int month) {
+  const keys = [
+    'monthJanuary',
+    'monthFebruary',
+    'monthMarch',
+    'monthApril',
+    'monthMay',
+    'monthJune',
+    'monthJuly',
+    'monthAugust',
+    'monthSeptember',
+    'monthOctober',
+    'monthNovember',
+    'monthDecember',
+  ];
+  return _t(context, keys[month - 1]);
+}
+
+String _formatParticipantDate(
+  BuildContext context,
+  DateTime date, {
+  bool year = true,
+}) {
+  final label =
+      '${_shortWeekday(context, date.weekday)}, ${date.day} ${_fullMonth(context, date.month)}';
+  return year ? '$label ${date.year}' : label;
+}
 
 class ParticipantPage extends StatefulWidget {
   final StudentCardItem? selectedStudent;
@@ -89,25 +134,6 @@ class _ParticipantPageState extends State<ParticipantPage> {
     return d.year == n.year && d.month == n.month && d.day == n.day;
   }
 
-  static String _formatDate(DateTime d) {
-    const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const mo = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${wd[d.weekday - 1]}, ${d.day} ${mo[d.month - 1]} ${d.year}';
-  }
-
   @override
   void initState() {
     super.initState();
@@ -168,8 +194,11 @@ class _ParticipantPageState extends State<ParticipantPage> {
                                   student: student,
                                   percent: selectedDay?.percent ?? 0,
                                   latestLabel: loading
-                                      ? 'Loading…'
-                                      : _formatDate(_filterDate),
+                                      ? _t(context, 'loading')
+                                      : _formatParticipantDate(
+                                          context,
+                                          _filterDate,
+                                        ),
                                 );
                               }()
                               .animate()
@@ -182,10 +211,10 @@ class _ParticipantPageState extends State<ParticipantPage> {
                               ),
                           const SizedBox(height: 20),
                           _SectionRow(
-                            title: 'Activity Weights',
+                            title: _t(context, 'activityWeights'),
                             subtitle: _isToday(_filterDate)
-                                ? 'Today'
-                                : 'Selected day',
+                                ? _t(context, 'today')
+                                : _t(context, 'selectedDay'),
                             filterDate: _filterDate,
                             onPick: () => _pickDate(summary),
                             onResetToday: _resetToToday,
@@ -276,23 +305,23 @@ class _PageHeader extends StatelessWidget {
             splashRadius: 22,
           ),
           const SizedBox(width: 2),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Participation',
-                  style: TextStyle(
+                  _t(context, 'participation'),
+                  style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
                     color: _kNavy,
                     letterSpacing: -.4,
                   ),
                 ),
-                SizedBox(height: 1),
+                const SizedBox(height: 1),
                 Text(
-                  'Daily activity scores',
-                  style: TextStyle(
+                  _t(context, 'dailyActivityScores'),
+                  style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: _kMuted,
@@ -372,25 +401,6 @@ class _DateChip extends StatelessWidget {
     required this.onResetToday,
   });
 
-  String _label(DateTime d) {
-    const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const mo = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${wd[d.weekday - 1]}, ${d.day} ${mo[d.month - 1]}';
-  }
-
   @override
   Widget build(BuildContext context) {
     final isToday = _ParticipantPageState._isToday(date);
@@ -408,13 +418,20 @@ class _DateChip extends StatelessWidget {
           children: [
             const Icon(LucideIcons.calendarDays, size: 15, color: Colors.white),
             const SizedBox(width: 6),
-            Text(
-              _label(date),
-              style: const TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                letterSpacing: -.05,
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 150),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  _formatParticipantDate(context, date, year: false),
+                  maxLines: 1,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: -.05,
+                  ),
+                ),
               ),
             ),
             if (!isToday) ...[
@@ -465,7 +482,9 @@ class _NoMatchCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            isToday ? 'No activities today' : 'No activities on this day',
+            isToday
+                ? _t(context, 'noActivitiesToday')
+                : _t(context, 'noActivitiesOnThisDay'),
             style: const TextStyle(
               fontSize: 14.5,
               fontWeight: FontWeight.w800,
@@ -473,10 +492,10 @@ class _NoMatchCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Try picking a different day from the calendar.',
+          Text(
+            _t(context, 'tryDifferentDayFromCalendar'),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: _kMuted,
@@ -495,9 +514,9 @@ class _NoMatchCard extends StatelessWidget {
                   color: _kBlue.withValues(alpha: .10),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text(
-                  'Back to today',
-                  style: TextStyle(
+                child: Text(
+                  _t(context, 'backToToday'),
+                  style: const TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w800,
                     color: _kBlue,
@@ -537,19 +556,19 @@ class _NoStudentState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Select a student',
-              style: TextStyle(
+            Text(
+              _t(context, 'selectAStudent'),
+              style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
                 color: _kText,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Pick a student from the home screen to view their participation scores.',
+            Text(
+              _t(context, 'pickStudentParticipationScores'),
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
                 color: _kMuted,
@@ -596,8 +615,8 @@ class _HeroCard extends StatelessWidget {
           Container(
             width: 52,
             height: 52,
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
+            decoration: const BoxDecoration(
+              color: Color(0xFFEFF6FF),
               shape: BoxShape.circle,
             ),
             child: const Icon(LucideIcons.user, size: 26, color: _kBlue),
@@ -900,7 +919,7 @@ class _DayCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      day.label,
+                      _formatParticipantDate(context, day.date),
                       style: const TextStyle(
                         fontSize: 14.5,
                         fontWeight: FontWeight.w800,
@@ -918,8 +937,12 @@ class _DayCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          '${day.rows.length} '
-                          '${day.rows.length == 1 ? "activity" : "activities"}',
+                          _t(
+                            context,
+                            day.rows.length == 1
+                                ? 'activityCountOne'
+                                : 'activityCountMany',
+                          ).replaceAll('{count}', '${day.rows.length}'),
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -1130,9 +1153,9 @@ class _ErrorCard extends StatelessWidget {
             child: const Icon(LucideIcons.wifiOff, size: 22, color: _kRed),
           ),
           const SizedBox(height: 10),
-          const Text(
-            "Couldn't load scores",
-            style: TextStyle(
+          Text(
+            _t(context, 'couldNotLoadScores'),
+            style: const TextStyle(
               fontSize: 14.5,
               fontWeight: FontWeight.w800,
               color: _kText,
@@ -1159,9 +1182,9 @@ class _ErrorCard extends StatelessWidget {
                 color: _kBlue,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Text(
-                'Try again',
-                style: TextStyle(
+              child: Text(
+                _t(context, 'tryAgain'),
+                style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
                   color: Colors.white,

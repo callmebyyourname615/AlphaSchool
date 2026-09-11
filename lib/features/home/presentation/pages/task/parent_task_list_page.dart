@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../../core/localization/app_localizations.dart';
 import '../../../../../core/network/api_config.dart';
 import '../../../../../core/theme/app_icons.dart';
 import '../../../../../shared/models/student_card_item.dart';
@@ -25,6 +26,14 @@ const _kPurpleFg = Color(0xFF9333EA);
 const _kAmberBg = Color(0xFFFEF3C7);
 const _kAmberFg = Color(0xFFB45309);
 const _kDangerBg = Color(0xFFFEE2E2);
+
+String _t(BuildContext context, String key) =>
+    AppLocalizations.of(context).t(key);
+
+String _daysLeftText(BuildContext context, int days) {
+  final key = days == 1 ? 'daysLeftOne' : 'daysLeftMany';
+  return _t(context, key).replaceAll('{count}', '$days');
+}
 
 enum TaskSubjectKey {
   english,
@@ -136,8 +145,9 @@ class TaskFileRef {
   static String resolveFileUrl(String rawPath) {
     final clean = rawPath.trim();
     if (clean.isEmpty) return '';
-    if (clean.startsWith('http://') || clean.startsWith('https://'))
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
       return clean;
+    }
     var relative = clean.startsWith('/') ? clean.substring(1) : clean;
     if (relative.startsWith('uploads/')) {
       relative = relative.substring('uploads/'.length);
@@ -253,9 +263,7 @@ class ParentTaskItem {
       subject: _resolveSubjectKey(json['subject']?.toString()),
       teacher: teacherName ?? 'Teacher',
       description: _stripHtml((json['description'] ?? '').toString()),
-      due: deadline != null
-          ? DateFormat('MMM d, yyyy').format(deadline)
-          : 'No due date',
+      due: deadline != null ? DateFormat('dd/MM/yyyy').format(deadline) : '',
       daysLeft: deadline != null ? deadline.difference(today).inDays : 0,
       messages: 0,
       isNew: createdAt != null && now.difference(createdAt).inDays <= 3,
@@ -455,9 +463,9 @@ class _ParentTaskListPageState extends State<ParentTaskListPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Tasks',
-                    style: TextStyle(
+                  Text(
+                    _t(context, 'tasks'),
+                    style: const TextStyle(
                       fontSize: 30,
                       fontWeight: FontWeight.w800,
                       color: _kNavy,
@@ -485,18 +493,18 @@ class _ParentTaskListPageState extends State<ParentTaskListPage>
     if (_loadState == _LoadState.error) {
       return _MessageState(
         icon: LucideIcons.circleAlert,
-        title: 'Could not load tasks',
+        title: _t(context, 'couldNotLoadTasks'),
         message: _errorMessage,
-        actionLabel: 'Retry',
+        actionLabel: _t(context, 'retry'),
         onAction: _loadTasks,
       );
     }
 
     if ((widget.selectedStudent?.id ?? '').isEmpty) {
-      return const _MessageState(
+      return _MessageState(
         icon: LucideIcons.user,
-        title: 'No student selected',
-        message: 'Choose a student from the home screen to view their tasks.',
+        title: _t(context, 'noStudentSelected'),
+        message: _t(context, 'chooseStudentTasksHint'),
       );
     }
 
@@ -516,7 +524,7 @@ class _ParentTaskListPageState extends State<ParentTaskListPage>
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
           child: _SearchFilterRow(
             controller: _searchCtrl,
-            onFilterTap: () => _toast('Filter coming soon'),
+            onFilterTap: () => _toast(_t(context, 'filterComingSoon')),
           ),
         ),
         Expanded(
@@ -528,17 +536,18 @@ class _ParentTaskListPageState extends State<ParentTaskListPage>
                 tasks: _assignedTasks,
                 bottomInset: bottomInset,
                 onTapTask: _openDetail,
-                onViewCalendar: () => _toast('Calendar coming soon'),
+                onViewCalendar: () => _toast(_t(context, 'calendarComingSoon')),
               ),
               _UpcomingList(
                 tasks: _inProgressTasks,
                 bottomInset: bottomInset,
                 onTapTask: _openDetail,
-                onViewCalendar: () => _toast('Calendar coming soon'),
+                onViewCalendar: () => _toast(_t(context, 'calendarComingSoon')),
               ),
               _CompletedPlaceholder(
                 count: _completedCount,
-                onSeeHistory: () => _toast('Task history coming soon'),
+                onSeeHistory: () =>
+                    _toast(_t(context, 'taskHistoryComingSoon')),
               ),
             ],
           ),
@@ -614,9 +623,9 @@ class _TaskTabBar extends StatelessWidget {
           fontWeight: FontWeight.w600,
         ),
         tabs: [
-          Tab(text: 'Assigned ($assignedCount)'),
-          Tab(text: 'In Progress ($inProgressCount)'),
-          Tab(text: 'Completed ($completedCount)'),
+          Tab(text: '${_t(context, 'assigned')} ($assignedCount)'),
+          Tab(text: '${_t(context, 'inProgress')} ($inProgressCount)'),
+          Tab(text: '${_t(context, 'completed')} ($completedCount)'),
         ],
       ),
     );
@@ -644,7 +653,7 @@ class _SearchFilterRow extends StatelessWidget {
               controller: controller,
               style: const TextStyle(fontSize: 14, color: _kNavy),
               decoration: InputDecoration(
-                hintText: 'Search tasks...',
+                hintText: _t(context, 'searchTasksHint'),
                 hintStyle: const TextStyle(color: _kMutedSoft, fontSize: 14),
                 prefixIcon: const Icon(
                   LucideIcons.search,
@@ -683,14 +692,14 @@ class _SearchFilterRow extends StatelessWidget {
               height: 44,
               padding: const EdgeInsets.symmetric(horizontal: 14),
               alignment: Alignment.center,
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(LucideIcons.sliders, size: 15, color: _kNavy),
-                  SizedBox(width: 6),
+                  const Icon(LucideIcons.sliders, size: 15, color: _kNavy),
+                  const SizedBox(width: 6),
                   Text(
-                    'Filter',
-                    style: TextStyle(
+                    _t(context, 'filter'),
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: _kNavy,
@@ -726,11 +735,11 @@ class _UpcomingList extends StatelessWidget {
     if (tasks.isEmpty) {
       return ListView(
         padding: EdgeInsets.fromLTRB(16, 16, 16, 24 + bottomInset),
-        children: const [
+        children: [
           _MessageState(
             icon: LucideIcons.clipboardCheck,
-            title: 'Nothing here yet',
-            message: 'Tasks assigned to your child will show up here.',
+            title: _t(context, 'nothingHereYet'),
+            message: _t(context, 'assignedTasksEmptyHint'),
           ),
         ],
       );
@@ -739,9 +748,9 @@ class _UpcomingList extends StatelessWidget {
     return ListView(
       padding: EdgeInsets.fromLTRB(16, 16, 16, 24 + bottomInset),
       children: [
-        const Text(
-          'Upcoming Tasks',
-          style: TextStyle(
+        Text(
+          _t(context, 'upcomingTasks'),
+          style: const TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w800,
             color: _kNavy,
@@ -830,9 +839,9 @@ class _TaskCard extends StatelessWidget {
                                     color: _kPurpleBg,
                                     borderRadius: BorderRadius.circular(999),
                                   ),
-                                  child: const Text(
-                                    'New',
-                                    style: TextStyle(
+                                  child: Text(
+                                    _t(context, 'newLabel'),
+                                    style: const TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
                                       color: _kPurpleFg,
@@ -854,7 +863,7 @@ class _TaskCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
-                            '${task.daysLeft} days left',
+                            _daysLeftText(context, task.daysLeft),
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
@@ -866,7 +875,7 @@ class _TaskCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      'Due: ${task.due}',
+                      '${_t(context, 'due')}: ${task.due.isEmpty ? _t(context, 'noDueDate') : task.due}',
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
@@ -957,22 +966,22 @@ class _CalendarPromo extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Keep track of due dates!',
-                  style: TextStyle(
+                  _t(context, 'keepTrackDueDates'),
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
                     color: _kNavy,
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
-                  'Submit your work on time and stay up to date.',
-                  style: TextStyle(fontSize: 12, color: _kMuted),
+                  _t(context, 'submitWorkOnTime'),
+                  style: const TextStyle(fontSize: 12, color: _kMuted),
                 ),
               ],
             ),
@@ -993,19 +1002,23 @@ class _CalendarPromo extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: _kBorder),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'View Calendar',
-                      style: TextStyle(
+                      _t(context, 'viewCalendar'),
+                      style: const TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
                         color: _kBlue,
                       ),
                     ),
-                    SizedBox(width: 4),
-                    Icon(LucideIcons.chevronRight, size: 11, color: _kBlue),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      LucideIcons.chevronRight,
+                      size: 11,
+                      color: _kBlue,
+                    ),
                   ],
                 ),
               ),
@@ -1037,8 +1050,15 @@ class _CompletedPlaceholder extends StatelessWidget {
         children: [
           Text(
             count == 0
-                ? 'No completed tasks yet.'
-                : '$count ${count == 1 ? 'task' : 'tasks'} completed.',
+                ? _t(context, 'noCompletedTasksYet')
+                : _t(context, 'tasksCompleted')
+                      .replaceAll('{count}', '$count')
+                      .replaceAll(
+                        '{task}',
+                        count == 1
+                            ? _t(context, 'taskSingular')
+                            : _t(context, 'taskPlural'),
+                      ),
             style: const TextStyle(fontSize: 13.5, color: _kMuted),
           ),
           const SizedBox(height: 10),
@@ -1051,9 +1071,9 @@ class _CompletedPlaceholder extends StatelessWidget {
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              child: const Text(
-                'See full history →',
-                style: TextStyle(
+              child: Text(
+                _t(context, 'seeFullHistory'),
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: _kBlue,
@@ -1134,9 +1154,9 @@ class TaskMiniCard extends StatelessWidget {
                               color: _kPurpleBg,
                               borderRadius: BorderRadius.circular(999),
                             ),
-                            child: const Text(
-                              'New',
-                              style: TextStyle(
+                            child: Text(
+                              _t(context, 'newLabel'),
+                              style: const TextStyle(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.w700,
                                 color: _kPurpleFg,
@@ -1162,7 +1182,7 @@ class TaskMiniCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 3),
                         Text(
-                          'Due: ${task.due}',
+                          '${_t(context, 'due')}: ${task.due.isEmpty ? _t(context, 'noDueDate') : task.due}',
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -1171,7 +1191,7 @@ class TaskMiniCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          '${task.daysLeft} days left',
+                          _daysLeftText(context, task.daysLeft),
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,

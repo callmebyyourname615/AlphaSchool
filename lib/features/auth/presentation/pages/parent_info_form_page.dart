@@ -2,16 +2,14 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/theme/app_icons.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/global_alert_service.dart';
-import '../../../home/presentation/pages/contact/branch_model.dart';
-import '../../../home/presentation/pages/contact/branch_service.dart';
 import '../../data/parent_registration_service.dart';
 import 'login_page.dart';
 
@@ -32,6 +30,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   static const _slate200 = Color(0xFFE2E8F0);
   static const _slate100 = Color(0xFFEFF2F8);
   static const _rose500 = Color(0xFFE11D48);
+  static const bool _disableRequiredValidationForTesting = false;
 
   static const List<_StepMeta> _steps = [
     _StepMeta(1, 'Personal', LucideIcons.user),
@@ -45,7 +44,6 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       'Email',
       'Password',
       'ConfirmPassword',
-      'Branch',
       'Firstname_Lao',
       'Firstname_Eng',
       'Midlename_Lao',
@@ -101,55 +99,58 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   String? _rejectReason;
   final PageController _pageController = PageController();
   final ParentRegistrationService _service = ParentRegistrationService();
-  static const String _kSelectedBranchIdKey = 'selected_branch_id';
-  final BranchService _branchService = BranchService();
-  List<BranchInfo> _branches = const [];
-  bool _branchesLoading = false;
-  String? _branchId;
   List<_ParentProvinceOption> _provinces = const [];
   bool _provincesLoading = false;
   bool _hasSavedDetails = false;
   int _formRevision = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadBranches();
-    _prefillSavedBranch();
-    _bootstrap();
-  }
+  String _t(String key) => AppLocalizations.of(context).t(key);
 
-  Future<void> _prefillSavedBranch() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString(_kSelectedBranchIdKey);
-    if (saved == null || saved.isEmpty) return;
-    if (!mounted) return;
-    setState(() {
-      if ((_data['Branch'] ?? '').isNotEmpty) return;
-      _branchId = saved;
-      _data['Branch'] = saved;
-    });
-  }
+  String _stepOfLabel() => _t('stepOf').replaceAll('{step}', '$_step');
 
-  Future<void> _loadBranches() async {
-    if (_branchesLoading) return;
-    setState(() => _branchesLoading = true);
-    try {
-      final list = await _branchService.fetchBranches();
-      if (!mounted) return;
-      setState(() {
-        _branches = list;
-        _branchesLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _branchesLoading = false);
+  String _optionLabel(String option) {
+    switch (option) {
+      case 'Primary School':
+        return _t('primarySchool');
+      case 'Secondary School':
+        return _t('secondarySchool');
+      case 'High School':
+        return _t('highSchool');
+      case "Bachelor's Degree":
+        return _t('bachelorsDegree');
+      case "Master's Degree":
+        return _t('mastersDegree');
+      case 'Doctorate':
+        return _t('doctorate');
+      case 'Male':
+        return _t('male');
+      case 'Female':
+        return _t('female');
+      case 'Other':
+        return _t('other');
+      default:
+        return option;
     }
   }
 
-  Future<void> _saveBranchSelection(String branchId) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kSelectedBranchIdKey, branchId);
+  String _stepTitle() {
+    switch (_step) {
+      case 1:
+        return _t('personalInformation');
+      case 2:
+        return _t('educationContact');
+      case 3:
+        return _t('identification');
+      case 4:
+      default:
+        return _t('addressInformation');
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _bootstrap();
   }
 
   Future<void> _bootstrap() async {
@@ -166,11 +167,6 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     }
     if (!mounted) return;
     if (pending != null) {
-      final pendingBranch = pending.formData['Branch'];
-      if (pendingBranch != null && pendingBranch.isNotEmpty) {
-        await _saveBranchSelection(pendingBranch);
-      }
-      if (!mounted) return;
       setState(() {
         _submitted = true;
         _referenceId = pending.id;
@@ -180,7 +176,6 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         _data
           ..clear()
           ..addAll(pending.formData);
-        _branchId = pending.formData['Branch'] ?? _branchId;
         _hasSavedDetails = reusableDetails.isNotEmpty;
         _bootstrapping = false;
       });
@@ -209,15 +204,8 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       );
       return;
     }
-    final savedBranch = savedDetails['Branch'];
-    if (savedBranch != null && savedBranch.isNotEmpty) {
-      await _saveBranchSelection(savedBranch);
-    }
     setState(() {
       _data.addAll(savedDetails);
-      if (savedBranch != null && savedBranch.isNotEmpty) {
-        _branchId = savedBranch;
-      }
       if (savedFamilyBook != null) {
         _familyBookImages.clear();
         _attachments['family_book'] = _ParentAttachmentDraft(
@@ -353,33 +341,38 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   }
 
   bool _validate() {
+    if (_disableRequiredValidationForTesting) {
+      setState(_errors.clear);
+      return true;
+    }
+
     final next = <String, String>{};
     for (final f in _required[_step] ?? const <String>[]) {
-      if ((_data[f] ?? '').trim().isEmpty) next[f] = 'This field is required';
+      if ((_data[f] ?? '').trim().isEmpty) next[f] = _t('fieldRequiredError');
     }
     if (_step == 1 || _step == 2) {
       final email = _data['Email'] ?? '';
       if (email.isNotEmpty &&
           !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
-        next['Email'] = 'Enter a valid email';
+        next['Email'] = _t('validEmailError');
       }
     }
     if (_step == 1) {
       final password = _data['Password'] ?? '';
       final confirmPassword = _data['ConfirmPassword'] ?? '';
       if (password.isNotEmpty && password.length < 6) {
-        next['Password'] = 'Password must be at least 6 characters';
+        next['Password'] = _t('passwordMinLengthError');
       }
       if (password.isNotEmpty &&
           confirmPassword.isNotEmpty &&
           password != confirmPassword) {
-        next['ConfirmPassword'] = 'Passwords do not match';
+        next['ConfirmPassword'] = _t('passwordsDoNotMatchError');
       }
     }
     if (_step == 3) {
       for (final field in ['id_card', 'family_book', 'passport_image']) {
         if (!_attachments.containsKey(field)) {
-          next[field] = 'Please upload this document';
+          next[field] = _t('uploadDocumentError');
         }
       }
     }
@@ -407,11 +400,6 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
 
   Future<void> _onSubmit() async {
     if (!_validate() || _submitting) return;
-    final selectedBranchId = (_data['Branch'] ?? _branchId ?? '').trim();
-    if (selectedBranchId.isNotEmpty) {
-      _data['Branch'] = selectedBranchId;
-      await _saveBranchSelection(selectedBranchId);
-    }
     setState(() {
       _submitting = true;
       _submissionMessage = 'Preparing your application...';
@@ -611,16 +599,16 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(LucideIcons.arrowLeft, size: 18, color: _navy),
-            tooltip: 'Back',
+            tooltip: _t('back'),
           ),
           const SizedBox(width: 8),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Parent Information',
-                  style: TextStyle(
+                  _t('parentInformationTitle'),
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
                     color: _navy,
@@ -628,10 +616,14 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                     letterSpacing: -.5,
                   ),
                 ),
-                SizedBox(height: 5),
+                const SizedBox(height: 5),
                 Text(
-                  'Tell us about yourself. Fields marked * are required.',
-                  style: TextStyle(fontSize: 13, color: _muted, height: 1.35),
+                  _t('parentInformationSubtitle'),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: _muted,
+                    height: 1.35,
+                  ),
                 ),
               ],
             ),
@@ -733,7 +725,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'STEP $_step OF 4',
+                    _stepOfLabel(),
                     style: const TextStyle(
                       fontSize: 12,
                       color: _blue,
@@ -743,7 +735,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${_steps[_step - 1].title} Information',
+                    _stepTitle(),
                     style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
@@ -815,19 +807,19 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
               _buildSavedDetailsAction(),
               const SizedBox(height: 16),
             ],
-            _sectionCard(1, 'Create Login Account', [
+            _sectionCard(1, _t('createLoginAccount'), [
               _input(
-                'Email',
+                _t('email'),
                 'Email',
                 required: true,
-                placeholder: 'Enter email',
+                placeholder: _t('enterEmail'),
                 keyboard: TextInputType.emailAddress,
               ),
               _input(
-                'Password',
+                _t('password'),
                 'Password',
                 required: true,
-                placeholder: 'Create password',
+                placeholder: _t('createPassword'),
                 obscureText: !_formPasswordVisible,
                 suffixIcon: IconButton(
                   onPressed: () {
@@ -840,14 +832,14 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                     size: 18,
                     color: _muted,
                   ),
-                  tooltip: _formPasswordVisible ? 'Hide' : 'Show',
+                  tooltip: _formPasswordVisible ? _t('hide') : _t('show'),
                 ),
               ),
               _input(
-                'Confirm Password',
+                _t('confirmPassword'),
                 'ConfirmPassword',
                 required: true,
-                placeholder: 'Confirm password',
+                placeholder: _t('confirmPasswordPlaceholder'),
                 obscureText: !_confirmPasswordVisible,
                 suffixIcon: IconButton(
                   onPressed: () {
@@ -862,188 +854,187 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                     size: 18,
                     color: _muted,
                   ),
-                  tooltip: _confirmPasswordVisible ? 'Hide' : 'Show',
+                  tooltip: _confirmPasswordVisible ? _t('hide') : _t('show'),
                 ),
               ),
-              _branchSelect(),
             ]),
             const SizedBox(height: 16),
-            _sectionCard(1, 'Personal Information', [
+            _sectionCard(1, _t('personalInformation'), [
               _input(
-                'First Name (Lao)',
+                _t('firstNameLao'),
                 'Firstname_Lao',
                 required: true,
-                placeholder: 'Enter (Lao)',
+                placeholder: _t('enterLao'),
               ),
               _input(
-                'First Name (English)',
+                _t('firstNameEnglish'),
                 'Firstname_Eng',
                 required: true,
-                placeholder: 'Enter (English)',
+                placeholder: _t('enterEnglish'),
               ),
               _input(
-                'Middle Name (Lao)',
+                _t('middleNameLao'),
                 'Midlename_Lao',
                 required: true,
-                placeholder: 'Enter (Lao)',
+                placeholder: _t('enterLao'),
               ),
               _input(
-                'Middle Name (English)',
+                _t('middleNameEnglish'),
                 'Midlename_Eng',
                 required: true,
-                placeholder: 'Enter (English)',
+                placeholder: _t('enterEnglish'),
               ),
               _input(
-                'Last Name (Lao)',
+                _t('lastNameLao'),
                 'Lastname_Lao',
                 required: true,
-                placeholder: 'Enter (Lao)',
+                placeholder: _t('enterLao'),
               ),
               _input(
-                'Last Name (English)',
+                _t('lastNameEnglish'),
                 'Lastname_Eng',
                 required: true,
-                placeholder: 'Enter (English)',
+                placeholder: _t('enterEnglish'),
               ),
               _input(
-                'Nickname',
+                _t('nickname'),
                 'Nickname',
                 required: true,
-                placeholder: 'Enter nickname',
+                placeholder: _t('enterNickname'),
               ),
-              _dateInput('Date of Birth', 'DateofBirth', required: true),
+              _dateInput(_t('dateOfBirth'), 'DateofBirth', required: true),
               _select(
-                'Gender',
+                _t('gender'),
                 'Gender',
                 _genders,
                 required: true,
-                placeholder: 'Select gender',
+                placeholder: _t('selectGender'),
               ),
             ]),
           ],
         );
       case 2:
-        return _sectionCard(2, 'Education & Contact', [
+        return _sectionCard(2, _t('educationContact'), [
           _select(
-            'Education Level',
+            _t('educationLevel'),
             'Educatio_Level',
             _education,
             required: true,
-            placeholder: 'Select education level',
+            placeholder: _t('selectEducationLevel'),
           ),
-          _input('Job', 'Job', required: true, placeholder: 'Enter job'),
+          _input(_t('job'), 'Job', required: true, placeholder: _t('enterJob')),
           _input(
-            'Workplace',
+            _t('workplace'),
             'Workplace',
             required: true,
-            placeholder: 'Enter workplace',
+            placeholder: _t('enterWorkplace'),
           ),
           _input(
-            'Email',
+            _t('email'),
             'Email',
             required: true,
-            placeholder: 'Enter email',
+            placeholder: _t('enterEmail'),
             keyboard: TextInputType.emailAddress,
           ),
           _input(
-            'Phone No. 1',
+            _t('phoneNo1'),
             'Phone_No1',
             required: true,
-            placeholder: 'Enter phone number',
+            placeholder: _t('enterPhoneNumber'),
             keyboard: TextInputType.phone,
           ),
           _input(
-            'Phone No. 2',
+            _t('phoneNo2'),
             'Phone_No2',
             required: true,
-            placeholder: 'Enter phone number',
+            placeholder: _t('enterPhoneNumber'),
             keyboard: TextInputType.phone,
           ),
         ]);
       case 3:
-        return _sectionCard(3, 'Identification', [
+        return _sectionCard(3, _t('identification'), [
           _input(
-            'ID Card No.',
+            _t('idCardNo'),
             'IDCard_no',
             required: true,
-            placeholder: 'Enter ID card number',
+            placeholder: _t('enterIdCardNumber'),
           ),
           _input(
-            'Passport No.',
+            _t('passportNo'),
             'Passport_no',
             required: true,
-            placeholder: 'Enter passport number',
+            placeholder: _t('enterPassportNumber'),
           ),
           _input(
-            'Family Book No.',
+            _t('familyBookNo'),
             'FamillyBook_no',
             required: true,
-            placeholder: 'Enter family book number',
+            placeholder: _t('enterFamilyBookNumber'),
           ),
           _fileUpload(
-            'Identity card',
+            _t('identityCard'),
             'id_card',
             required: true,
             pdfOnly: false,
           ),
           _fileUpload(
-            'Home picture (Optional)',
+            _t('homePictureOptional'),
             'home_picture',
             pdfOnly: false,
           ),
           _fileUpload(
-            'Family Book (Upload PDF or Image)',
+            _t('familyBookUpload'),
             'family_book',
             required: true,
             pdfOnly: true,
           ),
           _fileUpload(
-            'Passport image',
+            _t('passportImage'),
             'passport_image',
             required: true,
             pdfOnly: false,
           ),
           _input(
-            'Nationality',
+            _t('nationality'),
             'Nationality',
             required: true,
-            placeholder: 'Enter nationality',
+            placeholder: _t('enterNationality'),
           ),
           _input(
-            'Ethnicity',
+            _t('ethnicity'),
             'Ethnicty',
             required: true,
-            placeholder: 'Enter ethnicity',
+            placeholder: _t('enterEthnicity'),
           ),
           _input(
-            'Religion',
+            _t('religion'),
             'Religion',
             required: true,
-            placeholder: 'Enter religion',
+            placeholder: _t('enterReligion'),
           ),
         ]);
       case 4:
       default:
         return Column(
           children: [
-            _sectionCard(4, 'Address Information', [
+            _sectionCard(4, _t('addressInformation'), [
               _input(
-                'Home No.',
+                _t('homeNo'),
                 'Home_no',
                 required: true,
-                placeholder: 'Enter home number',
+                placeholder: _t('enterHomeNumber'),
               ),
               _input(
-                'Home Unit',
+                _t('homeUnit'),
                 'Home_unit',
                 required: true,
-                placeholder: 'Enter unit / room',
+                placeholder: _t('enterUnitRoom'),
               ),
               _input(
-                'Village',
+                _t('village'),
                 'Village',
                 required: true,
-                placeholder: 'Enter village',
+                placeholder: _t('enterVillage'),
               ),
               _locationProvinceSelect(),
               _locationDistrictSelect(),
@@ -1600,81 +1591,6 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     );
   }
 
-  Widget _branchSelect() {
-    final err = _errors['Branch'];
-    final value = _branchId ?? _data['Branch'];
-    final hasValue = value != null && _branches.any((b) => b.id == value);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _label("Child's Branch", true),
-        DropdownButtonFormField<String>(
-          key: ValueKey(
-            'branch_${_formRevision}_${_branches.length}_${value ?? ''}',
-          ),
-          initialValue: hasValue ? value : null,
-          isExpanded: true,
-          icon: _branchesLoading
-              ? const SizedBox(
-                  height: 16,
-                  width: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: _muted,
-                  ),
-                )
-              : const Icon(LucideIcons.chevronDown, color: _muted),
-          hint: Text(
-            _branchesLoading
-                ? 'Loading branches...'
-                : "Select your child's branch",
-            style: const TextStyle(color: _slate400, fontSize: 14),
-          ),
-          style: const TextStyle(
-            fontSize: 16,
-            color: _navy,
-            fontWeight: FontWeight.w500,
-          ),
-          decoration: _decoration(null, err),
-          items: _branches
-              .map(
-                (b) => DropdownMenuItem(
-                  value: b.id,
-                  child: Text(
-                    b.name.isEmpty ? b.code : b.name,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              )
-              .toList(),
-          onChanged: _branches.isEmpty
-              ? null
-              : (v) {
-                  if (v == null) return;
-                  setState(() {
-                    _branchId = v;
-                    _data['Branch'] = v;
-                    _errors.remove('Branch');
-                  });
-                  _saveBranchSelection(v);
-                },
-        ),
-        if (err != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              err,
-              style: const TextStyle(
-                fontSize: 13,
-                color: _rose500,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
   Widget _input(
     String label,
     String name, {
@@ -1729,7 +1645,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label('Province', true),
+        _label(_t('province'), true),
         DropdownButtonFormField<String>(
           key: ValueKey('province_$_formRevision'),
           initialValue: selected?.id,
@@ -1745,7 +1661,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 )
               : const Icon(LucideIcons.chevronDown, color: _muted),
           hint: Text(
-            _provincesLoading ? 'Loading provinces...' : 'Select province',
+            _provincesLoading ? _t('loadingProvinces') : _t('selectProvince'),
             style: const TextStyle(color: _slate400, fontSize: 14),
           ),
           style: const TextStyle(
@@ -1800,14 +1716,14 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label('District', true),
+        _label(_t('district'), true),
         DropdownButtonFormField<String>(
           key: ValueKey('district_$_formRevision'),
           initialValue: selected.id.isEmpty ? null : selected.id,
           isExpanded: true,
           icon: const Icon(LucideIcons.chevronDown, color: _muted),
           hint: Text(
-            province == null ? 'Select province first' : 'Select district',
+            province == null ? _t('selectProvinceFirst') : _t('selectDistrict'),
             style: const TextStyle(color: _slate400, fontSize: 14),
           ),
           style: const TextStyle(
@@ -1877,7 +1793,9 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
           ),
           decoration: _decoration(null, err),
           items: options
-              .map((o) => DropdownMenuItem(value: o, child: Text(o)))
+              .map(
+                (o) => DropdownMenuItem(value: o, child: Text(_optionLabel(o))),
+              )
               .toList(),
           onChanged: (v) {
             if (v != null) _set(name, v);
@@ -1994,23 +1912,27 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
             child: const Icon(LucideIcons.shield, color: _blue, size: 16),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'NOTE',
-                  style: TextStyle(
+                  _t('note'),
+                  style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
                     color: _blue,
                     letterSpacing: 1,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  'All information provided will be kept confidential and used for educational purposes only.',
-                  style: TextStyle(fontSize: 12, color: _muted, height: 1.4),
+                  _t('parentFormPrivacyNote'),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: _muted,
+                    height: 1.4,
+                  ),
                 ),
               ],
             ),
@@ -2038,7 +1960,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                   child: OutlinedButton.icon(
                     onPressed: _onBack,
                     icon: const Icon(LucideIcons.chevronLeft, size: 18),
-                    label: const Text('Back'),
+                    label: Text(_t('back')),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: _navy,
                       side: const BorderSide(color: _slate200, width: 1.5),
@@ -2077,20 +1999,20 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                     ),
                   ),
                   child: _step < 4
-                      ? const Row(
+                      ? Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text('Next'),
-                            SizedBox(width: 6),
-                            Icon(LucideIcons.chevronRight, size: 18),
+                            Text(_t('next')),
+                            const SizedBox(width: 6),
+                            const Icon(LucideIcons.chevronRight, size: 18),
                           ],
                         )
-                      : const Row(
+                      : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text('Submit parent information'),
-                            SizedBox(width: 6),
-                            Icon(LucideIcons.chevronRight, size: 18),
+                            Text(_t('submitParentInformation')),
+                            const SizedBox(width: 6),
+                            const Icon(LucideIcons.chevronRight, size: 18),
                           ],
                         ),
                 ),

@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_icons.dart';
 
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/models/student_card_item.dart'; // ✅ ใช้ตัวนี้ตัวเดียว
@@ -18,6 +19,12 @@ import 'scan_student_link_qr_page.dart';
 /// (once the linking logic is defined) scanning a QR code the school gives
 /// them.
 enum _AddStudentMethod { form, qr }
+
+String _t(BuildContext context, String key) =>
+    AppLocalizations.of(context).t(key);
+
+String _studentsCountText(BuildContext context, int count) =>
+    _t(context, 'studentsCardViewCount').replaceAll('{count}', '$count');
 
 class StudentsCardListPage extends StatefulWidget {
   final List<StudentCardItem>? students;
@@ -403,16 +410,16 @@ class _StudentsCardListPageState extends State<StudentsCardListPage>
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
-          title: const Text("Logout"),
-          content: const Text("Do you want to logout and go to Login page?"),
+          title: Text(_t(context, 'logout')),
+          content: Text(_t(context, 'logoutConfirmMessage')),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("Cancel"),
+              child: Text(_t(context, 'cancel')),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text("Logout"),
+              child: Text(_t(context, 'logout')),
             ),
           ],
         );
@@ -777,7 +784,7 @@ class _Hero extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "Students",
+                      _t(context, 'students'),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         color: titleColor,
                         fontWeight: FontWeight.w900,
@@ -786,7 +793,7 @@ class _Hero extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      "Card view • $count students",
+                      _studentsCountText(context, count),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: muted,
                         fontWeight: FontWeight.w700,
@@ -988,10 +995,10 @@ class _StudentCard extends StatelessWidget {
                               const SizedBox(width: 5),
                               Text(
                                 item.isRejected
-                                    ? 'Rejected'
+                                    ? _t(context, 'rejected')
                                     : item.isQrLinkRequest
-                                    ? 'QR Link Pending'
-                                    : 'Pending Approval',
+                                    ? _t(context, 'qrLinkPending')
+                                    : _t(context, 'pendingApproval'),
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w800,
@@ -1100,7 +1107,7 @@ class _AddStudentOptionsSheet extends StatelessWidget {
               ),
             ),
             Text(
-              'Add a student',
+              _t(context, 'addAStudent'),
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
@@ -1110,7 +1117,7 @@ class _AddStudentOptionsSheet extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              "Choose how you'd like to add your child.",
+              _t(context, 'chooseAddStudentMethod'),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -1121,16 +1128,16 @@ class _AddStudentOptionsSheet extends StatelessWidget {
             _AddOptionRow(
               isDark: isDark,
               icon: LucideIcons.fileText,
-              title: 'Fill in a form',
-              subtitle: "Enter your child's information yourself.",
+              title: _t(context, 'fillInForm'),
+              subtitle: _t(context, 'fillInFormSubtitle'),
               onTap: () => Navigator.of(context).pop(_AddStudentMethod.form),
             ),
             const SizedBox(height: 12),
             _AddOptionRow(
               isDark: isDark,
               icon: LucideIcons.qrCode,
-              title: 'Scan QR code',
-              subtitle: 'Add a student using a QR code from the school.',
+              title: _t(context, 'scanQrCode'),
+              subtitle: _t(context, 'scanQrCodeSubtitle'),
               onTap: () => Navigator.of(context).pop(_AddStudentMethod.qr),
             ),
           ],
@@ -1286,7 +1293,7 @@ class _AddStudentTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Add student',
+                      _t(context, 'addStudent'),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w900,
                         color: tintFg,
@@ -1295,7 +1302,7 @@ class _AddStudentTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Submit a new application — admin will review it.',
+                      _t(context, 'submitStudentApplicationHint'),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -1366,7 +1373,7 @@ class _LogoutButton extends StatelessWidget {
             Icon(LucideIcons.logOut, size: 15, color: fg),
             const SizedBox(width: 8),
             Text(
-              "Logout",
+              _t(context, 'logout'),
               style: TextStyle(
                 color: fg,
                 fontWeight: FontWeight.w900,
@@ -1449,7 +1456,7 @@ class _EmptyStudents extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Text(
-            'No students yet',
+            _t(context, 'noStudentsYet'),
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: titleColor,
               fontWeight: FontWeight.w800,
@@ -1459,7 +1466,7 @@ class _EmptyStudents extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            "Let's add your child to get started.",
+            _t(context, 'addChildToGetStarted'),
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: muted,
               fontWeight: FontWeight.w600,
@@ -1481,7 +1488,7 @@ class _EmptyStudents extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Tip: tap “Add student” below and fill in your child’s information to link them to your account. Once submitted, an admin will review and approve.',
+                    _t(context, 'emptyStudentsTip'),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: titleColor.withOpacity(.85),
                       fontWeight: FontWeight.w600,
@@ -1499,7 +1506,7 @@ class _EmptyStudents extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: onAdd,
               icon: const Icon(LucideIcons.userPlus, size: 20),
-              label: const Text('Add student'),
+              label: Text(_t(context, 'addStudent')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: accent,
                 foregroundColor: Colors.white,

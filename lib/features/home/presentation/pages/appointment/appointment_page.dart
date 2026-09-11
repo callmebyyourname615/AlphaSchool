@@ -3,6 +3,7 @@ import '../../../../../core/theme/app_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../../core/localization/app_localizations.dart';
 import '../../../../../core/services/global_alert_service.dart';
 import '../../../../../core/services/session_service.dart';
 import 'appointment_model.dart';
@@ -19,6 +20,85 @@ const _kCardBg = Colors.white;
 const _kBorder = Color(0xFFE8ECF0);
 const _kMuted = Color(0xFF9CA3AF);
 const _kText = Color(0xFF1F2937);
+
+String _t(BuildContext context, String key) =>
+    AppLocalizations.of(context).t(key);
+
+String _appointmentStatusLabel(BuildContext context, AppointmentStatus s) =>
+    switch (s) {
+      AppointmentStatus.confirmed => _t(context, 'confirmed'),
+      AppointmentStatus.cancelled => _t(context, 'cancelled'),
+      AppointmentStatus.postponed => _t(context, 'postponed'),
+      AppointmentStatus.pending => _t(context, 'pending'),
+    };
+
+String _appointmentMonthName(BuildContext context, int month) {
+  const keys = [
+    'monthJanuary',
+    'monthFebruary',
+    'monthMarch',
+    'monthApril',
+    'monthMay',
+    'monthJune',
+    'monthJuly',
+    'monthAugust',
+    'monthSeptember',
+    'monthOctober',
+    'monthNovember',
+    'monthDecember',
+  ];
+  return _t(context, keys[month - 1]);
+}
+
+String _appointmentMonthNameShort(BuildContext context, int month) {
+  const keys = [
+    'monthJanShort',
+    'monthFebShort',
+    'monthMarShort',
+    'monthAprShort',
+    'monthMayShort',
+    'monthJunShort',
+    'monthJulShort',
+    'monthAugShort',
+    'monthSepShort',
+    'monthOctShort',
+    'monthNovShort',
+    'monthDecShort',
+  ];
+  return _t(context, keys[month - 1]);
+}
+
+String _appointmentWeekdayShort(BuildContext context, int weekday) {
+  const keys = [
+    'weekdayMonShort',
+    'weekdayTueShort',
+    'weekdayWedShort',
+    'weekdayThuShort',
+    'weekdayFriShort',
+    'weekdaySatShort',
+    'weekdaySunShort',
+  ];
+  return _t(context, keys[weekday - 1]);
+}
+
+String _appointmentWeekdayTinySundayFirst(BuildContext context, int index) {
+  const keys = [
+    'weekdaySunCalendar',
+    'weekdayMonCalendar',
+    'weekdayTueCalendar',
+    'weekdayWedCalendar',
+    'weekdayThuCalendar',
+    'weekdayFriCalendar',
+    'weekdaySatCalendar',
+  ];
+  return _t(context, keys[index]);
+}
+
+String _formatAppointmentCardDate(BuildContext context, DateTime d) {
+  final weekday = _appointmentWeekdayShort(context, d.weekday);
+  final month = _appointmentMonthNameShort(context, d.month);
+  return '$weekday, ${d.day} $month ${d.year}';
+}
 
 class AppointmentPage extends StatefulWidget {
   final String backgroundAsset;
@@ -143,7 +223,7 @@ class _AppointmentPageState extends State<AppointmentPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Could not load appointments';
+        _error = _t(context, 'couldNotLoadAppointments');
         _loading = false;
       });
     }
@@ -164,15 +244,29 @@ class _AppointmentPageState extends State<AppointmentPage> {
   // ── actions ─────────────────────────────────────────────────────────────
   void _confirm(AppointmentModel a) {
     if (a.status == AppointmentStatus.cancelled) return;
+    final confirmAppointmentText = _t(context, 'confirmAppointment');
+    final confirmQuestionText = _t(context, 'confirmAppointmentQuestion');
+    final scheduledOnText = _t(context, 'scheduledOn');
+    final confirmText = _t(context, 'confirm');
+    final cancelText = _t(context, 'cancel');
+    final confirmingText = _t(context, 'confirming');
+    final confirmedTitleText = _t(context, 'confirmedSuccessTitle');
+    final confirmedMessageText = _t(
+      context,
+      'appointmentConfirmedSuccessfully',
+    );
+    final failedText = _t(context, 'failed');
+    final confirmFailedText = _t(context, 'couldNotConfirmAppointment');
     GlobalAlert.showConfirmation(
-      title: 'Confirm Appointment',
-      message: 'Confirm "${a.title}" scheduled on ${_shortDate(a.date)}?',
-      confirmText: 'Confirm',
-      cancelText: 'Cancel',
+      title: confirmAppointmentText,
+      message:
+          '$confirmQuestionText "${a.title}" $scheduledOnText ${_shortDate(a.date)}?',
+      confirmText: confirmText,
+      cancelText: cancelText,
       icon: LucideIcons.circleCheck,
     ).then((confirmed) {
       if (confirmed != true) return;
-      GlobalAlert.showLoading(message: 'Confirming...');
+      GlobalAlert.showLoading(message: confirmingText);
       _svc
           .confirmAppointment(a)
           .then((_) {
@@ -180,15 +274,15 @@ class _AppointmentPageState extends State<AppointmentPage> {
             if (!mounted) return;
             setState(() => a.status = AppointmentStatus.confirmed);
             GlobalAlert.showSuccess(
-              title: 'Confirmed!',
-              message: 'The appointment has been confirmed successfully.',
+              title: confirmedTitleText,
+              message: confirmedMessageText,
             );
           })
           .catchError((_) {
             GlobalAlert.dismiss();
             GlobalAlert.showError(
-              title: 'Failed',
-              message: 'Could not confirm the appointment. Please try again.',
+              title: failedText,
+              message: confirmFailedText,
             );
           });
     });
@@ -196,6 +290,15 @@ class _AppointmentPageState extends State<AppointmentPage> {
 
   void _reschedule(AppointmentModel a) {
     if (a.status == AppointmentStatus.cancelled) return;
+    final confirmRescheduleText = _t(context, 'confirmReschedule');
+    final moveAppointmentToText = _t(context, 'moveAppointmentTo');
+    final rescheduleText = _t(context, 'reschedule');
+    final cancelText = _t(context, 'cancel');
+    final reschedulingText = _t(context, 'rescheduling');
+    final rescheduledTitleText = _t(context, 'rescheduledSuccessTitle');
+    final appointmentMovedToText = _t(context, 'appointmentMovedTo');
+    final failedText = _t(context, 'failed');
+    final rescheduleFailedText = _t(context, 'couldNotRescheduleAppointment');
     showModalBottomSheet<(DateTime, TimeOfDay, TimeOfDay)>(
       context: context,
       isScrollControlled: true,
@@ -206,14 +309,14 @@ class _AppointmentPageState extends State<AppointmentPage> {
       final (newDate, newStart, newEnd) = result;
       final dateStr = _shortDate(newDate);
       GlobalAlert.showConfirmation(
-        title: 'Confirm Reschedule',
-        message: 'Move "${a.title}" to $dateStr?',
-        confirmText: 'Reschedule',
-        cancelText: 'Cancel',
+        title: confirmRescheduleText,
+        message: '$moveAppointmentToText "$dateStr"?',
+        confirmText: rescheduleText,
+        cancelText: cancelText,
         icon: LucideIcons.calendarDays,
       ).then((confirmed) {
         if (confirmed != true || !mounted) return;
-        GlobalAlert.showLoading(message: 'Rescheduling...');
+        GlobalAlert.showLoading(message: reschedulingText);
         _svc
             .rescheduleAppointment(a, newDate, newStart, newEnd)
             .then((_) {
@@ -231,16 +334,15 @@ class _AppointmentPageState extends State<AppointmentPage> {
               });
               _saveCount(a.id, newCount);
               GlobalAlert.showSuccess(
-                title: 'Rescheduled!',
-                message: 'Appointment has been moved to $dateStr.',
+                title: rescheduledTitleText,
+                message: '$appointmentMovedToText $dateStr.',
               );
             })
             .catchError((_) {
               GlobalAlert.dismiss();
               GlobalAlert.showError(
-                title: 'Failed',
-                message:
-                    'Could not reschedule the appointment. Please try again.',
+                title: failedText,
+                message: rescheduleFailedText,
               );
             });
       });
@@ -249,18 +351,29 @@ class _AppointmentPageState extends State<AppointmentPage> {
 
   void _cancel(AppointmentModel a) {
     final isOwner = _sessionUserId.isNotEmpty && a.createdBy == _sessionUserId;
+    final deleteText = _t(context, 'delete');
+    final declineText = _t(context, 'decline');
+    final deletingText = _t(context, 'deleting');
+    final decliningText = _t(context, 'declining');
+    final deletedText = _t(context, 'appointmentDeleted');
+    final declinedText = _t(context, 'appointmentDeclined');
+    final failedText = _t(context, 'failed');
+    final deleteFailedText = _t(context, 'couldNotDeleteAppointment');
+    final declineFailedText = _t(context, 'couldNotDeclineAppointment');
     GlobalAlert.showConfirmation(
-      title: isOwner ? 'Delete Appointment' : 'Decline Appointment',
-      message: isOwner ? 'Delete "${a.title}"?' : 'Decline "${a.title}"?',
-      confirmText: isOwner ? 'Delete' : 'Decline',
-      cancelText: 'Keep',
+      title: isOwner
+          ? _t(context, 'deleteAppointment')
+          : _t(context, 'declineAppointment'),
+      message: isOwner
+          ? '$deleteText "${a.title}"?'
+          : '$declineText "${a.title}"?',
+      confirmText: isOwner ? deleteText : declineText,
+      cancelText: _t(context, 'keep'),
       icon: isOwner ? LucideIcons.trash2 : LucideIcons.circleX,
       confirmColor: _kRed,
     ).then((confirmed) {
       if (confirmed != true) return;
-      GlobalAlert.showLoading(
-        message: isOwner ? 'Deleting...' : 'Declining...',
-      );
+      GlobalAlert.showLoading(message: isOwner ? deletingText : decliningText);
       final request = isOwner
           ? _svc.deleteAppointment(a)
           : _svc.declineAppointment(a);
@@ -273,19 +386,17 @@ class _AppointmentPageState extends State<AppointmentPage> {
                 _all.removeWhere((item) => item.id == a.id);
                 _markedDates = {for (final item in _all) _date(item.date)};
               });
-              _snack('Appointment deleted');
+              _snack(deletedText);
             } else {
               setState(() => a.status = AppointmentStatus.cancelled);
-              _snack('Appointment declined');
+              _snack(declinedText);
             }
           })
           .catchError((_) {
             GlobalAlert.dismiss();
             GlobalAlert.showError(
-              title: 'Failed',
-              message: isOwner
-                  ? 'Could not delete the appointment. Please try again.'
-                  : 'Could not decline the appointment. Please try again.',
+              title: failedText,
+              message: isOwner ? deleteFailedText : declineFailedText,
             );
           });
     });
@@ -338,7 +449,12 @@ class _AppointmentPageState extends State<AppointmentPage> {
       builder: (_) => _AddAppointmentSheet(initialDate: _selectedDate),
     );
     if (result == null || !mounted) return;
-    GlobalAlert.showLoading(message: 'Saving appointment...');
+    final savingText = _t(context, 'savingAppointment');
+    final createdText = _t(context, 'appointmentCreated');
+    final savedText = _t(context, 'appointmentSavedSuccessfully');
+    final failedText = _t(context, 'failed');
+    final saveFailedText = _t(context, 'couldNotSaveAppointment');
+    GlobalAlert.showLoading(message: savingText);
     try {
       await _svc.createAppointment(result);
       GlobalAlert.dismiss();
@@ -346,16 +462,10 @@ class _AppointmentPageState extends State<AppointmentPage> {
       _selectedDate = _date(result.date);
       _visibleMonth = DateTime(result.date.year, result.date.month);
       await _load();
-      GlobalAlert.showSuccess(
-        title: 'Appointment Created',
-        message: 'The appointment has been saved successfully.',
-      );
+      GlobalAlert.showSuccess(title: createdText, message: savedText);
     } catch (_) {
       GlobalAlert.dismiss();
-      GlobalAlert.showError(
-        title: 'Failed',
-        message: 'Could not save the appointment. Please try again.',
-      );
+      GlobalAlert.showError(title: failedText, message: saveFailedText);
     }
   }
 
@@ -482,25 +592,6 @@ class _AppointmentPageState extends State<AppointmentPage> {
       '${_two(d.day)}/${_two(d.month)}/${d.year}';
 
   static String formatTime(TimeOfDay t) => '${_two(t.hour)}:${_two(t.minute)}';
-
-  static String formatCardDate(DateTime d) {
-    const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const mo = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${wd[d.weekday - 1]}, ${d.day} ${mo[d.month - 1]} ${d.year}';
-  }
 }
 
 // ── Page Header ──────────────────────────────────────────────────────────────
@@ -526,8 +617,8 @@ class _PageHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Calendar',
+                Text(
+                  _t(context, 'calendar'),
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
@@ -537,8 +628,8 @@ class _PageHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 1),
                 Text(
-                  'Schedule & Appointments',
-                  style: TextStyle(
+                  _t(context, 'scheduleAppointments'),
+                  style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: _kMuted,
@@ -595,22 +686,6 @@ class _CalendarCard extends StatelessWidget {
     required this.onPick,
   });
 
-  static const _wdLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-  static const _monthNames = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ];
-
   static bool _same(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
@@ -648,7 +723,7 @@ class _CalendarCard extends StatelessWidget {
                       _NavBtn(icon: LucideIcons.chevronLeft, onTap: onPrev),
                       Expanded(
                         child: Text(
-                          '${_monthNames[month - 1]} $year',
+                          '${_appointmentMonthName(context, month)} $year',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 17,
@@ -666,15 +741,19 @@ class _CalendarCard extends StatelessWidget {
                   // ── Weekday labels ──
                   Row(
                     children: [
-                      for (final w in _wdLabels)
+                      for (var i = 0; i < 7; i++)
                         Expanded(
                           child: Center(
-                            child: Text(
-                              w,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: _kMuted,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                _appointmentWeekdayTinySundayFirst(context, i),
+                                maxLines: 1,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: _kMuted,
+                                ),
                               ),
                             ),
                           ),
@@ -892,8 +971,8 @@ class _SectionHeader extends StatelessWidget {
     final hasFilter = activeFilter != null;
     return Row(
       children: [
-        const Text(
-          'Appointments',
+        Text(
+          _t(context, 'appointments'),
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w900,
@@ -910,7 +989,7 @@ class _SectionHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(99),
             ),
             child: Text(
-              _statusLabel(activeFilter!),
+              _appointmentStatusLabel(context, activeFilter!),
               style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
@@ -931,7 +1010,7 @@ class _SectionHeader extends StatelessWidget {
               ),
               const SizedBox(width: 4),
               Text(
-                'Filter',
+                _t(context, 'filter'),
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -944,13 +1023,6 @@ class _SectionHeader extends StatelessWidget {
       ],
     );
   }
-
-  static String _statusLabel(AppointmentStatus s) => switch (s) {
-    AppointmentStatus.confirmed => 'Confirmed',
-    AppointmentStatus.cancelled => 'Cancelled',
-    AppointmentStatus.postponed => 'Postponed',
-    AppointmentStatus.pending => 'Pending',
-  };
 }
 
 // ── Appointment Card ─────────────────────────────────────────────────────────
@@ -1030,21 +1102,21 @@ class _ApptCard extends StatelessWidget {
     String statusLabel;
     if (isConfirmed) {
       statusColor = _kGreen;
-      statusLabel = 'Confirmed';
+      statusLabel = _appointmentStatusLabel(context, appt.status);
     } else if (isCancelled) {
       statusColor = _kRed;
-      statusLabel = 'Cancelled';
+      statusLabel = _appointmentStatusLabel(context, appt.status);
     } else if (isPostponed) {
       statusColor = _kOrange;
-      statusLabel = 'Postponed';
+      statusLabel = _appointmentStatusLabel(context, appt.status);
     } else {
       statusColor = _kOrange;
-      statusLabel = 'Pending';
+      statusLabel = _appointmentStatusLabel(context, appt.status);
     }
 
     final timeStr =
         '${_AppointmentPageState.formatTime(appt.start)} - ${_AppointmentPageState.formatTime(appt.end)}';
-    final dateStr = _AppointmentPageState.formatCardDate(appt.date);
+    final dateStr = _formatAppointmentCardDate(context, appt.date);
     final location = (appt.note ?? '').trim();
 
     return Container(
@@ -1184,9 +1256,9 @@ class _ApptCard extends StatelessWidget {
                 children: [
                   const Icon(LucideIcons.ganttChart, size: 16, color: _kBlue),
                   const SizedBox(width: 7),
-                  const Text(
-                    'Timeline',
-                    style: TextStyle(
+                  Text(
+                    _t(context, 'timeline'),
+                    style: const TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w900,
                       color: _kBlue,
@@ -1203,7 +1275,9 @@ class _ApptCard extends StatelessWidget {
               // Confirm — disabled after first confirm
               Expanded(
                 child: _ActionBtn(
-                  label: isConfirmed ? 'Confirmed' : 'Confirm',
+                  label: isConfirmed
+                      ? _t(context, 'confirmed')
+                      : _t(context, 'confirm'),
                   icon: LucideIcons.check,
                   filled: !isConfirmed,
                   color: isConfirmed ? _kGreen : _kNavy,
@@ -1225,7 +1299,9 @@ class _ApptCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _ActionBtn(
-                  label: isOwner ? 'Delete' : 'Cancel',
+                  label: isOwner
+                      ? _t(context, 'delete')
+                      : _t(context, 'cancel'),
                   icon: isOwner ? LucideIcons.trash2 : LucideIcons.x,
                   filled: isOwner,
                   color: isOwner ? _kRed : _kText,
@@ -1249,7 +1325,7 @@ class _TimelineSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final safe = MediaQuery.of(context).padding.bottom;
-    final events = _events();
+    final events = _events(context);
     return Container(
       height: MediaQuery.of(context).size.height * .82,
       decoration: const BoxDecoration(
@@ -1290,9 +1366,9 @@ class _TimelineSheet extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Activity timeline',
-                      style: TextStyle(
+                    Text(
+                      _t(context, 'activityTimeline'),
+                      style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w900,
                         color: _kNavy,
@@ -1315,7 +1391,7 @@ class _TimelineSheet extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            '${events.length} update${events.length == 1 ? '' : 's'}',
+            '${events.length} ${events.length == 1 ? _t(context, 'updateSingular') : _t(context, 'updatePlural')}',
             style: const TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w800,
@@ -1325,10 +1401,10 @@ class _TimelineSheet extends StatelessWidget {
           const SizedBox(height: 10),
           Expanded(
             child: events.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
-                      'No timeline activity yet.',
-                      style: TextStyle(
+                      _t(context, 'noTimelineActivityYet'),
+                      style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: _kMuted,
@@ -1363,7 +1439,7 @@ class _TimelineSheet extends StatelessWidget {
     );
   }
 
-  List<_TimelineEvent> _events() {
+  List<_TimelineEvent> _events(BuildContext context) {
     final events = <_TimelineEvent>[];
     final createdAt = appt.createdAt;
     final rescheduledAt = appt.rescheduledAt ?? appt.updatedAt ?? createdAt;
@@ -1376,29 +1452,31 @@ class _TimelineSheet extends StatelessWidget {
 
     events.add(
       _TimelineEvent(
-        title: 'Appointment record created',
+        title: _t(context, 'appointmentRecordCreated'),
         variant: _TimelineVariant.created,
         time: createdAt,
         actor: creatorName.isEmpty ? null : creatorName,
-        badge: 'Created',
+        badge: _t(context, 'created'),
         details: [
-          if (creatorName.isNotEmpty) 'Created by $creatorName',
-          if (appt.title.isNotEmpty) 'Title: ${appt.title}',
+          if (creatorName.isNotEmpty)
+            '${_t(context, 'createdBy')} $creatorName',
+          if (appt.title.isNotEmpty)
+            '${_t(context, 'titleLabel')}: ${appt.title}',
         ],
       ),
     );
 
     events.add(
       _TimelineEvent(
-        title: 'Schedule recorded',
+        title: _t(context, 'scheduleRecorded'),
         variant: _TimelineVariant.scheduled,
         time: createdAt,
-        badge: _fmtDate(originalDate),
+        badge: _fmtDate(context, originalDate),
         details: [
-          'Date: ${_fmtDate(originalDate)}',
-          'Time: ${_fmtTime(originalStart)} - ${_fmtTime(originalEnd)}',
+          '${_t(context, 'date')}: ${_fmtDate(context, originalDate)}',
+          '${_t(context, 'time')}: ${_fmtTime(originalStart)} - ${_fmtTime(originalEnd)}',
           if ((appt.note ?? '').trim().isNotEmpty)
-            'Location: ${(appt.note ?? '').trim()}',
+            '${_t(context, 'location')}: ${(appt.note ?? '').trim()}',
         ],
       ),
     );
@@ -1406,26 +1484,27 @@ class _TimelineSheet extends StatelessWidget {
     for (final person in appt.participants) {
       events.add(
         _TimelineEvent(
-          title: 'Participant invited',
+          title: _t(context, 'participantInvited'),
           variant: _TimelineVariant.invited,
           actor: person.name,
           badge: person.roleLabel,
           time: person.createdAt ?? createdAt,
           details: [
-            '${person.name} added as participant',
-            'Type: ${person.personType}',
-            'Initial status: PENDING',
+            '${person.name} ${_t(context, 'addedAsParticipant')}',
+            '${_t(context, 'type')}: ${person.personType}',
+            '${_t(context, 'initialStatus')}: ${_t(context, 'pending')}',
           ],
         ),
       );
 
       if (person.responseHistory.isNotEmpty) {
         for (final history in person.responseHistory) {
-          final event = _responseEvent(person, history);
+          final event = _responseEvent(context, person, history);
           if (event != null) events.add(event);
         }
       } else if (person.respondedAt != null) {
         final event = _responseEvent(
+          context,
           person,
           ParticipantResponseHistoryModel(
             status: person.status,
@@ -1448,13 +1527,13 @@ class _TimelineSheet extends StatelessWidget {
       final previousEnd = appt.previousRescheduledEnd ?? originalEnd;
       events.add(
         _TimelineEvent(
-          title: 'Appointment rescheduled',
+          title: _t(context, 'appointmentRescheduled'),
           variant: _TimelineVariant.scheduled,
           time: rescheduledAt,
-          badge: _fmtDate(appt.date),
+          badge: _fmtDate(context, appt.date),
           details: [
-            'New schedule: ${_fmtDate(appt.date)} · ${_fmtTime(appt.start)} - ${_fmtTime(appt.end)}',
-            'Previous: ${_fmtDate(previousDate)} · ${_fmtTime(previousStart)} - ${_fmtTime(previousEnd)}',
+            '${_t(context, 'newSchedule')}: ${_fmtDate(context, appt.date)} · ${_fmtTime(appt.start)} - ${_fmtTime(appt.end)}',
+            '${_t(context, 'previous')}: ${_fmtDate(context, previousDate)} · ${_fmtTime(previousStart)} - ${_fmtTime(previousEnd)}',
           ],
         ),
       );
@@ -1462,14 +1541,14 @@ class _TimelineSheet extends StatelessWidget {
       for (final person in appt.participants) {
         events.add(
           _TimelineEvent(
-            title: 'Participant notified of new schedule',
+            title: _t(context, 'participantNotifiedOfNewSchedule'),
             variant: _TimelineVariant.invited,
             actor: person.name,
             badge: person.roleLabel,
             time: rescheduledAt,
             details: [
-              'New schedule shared with ${person.name}',
-              '${_fmtDate(appt.date)} · ${_fmtTime(appt.start)} - ${_fmtTime(appt.end)}',
+              '${_t(context, 'newScheduleSharedWith')} ${person.name}',
+              '${_fmtDate(context, appt.date)} · ${_fmtTime(appt.start)} - ${_fmtTime(appt.end)}',
             ],
           ),
         );
@@ -1488,6 +1567,7 @@ class _TimelineSheet extends StatelessWidget {
   }
 
   _TimelineEvent? _responseEvent(
+    BuildContext context,
     AppointmentParticipantModel person,
     ParticipantResponseHistoryModel history,
   ) {
@@ -1505,10 +1585,10 @@ class _TimelineSheet extends StatelessWidget {
     final rescheduled = status == 'RESCHEDULED';
     return _TimelineEvent(
       title: rescheduled
-          ? 'Reschedule requested'
+          ? _t(context, 'rescheduleRequested')
           : declined
-          ? 'Participant declined'
-          : 'Participant accepted',
+          ? _t(context, 'participantDeclined')
+          : _t(context, 'participantAccepted'),
       variant: rescheduled
           ? _TimelineVariant.reschedule
           : declined
@@ -1519,23 +1599,24 @@ class _TimelineSheet extends StatelessWidget {
       time: history.eventAt ?? person.respondedAt,
       details: [
         rescheduled
-            ? 'Requested a different schedule'
-            : 'Response changed to $status',
-        'By ${person.name}',
+            ? _t(context, 'requestedDifferentSchedule')
+            : '${_t(context, 'responseChangedTo')} $status',
+        '${_t(context, 'by')} ${person.name}',
         if (rescheduled &&
             (history.proposedDate != null ||
                 history.proposedStart != null ||
                 history.proposedEnd != null))
-          'Proposed: ${history.proposedDate == null ? '—' : _fmtDate(history.proposedDate!)} · ${history.proposedStart == null ? '—' : _fmtTime(history.proposedStart!)} - ${history.proposedEnd == null ? '—' : _fmtTime(history.proposedEnd!)}',
+          '${_t(context, 'proposed')}: ${history.proposedDate == null ? '—' : _fmtDate(context, history.proposedDate!)} · ${history.proposedStart == null ? '—' : _fmtTime(history.proposedStart!)} - ${history.proposedEnd == null ? '—' : _fmtTime(history.proposedEnd!)}',
         if (rescheduled)
-          'Attempts: ${history.rescheduleCount}/${AppointmentModel.maxReschedule}',
+          '${_t(context, 'attempts')}: ${history.rescheduleCount}/${AppointmentModel.maxReschedule}',
         if (history.note.isNotEmpty) history.note,
       ],
     );
   }
 
   static String _fmtTime(TimeOfDay t) => _AppointmentPageState.formatTime(t);
-  static String _fmtDate(DateTime d) => _AppointmentPageState.formatCardDate(d);
+  static String _fmtDate(BuildContext context, DateTime d) =>
+      _formatAppointmentCardDate(context, d);
 }
 
 enum _TimelineVariant {
@@ -1663,7 +1744,7 @@ class _TimelineEventRow extends StatelessWidget {
                         Expanded(
                           child: Text(
                             [
-                              _timeLabel(event.time),
+                              _timeLabel(context, event.time),
                               if (event.actor != null) event.actor!,
                             ].join(' · '),
                             maxLines: 1,
@@ -1741,7 +1822,7 @@ class _TimelineEventRow extends StatelessWidget {
                         Padding(
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(
-                            '+${event.details.length - 3} more detail${event.details.length - 3 == 1 ? '' : 's'}',
+                            '+${event.details.length - 3} ${event.details.length - 3 == 1 ? _t(context, 'moreDetailSingular') : _t(context, 'moreDetailPlural')}',
                             style: TextStyle(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w800,
@@ -1760,10 +1841,10 @@ class _TimelineEventRow extends StatelessWidget {
     );
   }
 
-  static String _timeLabel(DateTime? value) {
-    if (value == null) return 'Time not recorded';
+  static String _timeLabel(BuildContext context, DateTime? value) {
+    if (value == null) return _t(context, 'timeNotRecorded');
     final local = value.toLocal();
-    final date = _AppointmentPageState.formatCardDate(local);
+    final date = _formatAppointmentCardDate(context, local);
     final time = _AppointmentPageState.formatTime(
       TimeOfDay(hour: local.hour, minute: local.minute),
     );
@@ -1898,7 +1979,7 @@ class _RescheduleBtn extends StatelessWidget {
                   const SizedBox(width: 4),
                   Flexible(
                     child: Text(
-                      'Reschedule',
+                      _t(context, 'reschedule'),
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 11.5,
@@ -2068,22 +2149,22 @@ class _NoMoreCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'No more appointments today',
-                  style: TextStyle(
+                  _t(context, 'noMoreAppointmentsToday'),
+                  style: const TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w800,
                     color: _kNavy,
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
-                  "Enjoy your day! You're all caught up.",
-                  style: TextStyle(
+                  _t(context, 'allCaughtUpEnjoyDay'),
+                  style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: _kMuted,
@@ -2177,9 +2258,9 @@ class _LoadCard extends StatelessWidget {
             child: CircularProgressIndicator(strokeWidth: 2, color: _kBlue),
           ),
           const SizedBox(width: 12),
-          const Text(
-            'Loading appointments...',
-            style: TextStyle(
+          Text(
+            _t(context, 'loadingAppointments'),
+            style: const TextStyle(
               fontSize: 13.5,
               fontWeight: FontWeight.w700,
               color: _kMuted,
@@ -2222,14 +2303,18 @@ class _ErrorCard extends StatelessWidget {
                 color: _kBlue,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(LucideIcons.refreshCw, size: 16, color: Colors.white),
-                  SizedBox(width: 6),
+                  const Icon(
+                    LucideIcons.refreshCw,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 6),
                   Text(
-                    'Retry',
-                    style: TextStyle(
+                    _t(context, 'retry'),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
                     ),
@@ -2253,11 +2338,11 @@ class _FilterSheet extends StatelessWidget {
   const _FilterSheet({required this.current, required this.onSelect});
 
   static const _options = <String, AppointmentStatus?>{
-    'All': null,
-    'Pending': AppointmentStatus.pending,
-    'Confirmed': AppointmentStatus.confirmed,
-    'Postponed': AppointmentStatus.postponed,
-    'Cancelled': AppointmentStatus.cancelled,
+    'all': null,
+    'pending': AppointmentStatus.pending,
+    'confirmed': AppointmentStatus.confirmed,
+    'postponed': AppointmentStatus.postponed,
+    'cancelled': AppointmentStatus.cancelled,
   };
 
   static const _dotColors = <AppointmentStatus, Color>{
@@ -2290,9 +2375,9 @@ class _FilterSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 18),
-          const Text(
-            'Filter by status',
-            style: TextStyle(
+          Text(
+            _t(context, 'filterByStatus'),
+            style: const TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w900,
               color: _kNavy,
@@ -2302,7 +2387,7 @@ class _FilterSheet extends StatelessWidget {
           const SizedBox(height: 16),
           for (final entry in _options.entries)
             _FilterOption(
-              label: entry.key,
+              label: _t(context, entry.key),
               dotColor: entry.value != null ? _dotColors[entry.value!] : _kBlue,
               isSelected: current == entry.value,
               onTap: () => onSelect(entry.value),
@@ -2559,23 +2644,8 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
   }
 
   String _fmt2(int n) => n.toString().padLeft(2, '0');
-  String _fmtDate(DateTime d) {
-    const mo = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${d.day} ${mo[d.month - 1]} ${d.year}';
-  }
+  String _fmtDate(BuildContext context, DateTime d) =>
+      '${d.day} ${_appointmentMonthNameShort(context, d.month)} ${d.year}';
 
   String _fmtTime(TimeOfDay t) => '${_fmt2(t.hour)}:${_fmt2(t.minute)}';
   int _toMins(TimeOfDay t) => t.hour * 60 + t.minute;
@@ -2624,8 +2694,8 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
     if (!_isAfter(picked, _start)) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('End time must be after start time'),
+        SnackBar(
+          content: Text(_t(context, 'endTimeMustBeAfterStartTime')),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -2645,10 +2715,23 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
 
   Future<void> _submit() async {
     final title = _titleCtrl.text.trim();
+    final youText = _t(context, 'you');
+    final timeConflictText = _t(context, 'timeConflict');
+    final inviteesBookedText = _t(context, 'someInviteesAlreadyBooked');
+    final noEmployeesSelectedText = _t(context, 'noEmployeesSelected');
+    final employeeSelectedText = _t(context, 'employeeSelected');
+    final employeesSelectedText = _t(context, 'employeesSelected');
+    final noParentsInvitedText = _t(context, 'noParentsInvited');
+    final parentInvitedText = _t(context, 'parentInvited');
+    final parentsInvitedText = _t(context, 'parentsInvited');
+    final createAppointmentText = _t(context, 'createAppointment');
+    final createText = _t(context, 'create');
+    final backText = _t(context, 'back');
+    final dateText = _fmtDate(context, _date);
     if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a title'),
+        SnackBar(
+          content: Text(_t(context, 'pleaseEnterTitle')),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -2675,9 +2758,9 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
         blockedParents.isNotEmpty ||
         currentUserConflict != null) {
       GlobalAlert.showError(
-        title: 'Time Conflict',
+        title: timeConflictText,
         message:
-            'Some invitees are already booked at this time.\n${[...blockedEmployees, ...blockedParents, if (currentUserConflict != null) 'You (${currentUserConflict.timeLabel})'].join(', ')}',
+            '$inviteesBookedText\n${[...blockedEmployees, ...blockedParents, if (currentUserConflict != null) '$youText (${currentUserConflict.timeLabel})'].join(', ')}',
       );
       return;
     }
@@ -2688,18 +2771,18 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
     }.where((id) => id.isNotEmpty).toList();
 
     final empLabel = _selectedAdmins.isEmpty
-        ? 'No employees selected'
-        : '${_selectedAdmins.length} employee${_selectedAdmins.length > 1 ? 's' : ''} selected';
+        ? noEmployeesSelectedText
+        : '${_selectedAdmins.length} ${_selectedAdmins.length > 1 ? employeesSelectedText : employeeSelectedText}';
     final parentLabel = autoParentIds.isEmpty
-        ? 'No parents invited'
-        : '${autoParentIds.length} parent${autoParentIds.length > 1 ? 's' : ''} invited';
+        ? noParentsInvitedText
+        : '${autoParentIds.length} ${autoParentIds.length > 1 ? parentsInvitedText : parentInvitedText}';
 
     final confirmed = await GlobalAlert.showConfirmation(
-      title: 'Create Appointment',
+      title: createAppointmentText,
       message:
-          '"$title"\n${_fmtDate(_date)} · ${_fmtTime(_start)} – ${_fmtTime(_end)}\n$empLabel\n$parentLabel',
-      confirmText: 'Create',
-      cancelText: 'Back',
+          '"$title"\n$dateText · ${_fmtTime(_start)} – ${_fmtTime(_end)}\n$empLabel\n$parentLabel',
+      confirmText: createText,
+      cancelText: backText,
       icon: LucideIcons.notebookPen,
     );
     if (confirmed != true || !mounted) return;
@@ -2765,9 +2848,9 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
             const SizedBox(height: 18),
             Row(
               children: [
-                const Text(
-                  'New Appointment',
-                  style: TextStyle(
+                Text(
+                  _t(context, 'newAppointment'),
+                  style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w900,
                     color: _kNavy,
@@ -2784,16 +2867,16 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
             const SizedBox(height: 20),
 
             // Title
-            _FieldLabel(label: 'Title'),
+            _FieldLabel(label: _t(context, 'titleLabel')),
             const SizedBox(height: 6),
             _TextField(
               controller: _titleCtrl,
-              hint: 'e.g. Parent–Teacher Meeting',
+              hint: _t(context, 'parentTeacherMeetingHint'),
             ),
             const SizedBox(height: 14),
 
             // Date
-            _FieldLabel(label: 'Date'),
+            _FieldLabel(label: _t(context, 'date')),
             const SizedBox(height: 6),
             _PickerTile(
               icon: LucideIcons.calendarDays,
@@ -2802,7 +2885,7 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
                 width: 16,
                 height: 16,
               ),
-              label: _fmtDate(_date),
+              label: _fmtDate(context, _date),
               onTap: _pickDate,
             ),
             const SizedBox(height: 14),
@@ -2812,7 +2895,7 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
               children: [
                 Expanded(
                   child: _TimeCard(
-                    label: 'Start At',
+                    label: _t(context, 'startAt'),
                     value: _fmtTime(_start),
                     icon: LucideIcons.clock,
                     onTap: pickStartAt,
@@ -2821,7 +2904,7 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: _TimeCard(
-                    label: 'End At',
+                    label: _t(context, 'endAt'),
                     value: _fmtTime(_end),
                     icon: LucideIcons.timer,
                     onTap: pickEndAt,
@@ -2832,17 +2915,17 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
             const SizedBox(height: 14),
 
             // Meeting place
-            _FieldLabel(label: 'Meetings Place (optional)'),
+            _FieldLabel(label: _t(context, 'meetingPlaceOptional')),
             const SizedBox(height: 6),
             _TextField(
               controller: _noteCtrl,
-              hint: 'Add a meeting place...',
+              hint: _t(context, 'addMeetingPlace'),
               maxLines: 2,
             ),
             const SizedBox(height: 14),
 
             // Invite parents
-            _FieldLabel(label: 'Invite Parents (optional)'),
+            _FieldLabel(label: _t(context, 'inviteParentsOptional')),
             const SizedBox(height: 6),
             _ParentInviteTile(
               selected: _selectedParents,
@@ -2852,7 +2935,10 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
             const SizedBox(height: 14),
 
             // Employee / Participants
-            _FieldLabel(label: 'Employees *', error: _employeeError),
+            _FieldLabel(
+              label: _t(context, 'employeesRequired'),
+              error: _employeeError,
+            ),
             const SizedBox(height: 6),
             _EmployeeTile(
               selected: _selectedAdmins,
@@ -2861,11 +2947,11 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
               onTap: _admins.isEmpty && !_loadingAdmins ? null : _pickEmployees,
             ),
             if (_employeeError)
-              const Padding(
-                padding: EdgeInsets.only(top: 5, left: 2),
+              Padding(
+                padding: const EdgeInsets.only(top: 5, left: 2),
                 child: Text(
-                  'Please select at least one employee',
-                  style: TextStyle(
+                  _t(context, 'pleaseSelectAtLeastOneEmployee'),
+                  style: const TextStyle(
                     fontSize: 11.5,
                     color: _kRed,
                     fontWeight: FontWeight.w600,
@@ -2893,9 +2979,9 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
                           color: Colors.white,
                         ),
                       )
-                    : const Text(
-                        'Save Appointment',
-                        style: TextStyle(
+                    : Text(
+                        _t(context, 'saveAppointment'),
+                        style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
                           color: Colors.white,
@@ -3011,14 +3097,14 @@ class _EmployeeTile extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: loading
-                  ? const Text(
-                      'Loading employees...',
-                      style: TextStyle(fontSize: 14, color: _kMuted),
+                  ? Text(
+                      _t(context, 'loadingEmployees'),
+                      style: const TextStyle(fontSize: 14, color: _kMuted),
                     )
                   : selected.isEmpty
-                  ? const Text(
-                      'Select employees',
-                      style: TextStyle(
+                  ? Text(
+                      _t(context, 'selectEmployees'),
+                      style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                         color: _kMuted,
@@ -3099,14 +3185,14 @@ class _ParentInviteTile extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: loading
-                  ? const Text(
-                      'Loading parents...',
-                      style: TextStyle(fontSize: 14, color: _kMuted),
+                  ? Text(
+                      _t(context, 'loadingParents'),
+                      style: const TextStyle(fontSize: 14, color: _kMuted),
                     )
                   : selected.isEmpty
-                  ? const Text(
-                      'Invite parents',
-                      style: TextStyle(
+                  ? Text(
+                      _t(context, 'inviteParents'),
+                      style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                         color: _kMuted,
@@ -3222,10 +3308,10 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
           // Header
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Select Employees',
-                  style: TextStyle(
+                  _t(context, 'selectEmployees'),
+                  style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w900,
                     color: _kNavy,
@@ -3244,7 +3330,7 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
                     borderRadius: BorderRadius.circular(99),
                   ),
                   child: Text(
-                    '${_selected.length} selected',
+                    '${_selected.length} ${_t(context, 'selected')}',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -3362,7 +3448,7 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
                               if (conflict != null) ...[
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Already booked ${conflict.timeLabel}',
+                                  '${_t(context, 'alreadyBooked')} ${conflict.timeLabel}',
                                   style: const TextStyle(
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.w700,
@@ -3421,8 +3507,8 @@ class _AdminPickerSheetState extends State<_AdminPickerSheet> {
               alignment: Alignment.center,
               child: Text(
                 _selected.isEmpty
-                    ? 'Select at least one employee'
-                    : 'Done  (${_selected.length})',
+                    ? _t(context, 'pleaseSelectAtLeastOneEmployee')
+                    : '${_t(context, 'done')}  (${_selected.length})',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
@@ -3559,10 +3645,10 @@ class _ParentInviteSheetState extends State<_ParentInviteSheet> {
           const SizedBox(height: 16),
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Invite Parents',
-                  style: TextStyle(
+                  _t(context, 'inviteParents'),
+                  style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w900,
                     color: _kNavy,
@@ -3576,7 +3662,7 @@ class _ParentInviteSheetState extends State<_ParentInviteSheet> {
                   borderRadius: BorderRadius.circular(99),
                 ),
                 child: Text(
-                  '${_selected.length} selected',
+                  '${_selected.length} ${_t(context, 'selected')}',
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
@@ -3598,7 +3684,7 @@ class _ParentInviteSheetState extends State<_ParentInviteSheet> {
               children: [
                 Expanded(
                   child: _modeButton(
-                    'By Parent',
+                    _t(context, 'byParent'),
                     !_byStudent,
                     () => setState(() {
                       _byStudent = false;
@@ -3608,7 +3694,7 @@ class _ParentInviteSheetState extends State<_ParentInviteSheet> {
                 ),
                 Expanded(
                   child: _modeButton(
-                    'By Student',
+                    _t(context, 'byStudent'),
                     _byStudent,
                     () => setState(() {
                       _byStudent = true;
@@ -3623,8 +3709,8 @@ class _ParentInviteSheetState extends State<_ParentInviteSheet> {
           _TextField(
             controller: _searchCtrl,
             hint: _byStudent
-                ? 'Search student by name...'
-                : 'Search parent by name...',
+                ? _t(context, 'searchStudentByName')
+                : _t(context, 'searchParentByName'),
           ),
           const SizedBox(height: 12),
           if (widget.loading)
@@ -3650,7 +3736,7 @@ class _ParentInviteSheetState extends State<_ParentInviteSheet> {
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Text(
-                'Done  (${_selected.length})',
+                '${_t(context, 'done')}  (${_selected.length})',
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
@@ -3689,8 +3775,11 @@ class _ParentInviteSheetState extends State<_ParentInviteSheet> {
 
   Widget _parentList(List<ParentInviteModel> parents) {
     if (parents.isEmpty) {
-      return const Center(
-        child: Text('No parents found.', style: TextStyle(color: _kMuted)),
+      return Center(
+        child: Text(
+          _t(context, 'noParentsFound'),
+          style: const TextStyle(color: _kMuted),
+        ),
       );
     }
     return ListView.builder(
@@ -3701,17 +3790,20 @@ class _ParentInviteSheetState extends State<_ParentInviteSheet> {
 
   Widget _studentList() {
     if (_searchCtrl.text.trim().isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
-          'Type a student name to find their parents.',
-          style: TextStyle(color: _kMuted),
+          _t(context, 'typeStudentNameToFindParents'),
+          style: const TextStyle(color: _kMuted),
         ),
       );
     }
     final students = _filteredStudents;
     if (students.isEmpty) {
-      return const Center(
-        child: Text('No students found.', style: TextStyle(color: _kMuted)),
+      return Center(
+        child: Text(
+          _t(context, 'noStudentsFound'),
+          style: const TextStyle(color: _kMuted),
+        ),
       );
     }
     return ListView.builder(
@@ -3770,17 +3862,21 @@ class _ParentInviteSheetState extends State<_ParentInviteSheet> {
                     onPressed: selectable.isEmpty
                         ? null
                         : () => _toggleStudentParents(student),
-                    child: Text(allSelected ? 'Deselect All' : 'Select All'),
+                    child: Text(
+                      allSelected
+                          ? _t(context, 'deselectAll')
+                          : _t(context, 'selectAll'),
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
               if (visibleParents.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.only(left: 44, bottom: 4),
+                Padding(
+                  padding: const EdgeInsets.only(left: 44, bottom: 4),
                   child: Text(
-                    'No parents linked',
-                    style: TextStyle(color: _kMuted, fontSize: 12),
+                    _t(context, 'noParentsLinked'),
+                    style: const TextStyle(color: _kMuted, fontSize: 12),
                   ),
                 )
               else
@@ -3839,7 +3935,7 @@ class _ParentInviteSheetState extends State<_ParentInviteSheet> {
                   ),
                   if (conflict != null)
                     Text(
-                      'Already booked ${conflict.timeLabel}',
+                      '${_t(context, 'alreadyBooked')} ${conflict.timeLabel}',
                       style: const TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w700,
@@ -4002,9 +4098,9 @@ class _ScrollTimePickerSheetState extends State<_ScrollTimePickerSheet> {
           // Header
           Row(
             children: [
-              const Text(
-                'Select Time',
-                style: TextStyle(
+              Text(
+                _t(context, 'selectTime'),
+                style: const TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w900,
                   color: _kNavy,
@@ -4026,9 +4122,9 @@ class _ScrollTimePickerSheetState extends State<_ScrollTimePickerSheet> {
                     color: _kNavy,
                     borderRadius: BorderRadius.circular(99),
                   ),
-                  child: const Text(
-                    'Done',
-                    style: TextStyle(
+                  child: Text(
+                    _t(context, 'done'),
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
@@ -4247,21 +4343,6 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
 
   int _dir = 1;
 
-  static const _monthNames = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ];
-  static const _wdLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   static final _mins5 = List.generate(12, (i) => i * 5);
 
   @override
@@ -4395,23 +4476,23 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
                     // Header
                     Row(
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Reschedule',
-                                style: TextStyle(
+                                _t(context, 'reschedule'),
+                                style: const TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.w900,
                                   color: _kNavy,
                                   letterSpacing: -.4,
                                 ),
                               ),
-                              SizedBox(height: 2),
+                              const SizedBox(height: 2),
                               Text(
-                                'Pick a new date & time',
-                                style: TextStyle(
+                                _t(context, 'pickNewDateTime'),
+                                style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                   color: _kMuted,
@@ -4499,8 +4580,8 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
                     const SizedBox(height: 22),
 
                     // Date label
-                    const _RSLabel(
-                      label: 'New Date',
+                    _RSLabel(
+                      label: _t(context, 'newDate'),
                       icon: LucideIcons.calendarDays,
                     ).animate().fadeIn(delay: 90.ms, duration: 200.ms),
                     const SizedBox(height: 10),
@@ -4532,7 +4613,7 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
                                             child: child,
                                           ),
                                       child: Text(
-                                        '${_monthNames[_visibleMonth.month - 1]} ${_visibleMonth.year}',
+                                        '${_appointmentMonthName(context, _visibleMonth.month)} ${_visibleMonth.year}',
                                         key: ValueKey(_visibleMonth),
                                         textAlign: TextAlign.center,
                                         style: const TextStyle(
@@ -4553,15 +4634,22 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
                               const SizedBox(height: 12),
                               Row(
                                 children: [
-                                  for (final w in _wdLabels)
+                                  for (var i = 0; i < 7; i++)
                                     Expanded(
                                       child: Center(
-                                        child: Text(
-                                          w,
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w700,
-                                            color: _kMuted,
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            _appointmentWeekdayTinySundayFirst(
+                                              context,
+                                              i,
+                                            ),
+                                            maxLines: 1,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: _kMuted,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -4615,8 +4703,8 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
                     const SizedBox(height: 22),
 
                     // Time label
-                    const _RSLabel(
-                      label: 'New Time',
+                    _RSLabel(
+                      label: _t(context, 'newTime'),
                       icon: LucideIcons.clock,
                     ).animate().fadeIn(delay: 160.ms, duration: 200.ms),
                     const SizedBox(height: 10),
@@ -4626,7 +4714,7 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
                           children: [
                             Expanded(
                               child: _TimeWheelCard(
-                                label: 'START',
+                                label: _t(context, 'start'),
                                 hourCtrl: _sHour,
                                 minCtrl: _sMin,
                                 mins: _mins5,
@@ -4647,7 +4735,7 @@ class _RescheduleSheetState extends State<_RescheduleSheet> {
                             const SizedBox(width: 12),
                             Expanded(
                               child: _TimeWheelCard(
-                                label: 'END',
+                                label: _t(context, 'end'),
                                 hourCtrl: _eHour,
                                 minCtrl: _eMin,
                                 mins: _mins5,
@@ -5000,14 +5088,14 @@ class _RSConfirmBtnState extends State<_RSConfirmBtn> {
             ],
           ),
           alignment: Alignment.center,
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(LucideIcons.check, size: 18, color: Colors.white),
-              SizedBox(width: 8),
+              const Icon(LucideIcons.check, size: 18, color: Colors.white),
+              const SizedBox(width: 8),
               Text(
-                'Confirm Reschedule',
-                style: TextStyle(
+                _t(context, 'confirmReschedule'),
+                style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
                   color: Colors.white,

@@ -5,6 +5,7 @@ import '../../../../core/theme/app_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/services/session_service.dart';
 import '../../data/student_link_request_service.dart';
 
@@ -51,6 +52,23 @@ class _ScanStudentLinkQrPageState extends State<ScanStudentLinkQrPage>
   bool _processing = false;
   _LinkScanResult? _result;
 
+  String _t(String key) => AppLocalizations.of(context).t(key);
+
+  String _scanErrorMessage(Object errorCode) {
+    final code = errorCode.toString();
+    if (code.contains('permissionDenied')) {
+      return _t('cameraPermissionDenied');
+    }
+    return _t('cameraError').replaceAll('{error}', code);
+  }
+
+  String _linkErrorMessage(String message) {
+    if (message == "This doesn't look like a valid student QR code.") {
+      return _t('invalidStudentQrCode');
+    }
+    return message;
+  }
+
   @override
   void dispose() {
     _scanLine.dispose();
@@ -69,9 +87,7 @@ class _ScanStudentLinkQrPageState extends State<ScanStudentLinkQrPage>
     final studentId = _extractStudentId(raw);
     if (!_isValidUuid(studentId)) {
       setState(() {
-        _result = _LinkScanResult.error(
-          "This doesn't look like a valid student QR code.",
-        );
+        _result = _LinkScanResult.error(_t('invalidStudentQrCode'));
         _processing = false;
       });
       return;
@@ -82,9 +98,7 @@ class _ScanStudentLinkQrPageState extends State<ScanStudentLinkQrPage>
     if (parentId.isEmpty) {
       if (!mounted) return;
       setState(() {
-        _result = _LinkScanResult.error(
-          'Your session is missing. Please sign in again.',
-        );
+        _result = _LinkScanResult.error(_t('sessionMissingSignInAgain'));
         _processing = false;
       });
       return;
@@ -103,13 +117,13 @@ class _ScanStudentLinkQrPageState extends State<ScanStudentLinkQrPage>
     } on StudentLinkRequestException catch (e) {
       if (!mounted) return;
       setState(() {
-        _result = _LinkScanResult.conflict(e.message);
+        _result = _LinkScanResult.conflict(_linkErrorMessage(e.message));
         _processing = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _result = _LinkScanResult.error('Unable to connect. Please try again.');
+        _result = _LinkScanResult.error(_t('unableToConnectTryAgain'));
         _processing = false;
       });
     }
@@ -154,7 +168,7 @@ class _ScanStudentLinkQrPageState extends State<ScanStudentLinkQrPage>
             onDetect: _onDetect,
             errorBuilder: (context, error) => Center(
               child: Text(
-                'Camera error: ${error.errorCode}',
+                _scanErrorMessage(error.errorCode),
                 style: const TextStyle(color: Colors.white),
               ),
             ),
@@ -263,8 +277,8 @@ class _ScanStudentLinkQrPageState extends State<ScanStudentLinkQrPage>
                   const SizedBox(height: 28),
                   Text(
                     _processing
-                        ? 'Submitting request...'
-                        : "Align the student's QR code inside the frame",
+                        ? _t('submittingRequest')
+                        : _t('alignStudentQrCodeFrame'),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Color(0xFFF4F8FB),
@@ -273,10 +287,10 @@ class _ScanStudentLinkQrPageState extends State<ScanStudentLinkQrPage>
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
-                    'Ask the student\'s other guardian to show their QR code from the Profile page.',
+                  Text(
+                    _t('askOtherGuardianQrProfile'),
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Color(0xB0F4F8FB),
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -305,7 +319,7 @@ class _ScanStudentLinkQrPageState extends State<ScanStudentLinkQrPage>
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Add student • QR link request',
+                          _t('addStudentQrLinkRequest'),
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: .80),
                             fontSize: 12,
@@ -380,17 +394,17 @@ class _LinkResultOverlay extends StatelessWidget {
         _LinkScanOutcome.conflict => _MessageCard(
           icon: LucideIcons.circleAlert,
           color: _kAmber,
-          title: "Can't send this request",
+          title: AppLocalizations.of(context).t('cantSendRequest'),
           message: result.message,
-          buttonLabel: 'Scan Again',
+          buttonLabel: AppLocalizations.of(context).t('scanAgain'),
           onTap: onScanAgain,
         ),
         _LinkScanOutcome.error => _MessageCard(
           icon: LucideIcons.circleX,
           color: _kRed,
-          title: 'Something went wrong',
+          title: AppLocalizations.of(context).t('somethingWentWrong'),
           message: result.message,
-          buttonLabel: 'Try Again',
+          buttonLabel: AppLocalizations.of(context).t('tryAgain'),
           onTap: onScanAgain,
         ),
       },
@@ -446,9 +460,9 @@ class _SubmittedCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(99),
               border: Border.all(color: _kGreen.withValues(alpha: .25)),
             ),
-            child: const Text(
-              'REQUEST SENT',
-              style: TextStyle(
+            child: Text(
+              AppLocalizations.of(context).t('requestSent'),
+              style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w900,
                 color: _kGreen,
@@ -458,7 +472,9 @@ class _SubmittedCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Text(
-            studentName.isNotEmpty ? studentName : 'Student',
+            studentName.isNotEmpty
+                ? studentName
+                : AppLocalizations.of(context).t('student'),
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 20,
@@ -475,11 +491,10 @@ class _SubmittedCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: _kBorder),
             ),
-            child: const Text(
-              "An admin will review your request. Once approved, this student "
-              "will show up in your account.",
+            child: Text(
+              AppLocalizations.of(context).t('qrLinkRequestReviewMessage'),
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 13,
                 color: _kText,
                 fontWeight: FontWeight.w600,
@@ -491,7 +506,11 @@ class _SubmittedCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             height: 46,
-            child: _CardBtn(label: 'Done', filled: true, onTap: onClose),
+            child: _CardBtn(
+              label: AppLocalizations.of(context).t('done'),
+              filled: true,
+              onTap: onClose,
+            ),
           ),
         ],
       ),

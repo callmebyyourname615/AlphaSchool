@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../../core/localization/app_localizations.dart';
 import '../../../../../shared/models/student_card_item.dart';
 import 'branch_model.dart';
 import 'branch_service.dart';
@@ -22,6 +23,9 @@ const _kCardBg = Colors.white;
 const _kBorder = Color(0xFFE3E9F2);
 const _kMuted = Color(0xFF647594);
 const _kMutedSoft = Color(0xFF8A98B0);
+
+String _t(BuildContext context, String key) =>
+    AppLocalizations.of(context).t(key);
 
 class ContactPage extends StatefulWidget {
   final StudentCardItem? selectedStudent;
@@ -126,8 +130,8 @@ class _ContactHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          const Text(
-            'ຕິດຕໍ່ໂຮງຮຽນ',
+          Text(
+            _t(context, 'contactSchool'),
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w800,
@@ -151,31 +155,31 @@ class _Content extends StatelessWidget {
     // "Get in touch" — direct lines to the branch.
     final reachItems = <_ContactItem>[
       _ContactItem(
-        'Phone #1',
+        _t(context, 'phone1Label'),
         branch.phone,
         LucideIcons.whatsapp,
         iconColor: _kGreen,
       ),
       _ContactItem(
-        'Phone #2',
+        _t(context, 'phone2Label'),
         branch.contact,
         LucideIcons.whatsapp,
         iconColor: _kGreen,
       ),
       _ContactItem(
-        'Branch Code',
+        _t(context, 'branchCode'),
         branch.code,
         LucideIcons.hashtag,
         iconColor: _kBlue,
       ),
       _ContactItem(
-        'Governance Branch ID',
+        _t(context, 'governanceBranchId'),
         branch.branchNo,
         LucideIcons.building,
         iconColor: _kBlue,
       ),
       _ContactItem(
-        'Location',
+        _t(context, 'location'),
         branch.address,
         LucideIcons.mapPin,
         iconColor: _kBlue,
@@ -188,7 +192,7 @@ class _Content extends StatelessWidget {
     // row opens), not decoration.
     final onlineItems = <_ContactItem>[
       _ContactItem(
-        'Google Maps',
+        _t(context, 'googleMaps'),
         branch.mapUrl,
         LucideIcons.mapPinned,
         iconColor: _kRed,
@@ -196,7 +200,7 @@ class _Content extends StatelessWidget {
         maxLines: 2,
       ),
       _ContactItem(
-        'Facebook',
+        _t(context, 'facebook'),
         branch.facebookUrl,
         LucideIcons.facebook,
         iconColor: _kFbBlue,
@@ -204,7 +208,7 @@ class _Content extends StatelessWidget {
         maxLines: 2,
       ),
       _ContactItem(
-        'Website',
+        _t(context, 'website'),
         branch.websiteUrl,
         LucideIcons.globe,
         iconColor: _kBlue,
@@ -226,7 +230,7 @@ class _Content extends StatelessWidget {
               curve: Curves.easeOut,
             ),
         const SizedBox(height: 20),
-        const _SectionLabel('Get in touch'),
+        _SectionLabel(_t(context, 'getInTouch')),
         const SizedBox(height: 8),
         _ContactCard(items: reachItems)
             .animate()
@@ -238,7 +242,7 @@ class _Content extends StatelessWidget {
               curve: Curves.easeOut,
             ),
         const SizedBox(height: 18),
-        const _SectionLabel('Find us online'),
+        _SectionLabel(_t(context, 'findUsOnline')),
         const SizedBox(height: 8),
         _ContactCard(items: onlineItems)
             .animate()
@@ -284,7 +288,9 @@ class _HeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final logoUrl = BranchService.resolveImageUrl(branch.profilePicPath);
-    final subtitle = branch.code.isEmpty ? 'School branch' : branch.code;
+    final subtitle = branch.code.isEmpty
+        ? _t(context, 'schoolBranch')
+        : branch.code;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
@@ -410,11 +416,11 @@ class _ContactCard extends StatelessWidget {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Copied'),
-        duration: Duration(milliseconds: 900),
+      SnackBar(
+        content: Text(_t(context, 'copied')),
+        duration: const Duration(milliseconds: 900),
         behavior: SnackBarBehavior.floating,
-        margin: EdgeInsets.fromLTRB(16, 0, 16, 16),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       ),
     );
   }
@@ -430,7 +436,7 @@ class _ContactCard extends StatelessWidget {
     if (opened || !context.mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Could not open this link')));
+    ).showSnackBar(SnackBar(content: Text(_t(context, 'couldNotOpenLink'))));
   }
 
   static String _normalizeLink(String raw) {
@@ -566,7 +572,7 @@ class _ErrorState extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            "Couldn't load school info",
+            _t(context, 'couldNotLoadSchoolInfo'),
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w800,
@@ -595,7 +601,7 @@ class _ErrorState extends StatelessWidget {
               ),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             ),
-            child: const Text('Try again'),
+            child: Text(_t(context, 'tryAgain')),
           ),
         ],
       ),
@@ -620,7 +626,7 @@ class _NoBranchState extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'No school info available',
+            _t(context, 'noSchoolInfoAvailable'),
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w800,
@@ -629,7 +635,7 @@ class _NoBranchState extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'No branch is linked to the selected student.',
+            _t(context, 'noBranchLinkedStudent'),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12.5,

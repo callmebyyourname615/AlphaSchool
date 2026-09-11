@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/session_service.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -66,11 +67,12 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _submit() async {
     if (_loading || _navLock) return;
+    final l10n = AppLocalizations.of(context);
     final login = _emailCtrl.text.trim();
     final password = _passCtrl.text;
 
     if (login.isEmpty || password.isEmpty) {
-      _showError('Please enter your username/email and password');
+      _showError(l10n.t('emptyCredentialsError'));
       return;
     }
 
@@ -99,7 +101,7 @@ class _LoginPageState extends State<LoginPage> {
     } on ApiException catch (error) {
       if (mounted) _showError(error.message);
     } catch (error) {
-      if (mounted) _showError('Unable to sign in: $error');
+      if (mounted) _showError('${l10n.t('unableToSignIn')}: $error');
     } finally {
       if (mounted && !_navLock) setState(() => _loading = false);
     }
@@ -153,6 +155,8 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -170,7 +174,7 @@ class _LoginPageState extends State<LoginPage> {
             onPressed: _loading ? null : _goYearPicker,
             icon: const Icon(LucideIcons.arrowLeft),
             color: AppColors.dark,
-            tooltip: 'Back',
+            tooltip: l10n.t('back'),
           ),
         ),
         body: SafeArea(
@@ -186,17 +190,17 @@ class _LoginPageState extends State<LoginPage> {
                     children: [
                       Center(
                         child: SizedBox(
-                          width: 150,
-                          height: 100,
+                          width: 180,
+                          height: 220,
                           child: Image.asset(
-                            'assets/images/logo/Alpha.png',
+                            'assets/images/logo/school_logo_cutout.png',
                             fit: BoxFit.contain,
                           ),
                         ),
                       ),
                       const SizedBox(height: 24),
                       Text(
-                        'Welcome Back',
+                        l10n.t('welcomeBack'),
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.headlineMedium
                             ?.copyWith(
@@ -206,15 +210,18 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Please sign in to your account',
+                      Text(
+                        l10n.t('loginSubtitle'),
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: AppColors.gray, fontSize: 15),
+                        style: const TextStyle(
+                          color: AppColors.gray,
+                          fontSize: 15,
+                        ),
                       ),
                       if (widget.academicYear != null) ...[
                         const SizedBox(height: 6),
                         Text(
-                          'Academic year ${widget.academicYear}',
+                          '${l10n.t('academicYear')} ${widget.academicYear}',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: AppColors.blue300,
@@ -225,7 +232,7 @@ class _LoginPageState extends State<LoginPage> {
                       ],
                       const SizedBox(height: 32),
                       _LoginField(
-                        hint: 'Email',
+                        hint: l10n.t('email'),
                         controller: _emailCtrl,
                         icon: LucideIcons.mail,
                         keyboardType: TextInputType.emailAddress,
@@ -236,7 +243,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(height: 18),
                       _LoginField(
-                        hint: 'Password',
+                        hint: l10n.t('password'),
                         controller: _passCtrl,
                         icon: LucideIcons.lock,
                         obscureText: _obscure,
@@ -263,9 +270,9 @@ class _LoginPageState extends State<LoginPage> {
                             activeColor: AppColors.blue300,
                             visualDensity: VisualDensity.compact,
                           ),
-                          const Text(
-                            'Remember me',
-                            style: TextStyle(
+                          Text(
+                            l10n.t('rememberMe'),
+                            style: const TextStyle(
                               color: AppColors.dark,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
@@ -274,7 +281,7 @@ class _LoginPageState extends State<LoginPage> {
                           const Spacer(),
                           TextButton(
                             onPressed: _loading ? null : () {},
-                            child: const Text('Forgot password?'),
+                            child: Text(l10n.t('forgotPassword')),
                           ),
                         ],
                       ),
@@ -307,9 +314,9 @@ class _LoginPageState extends State<LoginPage> {
                                       color: Colors.white,
                                     ),
                                   )
-                                : const Text(
-                                    'Login',
-                                    style: TextStyle(
+                                : Text(
+                                    l10n.t('login'),
+                                    style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -318,21 +325,25 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       const SizedBox(height: 22),
-                      const Row(
+                      Row(
                         children: [
-                          Expanded(child: Divider(color: Color(0xFFE3E9F2))),
+                          const Expanded(
+                            child: Divider(color: Color(0xFFE3E9F2)),
+                          ),
                           Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: Text(
-                              'OR',
-                              style: TextStyle(
+                              l10n.t('or'),
+                              style: const TextStyle(
                                 color: AppColors.grayLight,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
-                          Expanded(child: Divider(color: Color(0xFFE3E9F2))),
+                          const Expanded(
+                            child: Divider(color: Color(0xFFE3E9F2)),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 22),
@@ -341,7 +352,7 @@ class _LoginPageState extends State<LoginPage> {
                         child: OutlinedButton.icon(
                           onPressed: _loading ? null : () {},
                           icon: const Icon(LucideIcons.scanQrCode, size: 17),
-                          label: const Text('Scan to login'),
+                          label: Text(l10n.t('scanToLogin')),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.blue300,
                             side: const BorderSide(color: AppColors.blue100),
@@ -355,9 +366,9 @@ class _LoginPageState extends State<LoginPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text(
-                            'New to C-Connect? ',
-                            style: TextStyle(color: AppColors.gray),
+                          Text(
+                            l10n.t('newToCConnect'),
+                            style: const TextStyle(color: AppColors.gray),
                           ),
                           TextButton(
                             onPressed: _loading
@@ -365,9 +376,11 @@ class _LoginPageState extends State<LoginPage> {
                                 : () => Navigator.of(
                                     context,
                                   ).push(_route(const RegisterPage())),
-                            child: const Text(
-                              'Create account',
-                              style: TextStyle(fontWeight: FontWeight.w700),
+                            child: Text(
+                              l10n.t('createAccount'),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ],

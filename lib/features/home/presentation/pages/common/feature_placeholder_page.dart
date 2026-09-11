@@ -22,13 +22,15 @@ class FeaturePlaceholderPage extends StatelessWidget {
 
     final titleColor = isDark ? Colors.white : AppColors.blue500;
     final muted = isDark
-        ? AppColors.grayUltraLight.withOpacity(.80)
-        : AppColors.blue500.withOpacity(.62);
+        ? AppColors.grayUltraLight.withValues(alpha: .80)
+        : AppColors.blue500.withValues(alpha: .62);
 
-    final cardBg = isDark ? AppColors.blue500.withOpacity(.10) : cs.surface;
+    final cardBg = isDark
+        ? AppColors.blue500.withValues(alpha: .10)
+        : cs.surface;
     final border = isDark
-        ? Colors.white.withOpacity(.10)
-        : AppColors.slate.withOpacity(.12);
+        ? Colors.white.withValues(alpha: .10)
+        : AppColors.slate.withValues(alpha: .12);
 
     return Scaffold(
       backgroundColor: t.scaffoldBackgroundColor,
@@ -60,12 +62,6 @@ class FeaturePlaceholderPage extends StatelessWidget {
                       Text(
                         subtitle,
                         style: t.textTheme.bodyMedium?.copyWith(color: muted),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        "Replace this page with real feature UI.",
-                        style: t.textTheme.bodySmall?.copyWith(color: muted),
                         textAlign: TextAlign.center,
                       ),
                     ],
