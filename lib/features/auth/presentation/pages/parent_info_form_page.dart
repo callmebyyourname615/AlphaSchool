@@ -1,6 +1,5 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:file_selector/file_selector.dart';
 import '../../../../core/theme/app_icons.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -31,7 +30,17 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   static const _slate200 = Color(0xFFE2E8F0);
   static const _slate100 = Color(0xFFEFF2F8);
   static const _rose500 = Color(0xFFE11D48);
+  static const _green = Color(0xFF16A34A);
+  static const _greenSoft = Color(0xFFDFF8EA);
   static const bool _disableRequiredValidationForTesting = false;
+  static final TextInputFormatter _dateInputFormatter =
+      TextInputFormatter.withFunction((oldValue, newValue) {
+        final formatted = _formatDateDigits(newValue.text);
+        return TextEditingValue(
+          text: formatted,
+          selection: TextSelection.collapsed(offset: formatted.length),
+        );
+      });
 
   static const List<_StepMeta> _steps = [
     _StepMeta(1, 'Personal', LucideIcons.user),
@@ -47,8 +56,6 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       'ConfirmPassword',
       'Firstname_Lao',
       'Firstname_Eng',
-      'Midlename_Lao',
-      'Midlename_Eng',
       'Lastname_Lao',
       'Lastname_Eng',
       'Nickname',
@@ -57,14 +64,14 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     ],
     2: ['Educatio_Level', 'Job', 'Workplace', 'Phone_No1', 'Phone_No2'],
     3: [
-      'IDCard_no',
       'Passport_no',
+      'IDCard_no',
       'FamillyBook_no',
       'Nationality',
       'Ethnicty',
       'Religion',
     ],
-    4: ['Home_no', 'Home_unit', 'Village', 'District', 'Province'],
+    4: ['Home_no', 'Home_unit', 'Province', 'District', 'Village'],
   };
 
   static const _education = [
@@ -76,6 +83,55 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     'Doctorate',
   ];
   static const _genders = ['Male', 'Female', 'Other'];
+
+  static String _formatDateDigits(String value) {
+    final digits = value.replaceAll(RegExp(r'\D'), '');
+    final clipped = digits.length > 8 ? digits.substring(0, 8) : digits;
+    if (clipped.length <= 2) return clipped;
+    if (clipped.length <= 4) {
+      return '${clipped.substring(0, 2)}/${clipped.substring(2)}';
+    }
+    return '${clipped.substring(0, 2)}/${clipped.substring(2, 4)}/${clipped.substring(4)}';
+  }
+
+  static String _displayDate(String? value) {
+    final text = value?.trim() ?? '';
+    if (_isDatePlaceholder(text)) return '';
+    final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(text);
+    if (match == null) return text;
+    return '${match.group(3)}/${match.group(2)}/${match.group(1)}';
+  }
+
+  static String _storeDateInput(String value) {
+    final text = value.trim();
+    if (_isDatePlaceholder(text)) return '';
+    final match = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$').firstMatch(text);
+    if (match == null) return text;
+
+    final day = int.tryParse(match.group(1)!);
+    final month = int.tryParse(match.group(2)!);
+    final year = int.tryParse(match.group(3)!);
+    if (day == null || month == null || year == null) return text;
+
+    final date = DateTime(year, month, day);
+    if (date.year != year || date.month != month || date.day != day) {
+      return text;
+    }
+
+    return '${year.toString().padLeft(4, '0')}-'
+        '${month.toString().padLeft(2, '0')}-'
+        '${day.toString().padLeft(2, '0')}';
+  }
+
+  static bool _isDatePlaceholder(String value) {
+    final text = value.trim().toUpperCase();
+    return text.isEmpty ||
+        text == 'YYYY-MM-DD' ||
+        text == 'DD/MM/YYYY' ||
+        text == 'DAY/MONTH/YEAR' ||
+        value.contains('ວັນ') ||
+        value.contains('ເດືອນ');
+  }
 
   int _step = 1;
   final Map<String, String> _data = {};
@@ -107,6 +163,48 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
   int _formRevision = 0;
 
   String _t(String key) => AppLocalizations.of(context).t(key);
+
+  String _datePlaceholder() {
+    final code = Localizations.localeOf(context).languageCode;
+    return code == 'lo' || code == 'la' ? 'ວັນ/ເດືອນ/ປີ' : 'Day/Month/Year';
+  }
+
+  String _nicknameLabel() {
+    final code = Localizations.localeOf(context).languageCode;
+    return code == 'lo' || code == 'la'
+        ? 'ຊື່ຫລິ້ນ (ອັງກິດ)'
+        : 'Nickname (English)';
+  }
+
+  String _phonePlaceholder() {
+    final code = Localizations.localeOf(context).languageCode;
+    return code == 'lo' || code == 'la'
+        ? 'ພິມເບີໂທ 020XXXXXXXX'
+        : 'Enter phone 020XXXXXXXX';
+  }
+
+  bool get _isLaoLocale {
+    final code = Localizations.localeOf(context).languageCode;
+    return code == 'lo' || code == 'la';
+  }
+
+  String _parentPlaceholder(String key) {
+    final text = _t(key);
+    return _isLaoLocale ? text.replaceFirst('ປ້ອນ', 'ພິມ') : text;
+  }
+
+  String _parentAddressLabel(String lao, String english) =>
+      _isLaoLocale ? lao : english;
+
+  String _parentAddressHint(String lao, String english) =>
+      _isLaoLocale ? lao : english;
+
+  String _identityCardUploadLabel() =>
+      _isLaoLocale ? 'ຮູບບັດປະຈຳຕົວ' : 'Identity card image';
+
+  String _familyBookUploadLabel() => _isLaoLocale
+      ? 'ຮູບປຶ້ມສຳມະໂນຄົວ (PDF ຫຼື ຮູບ)'
+      : 'Family book image (PDF or image)';
 
   String _stepOfLabel() => _t('stepOf').replaceAll('{step}', '$_step');
 
@@ -395,7 +493,10 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
 
     final next = <String, String>{};
     for (final f in _required[_step] ?? const <String>[]) {
-      if ((_data[f] ?? '').trim().isEmpty) next[f] = _t('fieldRequiredError');
+      final value = (_data[f] ?? '').trim();
+      if (value.isEmpty || (f == 'DateofBirth' && _isDatePlaceholder(value))) {
+        next[f] = _t('fieldRequiredError');
+      }
     }
     if (_step == 1 || _step == 2) {
       final email = _data['Email'] ?? '';
@@ -756,7 +857,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                           widthFactor: value,
                           child: Container(
                             decoration: BoxDecoration(
-                              color: _blue,
+                              color: _green,
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
@@ -813,24 +914,26 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     final completed = _step > s.id;
     final active = _step == s.id;
     final filled = completed || active;
+    final fillColor = completed ? _green : _blue;
+    final haloColor = completed ? _greenSoft : _blueSoft;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 320),
       curve: Curves.easeOutCubic,
       height: active ? 44 : 40,
       width: active ? 44 : 40,
       decoration: BoxDecoration(
-        color: filled ? _blue : _slate100,
+        color: filled ? fillColor : _slate100,
         shape: BoxShape.circle,
         boxShadow: active
             ? [
                 BoxShadow(
-                  color: _blue.withValues(alpha: .25),
+                  color: fillColor.withValues(alpha: .25),
                   blurRadius: 14,
                   offset: const Offset(0, 4),
                 ),
               ]
             : null,
-        border: active ? Border.all(color: _blueSoft, width: 3) : null,
+        border: active ? Border.all(color: haloColor, width: 3) : null,
       ),
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 260),
@@ -862,7 +965,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 _t('email'),
                 'Email',
                 required: true,
-                placeholder: _t('enterEmail'),
+                placeholder: _parentPlaceholder('enterEmail'),
                 keyboard: TextInputType.emailAddress,
               ),
               _input(
@@ -914,43 +1017,41 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 _t('firstNameLao'),
                 'Firstname_Lao',
                 required: true,
-                placeholder: _t('enterLao'),
+                placeholder: _parentPlaceholder('enterLao'),
               ),
               _input(
                 _t('firstNameEnglish'),
                 'Firstname_Eng',
                 required: true,
-                placeholder: _t('enterEnglish'),
+                placeholder: _parentPlaceholder('enterEnglish'),
               ),
               _input(
                 _t('middleNameLao'),
                 'Midlename_Lao',
-                required: true,
-                placeholder: _t('enterLao'),
+                placeholder: _parentPlaceholder('enterLao'),
               ),
               _input(
                 _t('middleNameEnglish'),
                 'Midlename_Eng',
-                required: true,
-                placeholder: _t('enterEnglish'),
+                placeholder: _parentPlaceholder('enterEnglish'),
               ),
               _input(
                 _t('lastNameLao'),
                 'Lastname_Lao',
                 required: true,
-                placeholder: _t('enterLao'),
+                placeholder: _parentPlaceholder('enterLao'),
               ),
               _input(
                 _t('lastNameEnglish'),
                 'Lastname_Eng',
                 required: true,
-                placeholder: _t('enterEnglish'),
+                placeholder: _parentPlaceholder('enterEnglish'),
               ),
               _input(
-                _t('nickname'),
+                _nicknameLabel(),
                 'Nickname',
                 required: true,
-                placeholder: _t('enterNickname'),
+                placeholder: _parentPlaceholder('enterNickname'),
               ),
               _dateInput(_t('dateOfBirth'), 'DateofBirth', required: true),
               _select(
@@ -972,71 +1073,59 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
             required: true,
             placeholder: _t('selectEducationLevel'),
           ),
-          _input(_t('job'), 'Job', required: true, placeholder: _t('enterJob')),
+          _input(
+            _t('job'),
+            'Job',
+            required: true,
+            placeholder: _parentPlaceholder('enterJob'),
+          ),
           _input(
             _t('workplace'),
             'Workplace',
             required: true,
-            placeholder: _t('enterWorkplace'),
+            placeholder: _parentPlaceholder('enterWorkplace'),
           ),
           _input(
             _t('email'),
             'Email',
             required: true,
-            placeholder: _t('enterEmail'),
+            placeholder: _parentPlaceholder('enterEmail'),
             keyboard: TextInputType.emailAddress,
           ),
           _input(
             _t('phoneNo1'),
             'Phone_No1',
             required: true,
-            placeholder: _t('enterPhoneNumber'),
+            placeholder: _phonePlaceholder(),
             keyboard: TextInputType.phone,
           ),
           _input(
             _t('phoneNo2'),
             'Phone_No2',
             required: true,
-            placeholder: _t('enterPhoneNumber'),
+            placeholder: _phonePlaceholder(),
             keyboard: TextInputType.phone,
           ),
         ]);
       case 3:
         return _sectionCard(3, _t('identification'), [
           _input(
-            _t('idCardNo'),
-            'IDCard_no',
-            required: true,
-            placeholder: _t('enterIdCardNumber'),
-          ),
-          _input(
             _t('passportNo'),
             'Passport_no',
             required: true,
-            placeholder: _t('enterPassportNumber'),
+            placeholder: _parentPlaceholder('enterPassportNumber'),
+          ),
+          _input(
+            _t('idCardNo'),
+            'IDCard_no',
+            required: true,
+            placeholder: _parentPlaceholder('enterIdCardNumber'),
           ),
           _input(
             _t('familyBookNo'),
             'FamillyBook_no',
             required: true,
-            placeholder: _t('enterFamilyBookNumber'),
-          ),
-          _fileUpload(
-            _t('identityCard'),
-            'id_card',
-            required: true,
-            pdfOnly: false,
-          ),
-          _fileUpload(
-            _t('homePictureOptional'),
-            'home_picture',
-            pdfOnly: false,
-          ),
-          _fileUpload(
-            _t('familyBookUpload'),
-            'family_book',
-            required: true,
-            pdfOnly: true,
+            placeholder: _parentPlaceholder('enterFamilyBookNumber'),
           ),
           _fileUpload(
             _t('passportImage'),
@@ -1044,23 +1133,35 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
             required: true,
             pdfOnly: false,
           ),
+          _fileUpload(
+            _identityCardUploadLabel(),
+            'id_card',
+            required: true,
+            pdfOnly: false,
+          ),
+          _fileUpload(
+            _familyBookUploadLabel(),
+            'family_book',
+            required: true,
+            pdfOnly: true,
+          ),
           _input(
             _t('nationality'),
             'Nationality',
             required: true,
-            placeholder: _t('enterNationality'),
+            placeholder: _parentPlaceholder('enterNationality'),
           ),
           _input(
             _t('ethnicity'),
             'Ethnicty',
             required: true,
-            placeholder: _t('enterEthnicity'),
+            placeholder: _parentPlaceholder('enterEthnicity'),
           ),
           _input(
             _t('religion'),
             'Religion',
             required: true,
-            placeholder: _t('enterReligion'),
+            placeholder: _parentPlaceholder('enterReligion'),
           ),
         ]);
       case 4:
@@ -1072,17 +1173,33 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 _t('homeNo'),
                 'Home_no',
                 required: true,
-                placeholder: _t('enterHomeNumber'),
+                placeholder: _parentPlaceholder('enterHomeNumber'),
               ),
               _input(
-                _t('homeUnit'),
+                _parentAddressLabel('ເລກຫນ່ວຍ', 'Unit number'),
                 'Home_unit',
                 required: true,
-                placeholder: _t('enterUnitRoom'),
+                placeholder: _parentAddressHint(
+                  'ພິມເລກຫນ່ວຍ',
+                  'Enter unit number',
+                ),
               ),
               _locationProvinceSelect(),
               _locationDistrictSelect(),
+              _input(
+                _parentAddressLabel('ຕາແສງ', 'Sub-district'),
+                'SubDistrict',
+                placeholder: _parentAddressHint(
+                  'ພິມຕາແສງ',
+                  'Enter sub-district',
+                ),
+              ),
               _locationVillageField(),
+              _fileUpload(
+                _t('homePictureOptional'),
+                'home_picture',
+                pdfOnly: false,
+              ),
             ]),
             const SizedBox(height: 16),
             _buildNote(),
@@ -1700,7 +1817,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label(_t('province'), true),
+        _label(_parentAddressLabel('ຊື່ແຂວງ', 'Province name'), true),
         DropdownButtonFormField<String>(
           key: ValueKey('province_$_formRevision'),
           initialValue: selected?.id,
@@ -1720,7 +1837,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                 ? _t('loadingProvinces')
                 : loadError.isNotEmpty
                 ? _t('couldNotLoadProvinces')
-                : _t('selectProvince'),
+                : _parentAddressHint('ເລືອກຊື່ແຂວງ', 'Select province name'),
             style: const TextStyle(color: _slate400, fontSize: 14),
           ),
           style: const TextStyle(
@@ -1745,6 +1862,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                     _data[name] = picked.label;
                     _data['DistrictId'] = '';
                     _data['District'] = '';
+                    _data['SubDistrict'] = '';
                     _data['Village'] = '';
                     _errors.remove(name);
                     _errors.remove('District');
@@ -1815,14 +1933,19 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label(_t('district'), true),
+        _label(_parentAddressLabel('ຊື່ເມືອງ', 'District name'), true),
         DropdownButtonFormField<String>(
           key: ValueKey('district_${province?.id ?? ''}_$_formRevision'),
           initialValue: selected?.id,
           isExpanded: true,
           icon: const Icon(LucideIcons.chevronDown, color: _muted),
           hint: Text(
-            province == null ? _t('selectProvinceFirst') : _t('selectDistrict'),
+            province == null
+                ? _parentAddressHint(
+                    'ເລືອກຊື່ແຂວງກ່ອນ',
+                    'Select province name first',
+                  )
+                : _parentAddressHint('ເລືອກຊື່ເມືອງ', 'Select district name'),
             style: const TextStyle(color: _slate400, fontSize: 14),
           ),
           style: const TextStyle(
@@ -1845,6 +1968,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
                   setState(() {
                     _data['DistrictId'] = picked.id;
                     _data[name] = picked.label;
+                    _data['SubDistrict'] = '';
                     _data['Village'] = '';
                     _errors.remove(name);
                     _errors.remove('Village');
@@ -1903,12 +2027,15 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
 
     if (villages.isEmpty) {
       return _input(
-        _t('village'),
+        _parentAddressLabel('ຊື່ບ້ານ', 'Village name'),
         name,
         required: true,
         placeholder: district == null
-            ? _t('selectDistrictFirst')
-            : _t('enterVillage'),
+            ? _parentAddressHint(
+                'ເລືອກຊື່ເມືອງກ່ອນ',
+                'Select district name first',
+              )
+            : _parentAddressHint('ພິມຊື່ບ້ານ', 'Enter village name'),
       );
     }
 
@@ -1922,14 +2049,14 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label(_t('village'), true),
+        _label(_parentAddressLabel('ຊື່ບ້ານ', 'Village name'), true),
         DropdownButtonFormField<String>(
           key: ValueKey('village_${district?.id ?? ''}_$_formRevision'),
           initialValue: selected,
           isExpanded: true,
           icon: const Icon(LucideIcons.chevronDown, color: _muted),
           hint: Text(
-            _t('selectVillage'),
+            _parentAddressHint('ເລືອກຊື່ບ້ານ', 'Select village name'),
             style: const TextStyle(color: _slate400, fontSize: 14),
           ),
           style: const TextStyle(
@@ -2027,55 +2154,21 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _label(label, required),
-        InkWell(
-          onTap: () async {
-            final now = DateTime.now();
-            DateTime initial = now;
-            if (value != null && value.isNotEmpty) {
-              try {
-                initial = DateTime.parse(value);
-              } catch (_) {}
-            }
-            final picked = await showDatePicker(
-              context: context,
-              initialDate: initial,
-              firstDate: DateTime(1900),
-              lastDate: now,
-              builder: (context, child) => Theme(
-                data: Theme.of(context).copyWith(
-                  colorScheme: const ColorScheme.light(
-                    primary: _blue,
-                    onPrimary: Colors.white,
-                  ),
-                ),
-                child: child!,
-              ),
-            );
-            if (picked != null) {
-              _set(
-                name,
-                '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}',
-              );
-            }
-          },
-          borderRadius: BorderRadius.circular(14),
-          child: InputDecorator(
-            decoration: _decoration(null, err).copyWith(
-              suffixIcon: const Icon(
-                LucideIcons.calendarDays,
-                size: 16,
-                color: _muted,
-              ),
-            ),
-            child: Text(
-              value ?? 'YYYY-MM-DD',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: value == null ? _slate400 : _navy,
-              ),
-            ),
+        TextFormField(
+          key: ValueKey('date_text_$name'),
+          initialValue: _displayDate(value),
+          onChanged: (v) => _set(name, _storeDateInput(v)),
+          keyboardType: TextInputType.number,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            _dateInputFormatter,
+          ],
+          style: const TextStyle(
+            fontSize: 16,
+            color: _navy,
+            fontWeight: FontWeight.w500,
           ),
+          decoration: _decoration(_datePlaceholder(), err),
         ),
         if (err != null)
           Padding(
@@ -2158,6 +2251,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
           children: [
             if (_step > 1) ...[
               Expanded(
+                flex: 2,
                 child: SizedBox(
                   height: 50,
                   child: OutlinedButton.icon(

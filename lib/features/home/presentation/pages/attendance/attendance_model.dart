@@ -92,3 +92,87 @@ class AttendanceRecord {
   static String _time(TimeOfDay value) =>
       '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}:00';
 }
+
+class StaffAttendanceScanRecord {
+  const StaffAttendanceScanRecord({
+    required this.studentName,
+    required this.studentCode,
+    required this.className,
+    required this.checkIn,
+    required this.type,
+    required this.remark,
+  });
+
+  final String studentName;
+  final String studentCode;
+  final String className;
+  final TimeOfDay checkIn;
+  final String type;
+  final String remark;
+
+  bool get isLate => type == 'LATE' || remark == 'LATE';
+  bool get isEarly => remark == 'EARLY';
+  bool get isOnTime => !isLate && !isEarly;
+
+  factory StaffAttendanceScanRecord.fromJson(Map<String, dynamic> json) {
+    final studentJson = json['student'];
+    final student = studentJson is Map ? studentJson : const {};
+    final firstNameLao = _clean(student['first_name_lao']);
+    final lastNameLao = _clean(student['last_name_lao']);
+    final firstName = _clean(student['first_name']);
+    final lastName = _clean(student['last_name']);
+    final laoName = [
+      firstNameLao,
+      lastNameLao,
+    ].where((item) => item != null && item.isNotEmpty).join(' ');
+    final englishName = [
+      firstName,
+      lastName,
+    ].where((item) => item != null && item.isNotEmpty).join(' ');
+
+    return StaffAttendanceScanRecord(
+      studentName: laoName.isNotEmpty
+          ? laoName
+          : englishName.isNotEmpty
+          ? englishName
+          : _clean(json['student_name']) ?? '-',
+      studentCode:
+          _clean(student['student_id']) ?? _clean(json['student_code']) ?? '',
+      className: _className(student),
+      checkIn:
+          TodayAttendance._parseTime(json['check_in']) ??
+          const TimeOfDay(hour: 0, minute: 0),
+      type: json['type']?.toString().trim().toUpperCase() ?? 'PRESENT',
+      remark: json['remark']?.toString().trim().toUpperCase() ?? '',
+    );
+  }
+
+  static String _className(Map<dynamic, dynamic> student) {
+    final enrollments = student['enrollments'];
+    if (enrollments is List && enrollments.isNotEmpty) {
+      final enrollment = enrollments.first;
+      if (enrollment is Map) {
+        final classJson = enrollment['class'];
+        if (classJson is Map) {
+          return _clean(classJson['name']) ??
+              _clean(classJson['class_name']) ??
+              '-';
+        }
+      }
+    }
+
+    final classJson = student['class'];
+    if (classJson is Map) {
+      return _clean(classJson['name']) ??
+          _clean(classJson['class_name']) ??
+          '-';
+    }
+
+    return _clean(student['class_name']) ?? '-';
+  }
+
+  static String? _clean(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty ? null : text;
+  }
+}

@@ -5,6 +5,7 @@ import '../../theme/app_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../localization/app_localizations.dart';
 import '../../network/api_client.dart';
 import '../../network/api_exception.dart';
 
@@ -66,14 +67,14 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
 
     // Validate UUID before hitting API
     if (!_isValidUuid(studentId)) {
+      final l10n = AppLocalizations.of(context);
       setState(() {
         _result = _ScanResult(
           studentId: raw.length > 20 ? '${raw.substring(0, 20)}...' : raw,
           studentName: '',
           checkIn: '',
           type: 'ERROR',
-          remark:
-              'This QR code is not a valid student card. Please scan again.',
+          remark: l10n.t('invalidStudentQrCode'),
           isSuccess: false,
         );
         _processing = false;
@@ -176,7 +177,7 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
           studentName: '',
           checkIn: '',
           type: 'ERROR',
-          remark: 'Unable to connect. Please try again.',
+          remark: AppLocalizations.of(context).t('unableToConnectTryAgain'),
           isSuccess: false,
         );
         _processing = false;
@@ -203,7 +204,9 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
     // Try JSON
     try {
       final j = jsonDecode(raw);
-      if (j is Map) return (j['student_id'] ?? j['id'] ?? raw).toString();
+      if (j is Map) {
+        return (j['studentId'] ?? j['student_id'] ?? j['id'] ?? raw).toString();
+      }
     } catch (_) {}
     return raw.trim();
   }
@@ -301,7 +304,7 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
                         Positioned.fill(
                           child: CustomPaint(
                             painter: _ScanFramePainter(
-                              color: const Color(0xFF3B82F6),
+                              color: _kBlue,
                               dimColor: Colors.white.withValues(alpha: .28),
                             ),
                           ),
@@ -505,32 +508,38 @@ class _SuccessCard extends StatelessWidget {
     }
   }
 
-  String get _statusLabel {
+  String _statusLabel(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     switch (result.type.toUpperCase()) {
       case 'LATE':
-        return 'Late';
+        return l10n.t('late');
       case 'PRESENT':
-        return result.remark == 'EARLY' ? 'Early' : 'Present';
+        return result.remark == 'EARLY'
+            ? l10n.t('attendanceEarly')
+            : l10n.t('attendancePresent');
       default:
         return result.type;
     }
   }
 
-  String get _remarkLabel {
+  String _remarkLabel(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     switch (result.remark.toUpperCase()) {
       case 'EARLY':
-        return 'Arrived early';
+        return l10n.t('arrivedEarly');
       case 'ON_TIME':
-        return 'On time';
+        return l10n.t('onTime');
       case 'LATE':
-        return 'Arrived late';
+        return l10n.t('arrivedLate');
       default:
-        return result.remark.isNotEmpty ? result.remark : 'Recorded';
+        return result.remark.isNotEmpty ? result.remark : l10n.t('recorded');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -581,7 +590,7 @@ class _SuccessCard extends StatelessWidget {
               border: Border.all(color: _statusColor.withValues(alpha: .25)),
             ),
             child: Text(
-              _statusLabel.toUpperCase(),
+              _statusLabel(context).toUpperCase(),
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w900,
@@ -594,7 +603,9 @@ class _SuccessCard extends StatelessWidget {
 
           // Student name
           Text(
-            result.studentName.isNotEmpty ? result.studentName : 'Student',
+            result.studentName.isNotEmpty
+                ? result.studentName
+                : l10n.t('student'),
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 20,
@@ -634,7 +645,7 @@ class _SuccessCard extends StatelessWidget {
                 Expanded(
                   child: _InfoCell(
                     icon: LucideIcons.clock,
-                    label: 'Check-in',
+                    label: l10n.t('checkIn'),
                     value: result.checkIn.length > 5
                         ? result.checkIn.substring(0, 5)
                         : result.checkIn,
@@ -645,8 +656,8 @@ class _SuccessCard extends StatelessWidget {
                 Expanded(
                   child: _InfoCell(
                     icon: LucideIcons.tag,
-                    label: 'Status',
-                    value: _remarkLabel,
+                    label: l10n.t('status'),
+                    value: _remarkLabel(context),
                     valueColor: _statusColor,
                   ),
                 ),
@@ -662,9 +673,9 @@ class _SuccessCard extends StatelessWidget {
             children: [
               const Icon(LucideIcons.qrCode, size: 11, color: _kMuted),
               const SizedBox(width: 5),
-              const Text(
-                'Scanned via QR code',
-                style: TextStyle(
+              Text(
+                l10n.t('scannedViaQrCode'),
+                style: const TextStyle(
                   fontSize: 11.5,
                   color: _kMuted,
                   fontWeight: FontWeight.w600,
@@ -680,14 +691,18 @@ class _SuccessCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _CardBtn(
-                  label: 'Scan Again',
+                  label: l10n.t('scanAgain'),
                   filled: false,
                   onTap: onScanAgain,
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: _CardBtn(label: 'Done', filled: true, onTap: onClose),
+                child: _CardBtn(
+                  label: l10n.t('done'),
+                  filled: true,
+                  onTap: onClose,
+                ),
               ),
             ],
           ),
@@ -705,14 +720,15 @@ class _DuplicateCard extends StatelessWidget {
 
   const _DuplicateCard({required this.result, required this.onScanAgain});
 
-  String get _remarkLabel {
+  String _remarkLabel(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     switch (result.remark.toUpperCase()) {
       case 'EARLY':
-        return 'Arrived early';
+        return l10n.t('arrivedEarly');
       case 'ON_TIME':
-        return 'On time';
+        return l10n.t('onTime');
       case 'LATE':
-        return 'Arrived late';
+        return l10n.t('arrivedLate');
       default:
         return result.remark.isNotEmpty ? result.remark : '';
     }
@@ -720,6 +736,7 @@ class _DuplicateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     const amber = Color(0xFFF59E0B);
     return Container(
       decoration: BoxDecoration(
@@ -764,9 +781,9 @@ class _DuplicateCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(99),
               border: Border.all(color: amber.withValues(alpha: .25)),
             ),
-            child: const Text(
-              'ALREADY CHECKED IN',
-              style: TextStyle(
+            child: Text(
+              l10n.t('alreadyCheckedIn').toUpperCase(),
+              style: const TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w900,
                 color: amber,
@@ -778,7 +795,9 @@ class _DuplicateCard extends StatelessWidget {
 
           // Student name
           Text(
-            result.studentName.isNotEmpty ? result.studentName : 'Student',
+            result.studentName.isNotEmpty
+                ? result.studentName
+                : l10n.t('student'),
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 20,
@@ -803,18 +822,18 @@ class _DuplicateCard extends StatelessWidget {
                   Expanded(
                     child: _InfoCell(
                       icon: LucideIcons.clock,
-                      label: 'Checked in at',
+                      label: l10n.t('checkedInAt'),
                       value: result.checkIn,
                       valueColor: _kNavy,
                     ),
                   ),
-                  if (_remarkLabel.isNotEmpty) ...[
+                  if (_remarkLabel(context).isNotEmpty) ...[
                     Container(width: 1, height: 40, color: _kBorder),
                     Expanded(
                       child: _InfoCell(
                         icon: LucideIcons.tag,
-                        label: 'Status',
-                        value: _remarkLabel,
+                        label: l10n.t('status'),
+                        value: _remarkLabel(context),
                         valueColor: amber,
                       ),
                     ),
@@ -825,9 +844,9 @@ class _DuplicateCard extends StatelessWidget {
           const SizedBox(height: 12),
 
           Text(
-            'This QR code has already been scanned today.',
+            l10n.t('qrCodeAlreadyScannedToday'),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 12.5,
               color: _kMuted,
               fontWeight: FontWeight.w500,
@@ -836,7 +855,7 @@ class _DuplicateCard extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           _CardBtn(
-            label: 'Scan Next Student',
+            label: l10n.t('scanNextStudent'),
             filled: true,
             onTap: onScanAgain,
           ),
@@ -854,8 +873,25 @@ class _ErrorCard extends StatelessWidget {
 
   const _ErrorCard({required this.result, required this.onScanAgain});
 
+  String _remarkLabel(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    switch (result.remark) {
+      case 'Rule not found':
+        return l10n.t('attendanceRuleNotFound');
+      case 'Invalid student QR code. Please scan a valid student card.':
+        return l10n.t('invalidStudentQrCode');
+      case 'Unable to connect. Please try again.':
+        return l10n.t('unableToConnectTryAgain');
+      default:
+        return result.remark.isNotEmpty
+            ? result.remark
+            : l10n.t('somethingWentWrong');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     const red = Color(0xFFEF4444);
     return Container(
       decoration: BoxDecoration(
@@ -887,9 +923,9 @@ class _ErrorCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Check-in Failed',
-            style: TextStyle(
+          Text(
+            l10n.t('checkInFailed'),
+            style: const TextStyle(
               fontSize: 19,
               fontWeight: FontWeight.w900,
               color: _kNavy,
@@ -898,7 +934,7 @@ class _ErrorCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            result.remark.isNotEmpty ? result.remark : 'Something went wrong.',
+            _remarkLabel(context),
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 13.5,
@@ -908,7 +944,7 @@ class _ErrorCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 22),
-          _CardBtn(label: 'Try Again', filled: true, onTap: onScanAgain),
+          _CardBtn(label: l10n.t('tryAgain'), filled: true, onTap: onScanAgain),
         ],
       ),
     );

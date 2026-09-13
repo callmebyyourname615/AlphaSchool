@@ -21,10 +21,12 @@ class SettingsPage extends StatefulWidget {
     super.key,
     this.title = 'Settings',
     this.selectedStudent,
+    this.showEmergencyContact = true,
   });
 
   final String title;
   final StudentCardItem? selectedStudent;
+  final bool showEmergencyContact;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -48,14 +50,23 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
-    _loadEmergencyContacts();
+    if (widget.showEmergencyContact) _loadEmergencyContacts();
   }
 
   @override
   void didUpdateWidget(covariant SettingsPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.selectedStudent?.id != widget.selectedStudent?.id) {
+    if (widget.showEmergencyContact &&
+        (oldWidget.selectedStudent?.id != widget.selectedStudent?.id ||
+            oldWidget.showEmergencyContact != widget.showEmergencyContact)) {
       _loadEmergencyContacts();
+    } else if (!widget.showEmergencyContact &&
+        oldWidget.showEmergencyContact != widget.showEmergencyContact) {
+      setState(() {
+        _loadingEmergency = false;
+        _emergencyError = '';
+        _emergencyContacts = const [];
+      });
     }
   }
 
@@ -93,25 +104,31 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const SizedBox(height: 14),
 
-          _SettingsTile(
-            icon: LucideIcons.heartPulse,
-            label: _t(context, 'emergencyContact'),
-            valueText: _emergencyValueText(context),
-            trailing: _loadingEmergency
-                ? SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
+          if (widget.showEmergencyContact) ...[
+            _SettingsTile(
+              icon: LucideIcons.heartPulse,
+              label: _t(context, 'emergencyContact'),
+              valueText: _emergencyValueText(context),
+              trailing: _loadingEmergency
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: p.chevColor,
+                      ),
+                    )
+                  : Icon(
+                      LucideIcons.chevronRight,
+                      size: 26,
                       color: p.chevColor,
                     ),
-                  )
-                : Icon(LucideIcons.chevronRight, size: 26, color: p.chevColor),
-            onTap: _openEmergencyPage,
-            iconColor: p.iconColor.withValues(alpha: .75),
-            textColor: p.textColor,
-          ),
-          const SizedBox(height: 14),
+              onTap: _openEmergencyPage,
+              iconColor: p.iconColor.withValues(alpha: .75),
+              textColor: p.textColor,
+            ),
+            const SizedBox(height: 14),
+          ],
 
           _SettingsTile(
             icon: LucideIcons.globe,

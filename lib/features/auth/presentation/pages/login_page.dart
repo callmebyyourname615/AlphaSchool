@@ -6,8 +6,8 @@ import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/session_service.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/widgets/scanqrcode/scan_qr_code_page.dart';
 import '../../../../shared/models/student_card_item.dart';
+import '../../../home/presentation/pages/home_shell_page.dart';
 import '../../../home/presentation/pages/year_picker_page.dart';
 import '../../../students/data/student_service.dart';
 import '../../../students/presentation/pages/choose_students.dart';
@@ -93,7 +93,7 @@ class _LoginPageState extends State<LoginPage> {
         if (!mounted) return;
         nextPage = StudentsCardListPage(students: students);
       } else {
-        nextPage = const ScanQrCodePage();
+        nextPage = const HomeShellPage(showAttendanceScan: true);
       }
 
       _navLock = true;

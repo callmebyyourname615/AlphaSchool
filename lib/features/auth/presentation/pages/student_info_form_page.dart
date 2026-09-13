@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/theme/app_icons.dart';
 
@@ -65,7 +66,17 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
   static const _slate200 = Color(0xFFE2E8F0);
   static const _slate100 = Color(0xFFEFF2F8);
   static const _rose500 = Color(0xFFE11D48);
+  static const _green = Color(0xFF16A34A);
+  static const _greenSoft = Color(0xFFDFF8EA);
   static const bool _disableRequiredValidationForTesting = false;
+  static final TextInputFormatter _dateInputFormatter =
+      TextInputFormatter.withFunction((oldValue, newValue) {
+        final formatted = _formatDateDigits(newValue.text);
+        return TextEditingValue(
+          text: formatted,
+          selection: TextSelection.collapsed(offset: formatted.length),
+        );
+      });
 
   static const _steps = [
     _StepMeta(1, 'Student', LucideIcons.user),
@@ -86,6 +97,43 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     'PhD',
     'Other',
   ];
+
+  static String _formatDateDigits(String value) {
+    final digits = value.replaceAll(RegExp(r'\D'), '');
+    final clipped = digits.length > 8 ? digits.substring(0, 8) : digits;
+    if (clipped.length <= 2) return clipped;
+    if (clipped.length <= 4) {
+      return '${clipped.substring(0, 2)}/${clipped.substring(2)}';
+    }
+    return '${clipped.substring(0, 2)}/${clipped.substring(2, 4)}/${clipped.substring(4)}';
+  }
+
+  static String _displayDate(String value) {
+    final text = value.trim();
+    final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(text);
+    if (match == null) return text;
+    return '${match.group(3)}/${match.group(2)}/${match.group(1)}';
+  }
+
+  static String _storeDateInput(String value) {
+    final text = value.trim();
+    final match = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$').firstMatch(text);
+    if (match == null) return text;
+
+    final day = int.tryParse(match.group(1)!);
+    final month = int.tryParse(match.group(2)!);
+    final year = int.tryParse(match.group(3)!);
+    if (day == null || month == null || year == null) return text;
+
+    final date = DateTime(year, month, day);
+    if (date.year != year || date.month != month || date.day != day) {
+      return text;
+    }
+
+    return '${year.toString().padLeft(4, '0')}-'
+        '${month.toString().padLeft(2, '0')}-'
+        '${day.toString().padLeft(2, '0')}';
+  }
 
   final StudentRegistrationService _studentService =
       StudentRegistrationService();
@@ -266,7 +314,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         return _t('enterPhone1');
       case 'Enter phone 2':
         return _t('enterPhone2');
-      case 'YYYY-MM-DD':
+      case 'DD/MM/YYYY':
         return _t('dateFormatPlaceholder');
       case 'e.g. 2019-2020':
         return _t('exampleAcademicYearKindergarten');
@@ -874,8 +922,6 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
         if ((_branchId ?? '').trim().isEmpty) _err('Branch', required);
         if (_s.firstNameLao.trim().isEmpty) _err('Firstname_Lao', required);
         if (_s.firstNameEng.trim().isEmpty) _err('Firstname_Eng', required);
-        if (_s.middleNameLao.trim().isEmpty) _err('Midlename_Lao', required);
-        if (_s.middleNameEng.trim().isEmpty) _err('Midlename_Eng', required);
         if (_s.lastNameLao.trim().isEmpty) _err('Lastname_Lao', required);
         if (_s.lastNameEng.trim().isEmpty) _err('Lastname_Eng', required);
         if (_s.nickname.trim().isEmpty) _err('Nickname', required);
@@ -934,10 +980,6 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
             _err('L${i}_Firstname_Lao', 'Required');
           if (l.firstNameEng.trim().isEmpty)
             _err('L${i}_Firstname_Eng', 'Required');
-          if (l.middleNameLao.trim().isEmpty)
-            _err('L${i}_Midlename_Lao', 'Required');
-          if (l.middleNameEng.trim().isEmpty)
-            _err('L${i}_Midlename_Eng', 'Required');
           if (l.lastNameLao.trim().isEmpty)
             _err('L${i}_Lastname_Lao', 'Required');
           if (l.lastNameEng.trim().isEmpty)
@@ -1335,7 +1377,7 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                           widthFactor: v,
                           child: Container(
                             decoration: BoxDecoration(
-                              color: _blue,
+                              color: _green,
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
@@ -1392,24 +1434,26 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
     final completed = _step > s.id;
     final active = _step == s.id;
     final filled = completed || active;
+    final fillColor = completed ? _green : _blue;
+    final haloColor = completed ? _greenSoft : _blueSoft;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 320),
       curve: Curves.easeOutCubic,
       height: active ? 44 : 40,
       width: active ? 44 : 40,
       decoration: BoxDecoration(
-        color: filled ? _blue : _slate100,
+        color: filled ? fillColor : _slate100,
         shape: BoxShape.circle,
         boxShadow: active
             ? [
                 BoxShadow(
-                  color: _blue.withValues(alpha: .25),
+                  color: fillColor.withValues(alpha: .25),
                   blurRadius: 14,
                   offset: const Offset(0, 4),
                 ),
               ]
             : null,
-        border: active ? Border.all(color: _blueSoft, width: 3) : null,
+        border: active ? Border.all(color: haloColor, width: 3) : null,
       ),
       child: Icon(
         completed ? LucideIcons.check : s.icon,
@@ -1589,7 +1633,6 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           'Midlename_Lao',
           _s.middleNameLao,
           (v) => _s.middleNameLao = v,
-          required: true,
           placeholder: _t('enterLao'),
         ),
         _input(
@@ -1597,7 +1640,6 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
           'Midlename_Eng',
           _s.middleNameEng,
           (v) => _s.middleNameEng = v,
-          required: true,
           placeholder: _t('enterEnglish'),
         ),
         _input(
@@ -2789,7 +2831,6 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                     'L${i}_Midlename_Lao',
                     p.middleNameLao,
                     (v) => p.middleNameLao = v,
-                    required: true,
                     placeholder: 'Enter (Lao)',
                   ),
                   const SizedBox(height: 12),
@@ -2798,7 +2839,6 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
                     'L${i}_Midlename_Eng',
                     p.middleNameEng,
                     (v) => p.middleNameEng = v,
-                    required: true,
                     placeholder: 'Enter (English)',
                   ),
                   const SizedBox(height: 12),
@@ -3595,59 +3635,26 @@ class _StudentInfoFormPageState extends State<StudentInfoFormPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _label(label, required),
-        InkWell(
-          onTap: () async {
-            final now = DateTime.now();
-            DateTime initial = now;
-            if (value.isNotEmpty) {
-              try {
-                initial = DateTime.parse(value);
-              } catch (_) {}
-            }
-            final picked = await showDatePicker(
-              context: context,
-              initialDate: initial,
-              firstDate: DateTime(1900),
-              lastDate: now,
-              builder: (context, child) => Theme(
-                data: Theme.of(context).copyWith(
-                  colorScheme: const ColorScheme.light(
-                    primary: _blue,
-                    onPrimary: Colors.white,
-                  ),
-                ),
-                child: child!,
-              ),
-            );
-            if (picked != null) {
-              final iso =
-                  '${picked.year.toString().padLeft(4, '0')}-'
-                  '${picked.month.toString().padLeft(2, '0')}-'
-                  '${picked.day.toString().padLeft(2, '0')}';
-              onChanged(iso);
-              setState(() {
-                if (_errors.containsKey(key)) _errors.remove(key);
-              });
+        TextFormField(
+          key: ValueKey('date_$key'),
+          initialValue: _displayDate(value),
+          onChanged: (v) {
+            onChanged(_storeDateInput(v));
+            if (_errors.containsKey(key)) {
+              setState(() => _errors.remove(key));
             }
           },
-          borderRadius: BorderRadius.circular(14),
-          child: InputDecorator(
-            decoration: _decoration(null, err).copyWith(
-              suffixIcon: const Icon(
-                LucideIcons.calendarDays,
-                size: 16,
-                color: _muted,
-              ),
-            ),
-            child: Text(
-              value.isEmpty ? _uiText('YYYY-MM-DD') : value,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: value.isEmpty ? _slate400 : _navy,
-              ),
-            ),
+          keyboardType: TextInputType.number,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            _dateInputFormatter,
+          ],
+          style: const TextStyle(
+            fontSize: 16,
+            color: _navy,
+            fontWeight: FontWeight.w500,
           ),
+          decoration: _decoration(_t('dateFormatPlaceholder'), err),
         ),
         if (err != null)
           Padding(

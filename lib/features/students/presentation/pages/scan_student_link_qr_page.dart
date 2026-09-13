@@ -145,7 +145,9 @@ class _ScanStudentLinkQrPageState extends State<ScanStudentLinkQrPage>
     if (m != null) return m.group(0)!;
     try {
       final j = jsonDecode(raw);
-      if (j is Map) return (j['student_id'] ?? j['id'] ?? raw).toString();
+      if (j is Map) {
+        return (j['studentId'] ?? j['student_id'] ?? j['id'] ?? raw).toString();
+      }
     } catch (_) {}
     return raw.trim();
   }

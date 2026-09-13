@@ -8,6 +8,7 @@ import 'package:alpha_school/core/widgets/scanqrcode/scan_qr_code_page.dart';
 import 'package:alpha_school/features/home/presentation/pages/appointment/appointment_page.dart';
 import 'package:alpha_school/features/home/presentation/pages/appointment/appointment_service.dart';
 import 'package:alpha_school/features/home/presentation/pages/attendance/attendance_page.dart';
+import 'package:alpha_school/features/home/presentation/pages/attendance/attendance_scan_history_page.dart';
 import 'package:alpha_school/features/home/presentation/pages/attendance/attendance_service.dart';
 import 'package:alpha_school/features/home/presentation/pages/calendar/calendar_year.dart';
 import 'package:alpha_school/features/home/presentation/pages/contact/contact_page.dart';
@@ -25,7 +26,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
-import 'package:remixicon/remixicon.dart';
 
 import '../../../../../shared/models/student_card_item.dart';
 
@@ -36,12 +36,16 @@ class ExplorePage extends StatefulWidget {
   final StudentCardItem? selectedStudent;
   final VoidCallback? onSwitchStudent;
   final bool switchingStudent;
+  final bool showAttendanceScan;
+  final String accountDisplayName;
 
   const ExplorePage({
     super.key,
     this.selectedStudent,
     this.onSwitchStudent,
     this.switchingStudent = false,
+    this.showAttendanceScan = false,
+    this.accountDisplayName = '',
   });
 
   static const _bgAsset = "assets/images/homepagewall/homepagewallpaper.jpg";
@@ -326,10 +330,15 @@ class _ExplorePageState extends State<ExplorePage> {
     final TimeOfDay? checkinTime = _checkinTime;
 
     final student = widget.selectedStudent;
-    final studentName = student?.name.trim().isNotEmpty == true
+    final accountName = widget.accountDisplayName.trim();
+    final studentName = widget.showAttendanceScan
+        ? (accountName.isNotEmpty ? accountName : _homeT(context, 'account'))
+        : student?.name.trim().isNotEmpty == true
         ? student!.name.trim()
         : _homeT(context, 'student');
-    final studentClass = student?.className?.trim().isNotEmpty == true
+    final studentClass = widget.showAttendanceScan
+        ? _homeT(context, 'scanQrCode')
+        : student?.className?.trim().isNotEmpty == true
         ? student!.className!.trim()
         : _homeT(context, 'classNotAssigned');
 
@@ -395,8 +404,6 @@ class _ExplorePageState extends State<ExplorePage> {
             520.0,
           );
           final headerH = clamp(desiredHeader, 280.0, headerMax);
-
-          final bottomInset = MediaQuery.of(context).padding.bottom;
 
           return SizedBox(
             height: h,
@@ -615,23 +622,24 @@ class _ExplorePageState extends State<ExplorePage> {
                                     ],
                                   ),
 
-                                  const SizedBox(width: 10),
-
-                                  _TopIconButton(
-                                        icon: widget.switchingStudent
-                                            ? FontAwesomeIcons.circleNotch
-                                            : FontAwesomeIcons.arrowsRotate,
-                                        onTap:
-                                            widget.switchingStudent ||
-                                                widget.onSwitchStudent == null
-                                            ? null
-                                            : widget.onSwitchStudent,
-                                        size: topBtnSize,
-                                        iconSize: topBtnIcon,
-                                      )
-                                      .animate()
-                                      .fadeIn(delay: 140.ms, duration: 220.ms)
-                                      .slideX(begin: .15, end: 0),
+                                  if (!widget.showAttendanceScan) ...[
+                                    const SizedBox(width: 10),
+                                    _TopIconButton(
+                                          icon: widget.switchingStudent
+                                              ? FontAwesomeIcons.circleNotch
+                                              : FontAwesomeIcons.arrowsRotate,
+                                          onTap:
+                                              widget.switchingStudent ||
+                                                  widget.onSwitchStudent == null
+                                              ? null
+                                              : widget.onSwitchStudent,
+                                          size: topBtnSize,
+                                          iconSize: topBtnIcon,
+                                        )
+                                        .animate()
+                                        .fadeIn(delay: 140.ms, duration: 220.ms)
+                                        .slideX(begin: .15, end: 0),
+                                  ],
                                 ],
                               ),
 
@@ -647,6 +655,8 @@ class _ExplorePageState extends State<ExplorePage> {
                                     isLate: isLate,
                                     checkinTime: checkinTime,
                                     isDark: isDark,
+                                    showCurrentDateTime:
+                                        widget.showAttendanceScan,
                                     participantPercent: _participantPercent,
                                     onTapAttendance: () {
                                       Navigator.of(context).push(
@@ -680,7 +690,6 @@ class _ExplorePageState extends State<ExplorePage> {
                                     duration: 320.ms,
                                     curve: Curves.easeOutCubic,
                                   ),
-
                               SizedBox(height: gapBetweenCards),
 
                               IgnorePointer(
@@ -720,6 +729,7 @@ class _ExplorePageState extends State<ExplorePage> {
                           blur: sheetBlur,
                           scale: s,
                           selectedStudent: widget.selectedStudent,
+                          showAttendanceScan: widget.showAttendanceScan,
                           unreadHomework: _unreadHomework,
                           unreadAppointments: _unreadAppointments,
                           onMenuRead: _markMenuRead,
@@ -728,34 +738,6 @@ class _ExplorePageState extends State<ExplorePage> {
                       ),
                     ],
                   ),
-                ),
-
-                Positioned(
-                  right: (isTablet || isLargeTablet) ? 22 : 16,
-                  bottom: (12 + bottomInset).toDouble(),
-                  child:
-                      _ScanQrFab(
-                            isSmallPhone: isSmallPhone,
-                            onTap: () async {
-                              final result = await Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const ScanQrCodePage(),
-                                ),
-                              );
-
-                              if (result != null) {
-                                debugPrint("QR = $result");
-                              }
-                            },
-                          )
-                          .animate()
-                          .fadeIn(delay: 220.ms, duration: 240.ms)
-                          .scale(
-                            begin: const Offset(.92, .92),
-                            end: const Offset(1, 1),
-                            duration: 260.ms,
-                            curve: Curves.easeOutBack,
-                          ),
                 ),
               ],
             ),
@@ -1471,60 +1453,6 @@ class _NotificationItem {
   }
 }
 
-// ======================================================
-// ✅ Floating Scan QR Button (Dark Blue Premium)
-// ======================================================
-class _ScanQrFab extends StatelessWidget {
-  final bool isSmallPhone;
-  final VoidCallback onTap;
-
-  const _ScanQrFab({required this.isSmallPhone, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final d = isSmallPhone ? 68.0 : 78.0;
-    final iconSize = (d * 0.58).clamp(32.0, 44.0);
-
-    const premiumGradient = LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Color(0xFF0B2A66), Color(0xFF0A3E9A), Color(0xFF0A57D6)],
-      stops: [0.0, 0.55, 1.0],
-    );
-
-    return Material(
-      color: Colors.transparent,
-      child: InkResponse(
-        onTap: onTap,
-        radius: d / 2,
-        child: Container(
-          width: d,
-          height: d,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: premiumGradient,
-            border: Border.all(color: Colors.white.withOpacity(.18), width: 1),
-            boxShadow: [
-              BoxShadow(
-                blurRadius: 26,
-                offset: const Offset(0, 16),
-                color: Colors.black.withOpacity(.30),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Icon(
-              Remix.qr_scan_2_line,
-              size: iconSize,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 // =====================
 // ✅ TOP CARD: Attendance + Calendar
 // =====================
@@ -1539,6 +1467,7 @@ class _AttendanceCalendarCard extends StatelessWidget {
   final bool isLate;
   final TimeOfDay? checkinTime;
   final bool isDark;
+  final bool showCurrentDateTime;
 
   final double participantPercent;
 
@@ -1556,6 +1485,7 @@ class _AttendanceCalendarCard extends StatelessWidget {
     required this.isLate,
     required this.checkinTime,
     required this.isDark,
+    this.showCurrentDateTime = false,
     required this.onTapAttendance,
     required this.onTapCalendar,
     this.onTapParticipant,
@@ -1568,18 +1498,72 @@ class _AttendanceCalendarCard extends StatelessWidget {
     return '$hh:$mm';
   }
 
+  String _formatCurrentDate(BuildContext context) {
+    const englishMonths = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    const laoMonths = [
+      'ມັງກອນ',
+      'ກຸມພາ',
+      'ມີນາ',
+      'ເມສາ',
+      'ພຶດສະພາ',
+      'ມິຖຸນາ',
+      'ກໍລະກົດ',
+      'ສິງຫາ',
+      'ກັນຍາ',
+      'ຕຸລາ',
+      'ພະຈິກ',
+      'ທັນວາ',
+    ];
+    final now = DateTime.now();
+    final day = now.day.toString().padLeft(2, '0');
+    final months = Localizations.localeOf(context).languageCode == 'lo'
+        ? laoMonths
+        : englishMonths;
+    return '$day ${months[now.month - 1]} ${now.year}';
+  }
+
+  String _todayTitle(BuildContext context) {
+    return Localizations.localeOf(context).languageCode == 'lo'
+        ? 'ມື້ນີ້ວັນທີ'
+        : 'Today';
+  }
+
+  String _currentTimeTitle(BuildContext context) {
+    return Localizations.localeOf(context).languageCode == 'lo'
+        ? 'ເວລາປັດຈຸບັນ'
+        : 'Current Time';
+  }
+
   @override
   Widget build(BuildContext context) {
     final titleSize = isSmallPhone ? 12.5 : 13.0;
     final valueSize = isSmallPhone ? 15.0 : 16.0;
     final labelSize = isSmallPhone ? 11.0 : 12.0;
+    final currentDateSize = isSmallPhone ? 18.0 : 20.0;
 
-    final statusColor = isLate
+    final statusColor = showCurrentDateTime
+        ? Colors.white
+        : isLate
         ? Colors.orangeAccent
         : checkedIn
         ? Colors.greenAccent
         : Colors.redAccent;
-    final statusText = isLate
+    final statusText = showCurrentDateTime
+        ? _formatCurrentDate(context)
+        : isLate
         ? _homeT(context, 'checkInLate')
         : checkedIn
         ? _homeT(context, 'checkedIn')
@@ -1630,7 +1614,9 @@ class _AttendanceCalendarCard extends StatelessWidget {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              _homeT(context, 'attendanceTracking'),
+                              showCurrentDateTime
+                                  ? _todayTitle(context)
+                                  : _homeT(context, 'attendanceTracking'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -1659,32 +1645,41 @@ class _AttendanceCalendarCard extends StatelessWidget {
                                 Expanded(
                                   flex: 2,
                                   child: _TapScale(
-                                    onTap: onTapAttendance,
+                                    onTap: showCurrentDateTime
+                                        ? null
+                                        : onTapAttendance,
                                     child: Padding(
                                       padding: EdgeInsets.symmetric(
-                                        horizontal: isSmallPhone ? 12 : 14,
-                                        vertical: isSmallPhone ? 10 : 12,
+                                        horizontal: showCurrentDateTime
+                                            ? (isSmallPhone ? 15 : 17)
+                                            : (isSmallPhone ? 12 : 14),
+                                        vertical: showCurrentDateTime
+                                            ? (isSmallPhone ? 9 : 10)
+                                            : (isSmallPhone ? 10 : 12),
                                       ),
                                       child: Row(
                                         children: [
                                           Expanded(
-                                            child: FittedBox(
-                                              fit: BoxFit.scaleDown,
-                                              alignment: Alignment.centerLeft,
-                                              child: Text(
-                                                statusText,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(
-                                                  color: statusColor,
-                                                  fontWeight: FontWeight.w900,
-                                                  fontSize: valueSize,
-                                                  height: 1.0,
-                                                ),
+                                            child: Text(
+                                              statusText,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: statusColor,
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: showCurrentDateTime
+                                                    ? currentDateSize
+                                                    : valueSize,
+                                                height: 1.05,
+                                                letterSpacing:
+                                                    showCurrentDateTime
+                                                    ? .1
+                                                    : 0,
                                               ),
                                             ),
                                           ),
-                                          if (checkinTime != null) ...[
+                                          if (!showCurrentDateTime &&
+                                              checkinTime != null) ...[
                                             const SizedBox(width: 12),
                                             Row(
                                               mainAxisSize: MainAxisSize.min,
@@ -1724,17 +1719,28 @@ class _AttendanceCalendarCard extends StatelessWidget {
                                 Expanded(
                                   flex: 3,
                                   child: _TapScale(
-                                    onTap: onTapParticipant ?? onTapAttendance,
+                                    onTap: showCurrentDateTime
+                                        ? null
+                                        : onTapParticipant ?? onTapAttendance,
                                     child: Padding(
                                       padding: EdgeInsets.fromLTRB(
-                                        isSmallPhone ? 12 : 14,
-                                        isSmallPhone ? 10 : 12,
-                                        isSmallPhone ? 12 : 14,
-                                        isSmallPhone ? 10 : 12,
+                                        showCurrentDateTime
+                                            ? (isSmallPhone ? 15 : 17)
+                                            : (isSmallPhone ? 12 : 14),
+                                        showCurrentDateTime
+                                            ? (isSmallPhone ? 8 : 9)
+                                            : (isSmallPhone ? 10 : 12),
+                                        showCurrentDateTime
+                                            ? (isSmallPhone ? 15 : 17)
+                                            : (isSmallPhone ? 12 : 14),
+                                        showCurrentDateTime
+                                            ? (isSmallPhone ? 8 : 9)
+                                            : (isSmallPhone ? 10 : 12),
                                       ),
                                       child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
+                                        mainAxisAlignment: showCurrentDateTime
+                                            ? MainAxisAlignment.spaceEvenly
+                                            : MainAxisAlignment.center,
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
@@ -1745,17 +1751,29 @@ class _AttendanceCalendarCard extends StatelessWidget {
                                                 color: Colors.white.withOpacity(
                                                   .92,
                                                 ),
-                                                size: isSmallPhone
-                                                    ? 13.0
-                                                    : 14.0,
+                                                size: showCurrentDateTime
+                                                    ? (isSmallPhone
+                                                          ? 12.0
+                                                          : 13.0)
+                                                    : (isSmallPhone
+                                                          ? 13.0
+                                                          : 14.0),
                                               ),
-                                              const SizedBox(width: 8),
+                                              SizedBox(
+                                                width: showCurrentDateTime
+                                                    ? 7
+                                                    : 8,
+                                              ),
                                               Expanded(
                                                 child: Text(
-                                                  _homeT(
-                                                    context,
-                                                    'participationScore',
-                                                  ),
+                                                  showCurrentDateTime
+                                                      ? _currentTimeTitle(
+                                                          context,
+                                                        )
+                                                      : _homeT(
+                                                          context,
+                                                          'participationScore',
+                                                        ),
                                                   maxLines: 1,
                                                   overflow:
                                                       TextOverflow.ellipsis,
@@ -1763,46 +1781,59 @@ class _AttendanceCalendarCard extends StatelessWidget {
                                                     color: Colors.white
                                                         .withOpacity(.96),
                                                     fontWeight: FontWeight.w900,
-                                                    fontSize: labelSize,
-                                                    height: 1.0,
+                                                    fontSize:
+                                                        showCurrentDateTime
+                                                        ? (isSmallPhone
+                                                              ? 10.5
+                                                              : 11.2)
+                                                        : labelSize,
+                                                    height: 1.05,
                                                   ),
                                                 ),
                                               ),
                                             ],
                                           ),
                                           SizedBox(
-                                            height: isSmallPhone ? 8 : 10,
+                                            height: showCurrentDateTime
+                                                ? (isSmallPhone ? 2 : 3)
+                                                : (isSmallPhone ? 8 : 10),
                                           ),
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: _PercentBar(
-                                                  height: isSmallPhone
-                                                      ? 12.0
-                                                      : 14.0,
-                                                  value: pct,
+                                          showCurrentDateTime
+                                              ? _LiveCurrentTimeText(
                                                   isSmallPhone: isSmallPhone,
+                                                )
+                                              : Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: _PercentBar(
+                                                        height: isSmallPhone
+                                                            ? 12.0
+                                                            : 14.0,
+                                                        value: pct,
+                                                        isSmallPhone:
+                                                            isSmallPhone,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 10),
+                                                    FittedBox(
+                                                      fit: BoxFit.scaleDown,
+                                                      child: Text(
+                                                        pctLabel,
+                                                        style: TextStyle(
+                                                          color: Colors.white
+                                                              .withOpacity(.98),
+                                                          fontWeight:
+                                                              FontWeight.w900,
+                                                          fontSize: isSmallPhone
+                                                              ? 12.5
+                                                              : 14.0,
+                                                          height: 1.0,
+                                                          letterSpacing: .2,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                              ),
-                                              const SizedBox(width: 10),
-                                              FittedBox(
-                                                fit: BoxFit.scaleDown,
-                                                child: Text(
-                                                  pctLabel,
-                                                  style: TextStyle(
-                                                    color: Colors.white
-                                                        .withOpacity(.98),
-                                                    fontWeight: FontWeight.w900,
-                                                    fontSize: isSmallPhone
-                                                        ? 12.5
-                                                        : 14.0,
-                                                    height: 1.0,
-                                                    letterSpacing: .2,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
                                         ],
                                       ),
                                     ),
@@ -1846,6 +1877,57 @@ class _AttendanceCalendarCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _LiveCurrentTimeText extends StatefulWidget {
+  final bool isSmallPhone;
+
+  const _LiveCurrentTimeText({required this.isSmallPhone});
+
+  @override
+  State<_LiveCurrentTimeText> createState() => _LiveCurrentTimeTextState();
+}
+
+class _LiveCurrentTimeTextState extends State<_LiveCurrentTimeText> {
+  late DateTime _now = DateTime.now();
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _now = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String _timeText() {
+    final hh = _now.hour.toString().padLeft(2, '0');
+    final mm = _now.minute.toString().padLeft(2, '0');
+    final ss = _now.second.toString().padLeft(2, '0');
+    return '$hh:$mm:$ss';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      _timeText(),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: Colors.white.withOpacity(.98),
+        fontWeight: FontWeight.w900,
+        fontSize: widget.isSmallPhone ? 21.0 : 25.0,
+        height: 1.0,
+        letterSpacing: .15,
       ),
     );
   }
@@ -2323,6 +2405,7 @@ class _WalletSheet extends StatelessWidget {
   final double blur;
   final double scale;
   final StudentCardItem? selectedStudent;
+  final bool showAttendanceScan;
   final int unreadHomework;
   final int unreadAppointments;
   final Future<void> Function(String menu) onMenuRead;
@@ -2336,6 +2419,7 @@ class _WalletSheet extends StatelessWidget {
     required this.isLargeTablet,
     required this.blur,
     required this.scale,
+    required this.showAttendanceScan,
     required this.unreadHomework,
     required this.unreadAppointments,
     required this.onMenuRead,
@@ -2366,7 +2450,29 @@ class _WalletSheet extends StatelessWidget {
 
     final titleSize = isSmallPhone ? 16.0 : 18.0;
 
-    final items = <_QuickMenuItem>[
+    final scanQrItem = _QuickMenuItem(
+      icon: FontAwesomeIcons.qrcode,
+      label: _homeT(context, 'scanQrCode'),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ScanQrCodePage()),
+        );
+      },
+    );
+
+    final scanHistoryItem = _QuickMenuItem(
+      icon: FontAwesomeIcons.clipboardCheck,
+      label: _homeT(context, 'scanHistory'),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AttendanceScanHistoryPage()),
+        );
+      },
+    );
+
+    final parentItems = <_QuickMenuItem>[
       _QuickMenuItem(
         icon: FontAwesomeIcons.headset,
         label: _homeT(context, 'schoolContact'),
@@ -2462,6 +2568,10 @@ class _WalletSheet extends StatelessWidget {
         onTap: () {},
       ),
     ];
+
+    final items = showAttendanceScan
+        ? <_QuickMenuItem>[scanQrItem, scanHistoryItem]
+        : parentItems;
 
     return LayoutBuilder(
       builder: (context, c) {
@@ -2707,7 +2817,7 @@ class _GlowBlob extends StatelessWidget {
 
 class _TapScale extends StatefulWidget {
   final Widget child;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _TapScale({required this.child, required this.onTap});
 
@@ -2720,6 +2830,8 @@ class _TapScaleState extends State<_TapScale> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.onTap == null) return widget.child;
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: widget.onTap,

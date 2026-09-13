@@ -51,10 +51,7 @@ class AttendanceService {
 
     final fallbackResponse = await _apiClient.get(
       '/attendances',
-      queryParameters: {
-        'start_date': today,
-        'end_date': today,
-      },
+      queryParameters: {'start_date': today, 'end_date': today},
     );
 
     for (final record in _extractRecords(fallbackResponse)) {
@@ -103,6 +100,32 @@ class AttendanceService {
             .toList()
           ..sort((a, b) => b.date.compareTo(a.date));
     await cacheHistory(student, records, month: month);
+    return records;
+  }
+
+  Future<List<StaffAttendanceScanRecord>> fetchStaffScanHistory({
+    required DateTime date,
+  }) async {
+    final dateKey = _date(date);
+    final response = await _apiClient.get(
+      '/attendances',
+      queryParameters: {'start_date': dateKey, 'end_date': dateKey},
+    );
+
+    final records =
+        _extractRecords(response)
+            .where((record) {
+              final checkIn = record['check_in']?.toString().trim() ?? '';
+              return checkIn.isNotEmpty && checkIn != '-';
+            })
+            .map(StaffAttendanceScanRecord.fromJson)
+            .toList()
+          ..sort((a, b) {
+            final aMinutes = a.checkIn.hour * 60 + a.checkIn.minute;
+            final bMinutes = b.checkIn.hour * 60 + b.checkIn.minute;
+            return bMinutes.compareTo(aMinutes);
+          });
+
     return records;
   }
 

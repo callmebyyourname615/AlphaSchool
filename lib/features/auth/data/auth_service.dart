@@ -15,8 +15,13 @@ class AuthenticatedUser {
   /// Routes to the student-selection flow when the account was found in
   /// the dedicated `/parents` table, or when its role is explicitly
   /// "parents" (e.g. an `/admins` account assigned the parents role).
-  /// Anything else routes to the QR scanner.
-  bool get isParent => isParentRecord || roleName.toLowerCase() == 'parents';
+  /// Anything else routes to the staff home shell.
+  bool get isParent {
+    final normalizedRole = roleName.toLowerCase().trim();
+    return isParentRecord ||
+        normalizedRole == 'parents' ||
+        normalizedRole == 'parent';
+  }
 }
 
 class AuthService {
@@ -88,6 +93,7 @@ class AuthService {
     return {
       ...rawUser,
       'id': _readString(rawUser, const ['id', 'sub']),
+      'role_name': _roleName(rawUser),
       'access_token': response['access_token'],
     };
   }

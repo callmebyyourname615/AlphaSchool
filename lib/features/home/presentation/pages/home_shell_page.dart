@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_icons.dart';
 
@@ -23,7 +25,15 @@ class HomeShellPage extends StatefulWidget {
   /// ✅ สามารถกำหนดแท็บเริ่มต้นได้ (0=Explore)
   final int initialIndex;
 
-  const HomeShellPage({super.key, this.selectedStudent, this.initialIndex = 0});
+  /// Shows attendance QR scanning entry points for staff/non-parent roles.
+  final bool? showAttendanceScan;
+
+  const HomeShellPage({
+    super.key,
+    this.selectedStudent,
+    this.initialIndex = 0,
+    this.showAttendanceScan,
+  });
 
   @override
   State<HomeShellPage> createState() => _HomeShellPageState();
@@ -40,6 +50,8 @@ class _HomeShellPageState extends State<HomeShellPage>
   int _index = 0;
   bool _didInitFromArgs = false;
   bool _loadingStudents = false;
+  bool _showAttendanceScan = false;
+  String _sessionDisplayName = '';
   late StudentCardItem? _selectedStudent = widget.selectedStudent;
 
   late final AnimationController _ctrl = AnimationController(
@@ -56,6 +68,29 @@ class _HomeShellPageState extends State<HomeShellPage>
   void initState() {
     super.initState();
     _index = widget.initialIndex.clamp(0, 4);
+    _showAttendanceScan = widget.showAttendanceScan ?? false;
+    unawaited(_loadSessionContext());
+  }
+
+  Future<void> _loadSessionContext() async {
+    final session = await SessionService().load();
+    if (!mounted) return;
+
+    final role = session?.roleName.toLowerCase().trim() ?? '';
+    final showScan =
+        widget.showAttendanceScan ??
+        (role.isNotEmpty && role != 'parents' && role != 'parent');
+    final displayName = (session?.username.trim().isNotEmpty == true
+        ? session!.username.trim()
+        : session?.email.trim() ?? '');
+
+    if (showScan != _showAttendanceScan || displayName != _sessionDisplayName) {
+      setState(() {
+        _showAttendanceScan = showScan;
+        _sessionDisplayName = displayName;
+        if (_showAttendanceScan && _index > 2) _index = 0;
+      });
+    }
   }
 
   @override
@@ -207,37 +242,79 @@ class _HomeShellPageState extends State<HomeShellPage>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? AppColors.dark : Colors.white;
 
-    final pages = <Widget>[
-      ExplorePage(
-        selectedStudent: _selectedStudent,
-        onSwitchStudent: _openStudentSwitcher,
-        switchingStudent: _loadingStudents,
-      ),
-      ClassroomPage(selectedStudent: _selectedStudent),
-      const StudyPlanPage(),
-      const FeePage(),
-      SettingsPage(selectedStudent: _selectedStudent),
-    ];
+    final pages = _showAttendanceScan
+        ? <Widget>[
+            ExplorePage(
+              selectedStudent: _selectedStudent,
+              onSwitchStudent: _openStudentSwitcher,
+              switchingStudent: _loadingStudents,
+              showAttendanceScan: _showAttendanceScan,
+              accountDisplayName: _sessionDisplayName,
+            ),
+            ClassroomPage(selectedStudent: _selectedStudent),
+            SettingsPage(
+              selectedStudent: _selectedStudent,
+              showEmergencyContact: false,
+            ),
+          ]
+        : <Widget>[
+            ExplorePage(
+              selectedStudent: _selectedStudent,
+              onSwitchStudent: _openStudentSwitcher,
+              switchingStudent: _loadingStudents,
+              showAttendanceScan: _showAttendanceScan,
+              accountDisplayName: _sessionDisplayName,
+            ),
+            ClassroomPage(selectedStudent: _selectedStudent),
+            const StudyPlanPage(),
+            const FeePage(),
+            SettingsPage(selectedStudent: _selectedStudent),
+          ];
 
-    final navItems = [
-      AppBottomNavItem(icon: LucideIcons.house, label: _t(context, 'homeTab')),
-      AppBottomNavItem(
-        icon: LucideIcons.presentation,
-        label: _t(context, 'classroomTab'),
-      ),
-      AppBottomNavItem(
-        icon: LucideIcons.chartNoAxesCombined,
-        label: _t(context, 'studyResultTab'),
-      ),
-      AppBottomNavItem(
-        icon: LucideIcons.walletMinimal,
-        label: _t(context, 'feeTab'),
-      ),
-      AppBottomNavItem(
-        icon: LucideIcons.gear,
-        label: _t(context, 'settingsTab'),
-      ),
-    ];
+    final navItems = _showAttendanceScan
+        ? [
+            AppBottomNavItem(
+              icon: LucideIcons.house,
+              label: _t(context, 'homeTab'),
+            ),
+            AppBottomNavItem(
+              icon: LucideIcons.presentation,
+              label: _t(context, 'classroomTab'),
+            ),
+            AppBottomNavItem(
+              icon: LucideIcons.gear,
+              label: _t(context, 'settingsTab'),
+            ),
+          ]
+        : [
+            AppBottomNavItem(
+              icon: LucideIcons.house,
+              label: _t(context, 'homeTab'),
+            ),
+            AppBottomNavItem(
+              icon: LucideIcons.presentation,
+              label: _t(context, 'classroomTab'),
+            ),
+            AppBottomNavItem(
+              icon: LucideIcons.chartNoAxesCombined,
+              label: _t(context, 'studyResultTab'),
+            ),
+            AppBottomNavItem(
+              icon: LucideIcons.walletMinimal,
+              label: _t(context, 'feeTab'),
+            ),
+            AppBottomNavItem(
+              icon: LucideIcons.gear,
+              label: _t(context, 'settingsTab'),
+            ),
+          ];
+
+    final currentIndex = _index.clamp(0, pages.length - 1);
+    if (currentIndex != _index) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _index = currentIndex);
+      });
+    }
 
     return WillPopScope(
       onWillPop: _onWillPop,
@@ -245,7 +322,7 @@ class _HomeShellPageState extends State<HomeShellPage>
         backgroundColor: bg,
         extendBody: true,
         bottomNavigationBar: AppBottomNav(
-          currentIndex: _index,
+          currentIndex: currentIndex,
           onChanged: (i) => setState(() => _index = i),
           items: navItems,
           onPlusPressed: _onPlus,
@@ -259,8 +336,8 @@ class _HomeShellPageState extends State<HomeShellPage>
               switchInCurve: Curves.easeOutCubic,
               switchOutCurve: Curves.easeOutCubic,
               child: KeyedSubtree(
-                key: ValueKey<int>(_index),
-                child: pages[_index],
+                key: ValueKey<int>(currentIndex),
+                child: pages[currentIndex],
               ),
             ),
           ),
