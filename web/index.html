@@ -18,22 +18,77 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Sivatthana Kindergarten School">
+  <meta name="theme-color" content="#0B6FA4">
+
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://app.classroomconnect.la/">
+  <meta property="og:title" content="Sivatthana Application">
+  <meta property="og:description" content="Sivatthana Kindergarten School">
+  <meta property="og:image" content="https://app.classroomconnect.la/share-icon.png">
+  <meta property="og:image:secure_url" content="https://app.classroomconnect.la/share-icon.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="512">
+  <meta property="og:image:height" content="512">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Sivatthana Application">
+  <meta name="twitter:description" content="Sivatthana Kindergarten School">
+  <meta name="twitter:image" content="https://app.classroomconnect.la/share-icon.png">
 
   <!-- iOS meta tags & icons -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="alpha_school">
+  <meta name="apple-mobile-web-app-title" content="Sivatthana Application">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>alpha_school</title>
+  <title>Sivatthana Application</title>
   <link rel="manifest" href="manifest.json">
 
 </head>
 <body>
+  <script>
+    (function () {
+      var buildId = 'ALPHA_SCHOOL_BUILD_ID';
+      var buildKey = 'alpha_school_current_build_id';
+      var previousBuild = null;
+
+      try {
+        previousBuild = localStorage.getItem(buildKey);
+        if (previousBuild === buildId) return;
+      } catch (_) {}
+
+      var hasServiceWorker = 'serviceWorker' in navigator;
+      var hadController = hasServiceWorker && !!navigator.serviceWorker.controller;
+      var clearCaches = 'caches' in window
+        ? caches.keys().then(function (keys) {
+            return Promise.all(keys.map(function (key) { return caches.delete(key); }));
+          })
+        : Promise.resolve();
+
+      Promise.all([
+        hasServiceWorker
+          ? navigator.serviceWorker.getRegistrations().then(function (registrations) {
+              return Promise.all(registrations.map(function (registration) {
+                return registration.unregister();
+              }));
+            })
+          : Promise.resolve(),
+        clearCaches
+      ]).then(function () {
+        try {
+          localStorage.setItem(buildKey, buildId);
+        } catch (_) {}
+
+        if (previousBuild && previousBuild !== buildId && hadController) {
+          window.location.reload();
+        }
+      }).catch(function () {});
+    })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

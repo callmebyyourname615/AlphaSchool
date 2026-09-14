@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../../core/localization/app_localizations.dart';
 import '../../../../../core/services/global_alert_service.dart';
 import '../../../../../core/services/session_service.dart';
 import '../../../../../core/theme/app_icons.dart';
@@ -25,6 +26,17 @@ const _kBg = Color(0xFFF5F8FE);
 const _kBorder = Color(0xFFE3E9F2);
 const _kMuted = Color(0xFF647594);
 const _kMutedSoft = Color(0xFF8A98B0);
+
+String _t(BuildContext context, String key) =>
+    AppLocalizations.of(context).t(key);
+
+String _tr(BuildContext context, String key, Map<String, String> values) {
+  var text = _t(context, key);
+  for (final entry in values.entries) {
+    text = text.replaceAll('{${entry.key}}', entry.value);
+  }
+  return text;
+}
 
 enum _LoadState { loading, loaded, error }
 
@@ -132,8 +144,8 @@ class _ParentTaskChatPageState extends State<ParentTaskChatPage> {
     final parentId = _parentId;
     if (parentId == null || parentId.isEmpty) {
       GlobalAlert.showError(
-        title: 'Not signed in',
-        message: 'Please sign in again to send messages.',
+        title: _t(context, 'notSignedIn'),
+        message: _t(context, 'signInAgainToSendMessages'),
       );
       return;
     }
@@ -153,8 +165,8 @@ class _ParentTaskChatPageState extends State<ParentTaskChatPage> {
       _scrollToBottom();
     } catch (_) {
       GlobalAlert.showError(
-        title: 'Message not sent',
-        message: 'Please check your connection and try again.',
+        title: _t(context, 'messageNotSent'),
+        message: _t(context, 'checkConnectionTryAgain'),
       );
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -172,14 +184,14 @@ class _ParentTaskChatPageState extends State<ParentTaskChatPage> {
       );
       await _loadMessages();
     } catch (_) {
-      _toast('Reaction failed. Please try again.');
+      _toast(_t(context, 'reactionFailedTryAgain'));
     }
   }
 
   void _jumpToMessage(String id) {
     final ctx = _messageKeys[id]?.currentContext;
     if (ctx == null) {
-      _toast('Original message not found.');
+      _toast(_t(context, 'originalMessageNotFound'));
       return;
     }
     Scrollable.ensureVisible(
@@ -206,10 +218,18 @@ class _ParentTaskChatPageState extends State<ParentTaskChatPage> {
         );
       } else {
         file = await openFile(
-          acceptedTypeGroups: const [
+          acceptedTypeGroups: [
             XTypeGroup(
-              label: 'Chat files',
-              extensions: ['pdf', 'doc', 'docx', 'mp3', 'm4a', 'wav', 'ogg'],
+              label: _t(context, 'chatFiles'),
+              extensions: const [
+                'pdf',
+                'doc',
+                'docx',
+                'mp3',
+                'm4a',
+                'wav',
+                'ogg',
+              ],
             ),
           ],
         );
@@ -217,7 +237,7 @@ class _ParentTaskChatPageState extends State<ParentTaskChatPage> {
       if (file == null) return;
       await _sendAttachment(await file.readAsBytes(), file.name);
     } catch (_) {
-      _toast('Could not select this file.');
+      _toast(_t(context, 'couldNotSelectFile'));
     }
   }
 
@@ -241,7 +261,7 @@ class _ParentTaskChatPageState extends State<ParentTaskChatPage> {
       await _loadMessages();
       _scrollToBottom();
     } catch (_) {
-      _toast('Attachment was not sent.');
+      _toast(_t(context, 'attachmentNotSent'));
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -261,7 +281,7 @@ class _ParentTaskChatPageState extends State<ParentTaskChatPage> {
       return;
     }
     if (!await _recorder.hasPermission()) {
-      _toast('Microphone permission is required.');
+      _toast(_t(context, 'microphonePermissionRequired'));
       return;
     }
     final tempDir = await getTemporaryDirectory();
@@ -286,7 +306,7 @@ class _ParentTaskChatPageState extends State<ParentTaskChatPage> {
           children: [
             _ChatHeader(
               subtitle: widget.task.title,
-              onMoreTap: () => _toast('More options coming soon'),
+              onMoreTap: () => _toast(_t(context, 'moreOptionsComingSoon')),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
@@ -320,7 +340,10 @@ class _ParentTaskChatPageState extends State<ParentTaskChatPage> {
                         children: [
                           Expanded(
                             child: Text(
-                              'Replying to ${_replyingTo!.senderName}: ${_replyingTo!.text}',
+                              _tr(context, 'replyingToMessage', {
+                                'sender': _replyingTo!.senderName,
+                                'message': _replyingTo!.text,
+                              }),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -404,7 +427,7 @@ class _ParentTaskChatPageState extends State<ParentTaskChatPage> {
                           enabled: !_sending,
                           style: const TextStyle(fontSize: 14, color: _kNavy),
                           decoration: InputDecoration(
-                            hintText: 'Type a message...',
+                            hintText: _t(context, 'typeMessage'),
                             hintStyle: const TextStyle(
                               color: _kMutedSoft,
                               fontSize: 14,
@@ -478,18 +501,17 @@ class _ParentTaskChatPageState extends State<ParentTaskChatPage> {
       case _LoadState.error:
         return _ChatStatus(
           icon: LucideIcons.circleAlert,
-          title: "Couldn't load messages",
-          message: 'Check your connection and try again.',
-          actionLabel: 'Retry',
+          title: _t(context, 'couldNotLoadMessages'),
+          message: _t(context, 'checkConnectionTryAgain'),
+          actionLabel: _t(context, 'retry'),
           onAction: () => _loadMessages(showLoading: true),
         );
       case _LoadState.loaded:
         if (_messages.isEmpty) {
-          return const _ChatStatus(
+          return _ChatStatus(
             icon: LucideIcons.messageCircle,
-            title: 'No messages yet',
-            message:
-                'Send a message to start the conversation with the teacher.',
+            title: _t(context, 'noMessagesYet'),
+            message: _t(context, 'sendMessageStartTeacherConversation'),
           );
         }
         return ListView(
@@ -584,7 +606,7 @@ class _ParentTaskChatPageState extends State<ParentTaskChatPage> {
             const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.reply),
-              title: const Text('Reply'),
+              title: Text(_t(context, 'reply')),
               onTap: () {
                 Navigator.pop(sheetContext);
                 setState(() => _replyingTo = message);
@@ -593,9 +615,9 @@ class _ParentTaskChatPageState extends State<ParentTaskChatPage> {
             if (message.sender == ChatSenderType.parent)
               ListTile(
                 leading: const Icon(LucideIcons.trash2, color: Colors.red),
-                title: const Text(
-                  'Delete message',
-                  style: TextStyle(color: Colors.red),
+                title: Text(
+                  _t(context, 'deleteMessage'),
+                  style: const TextStyle(color: Colors.red),
                 ),
                 onTap: () async {
                   Navigator.pop(sheetContext);
@@ -637,10 +659,10 @@ class _ChatHeader extends StatelessWidget {
           Expanded(
             child: Column(
               children: [
-                const Text(
-                  'Task Chat',
+                Text(
+                  _t(context, 'taskChat'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                     color: _kNavy,
@@ -938,9 +960,9 @@ class _ParentBubble extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'You',
-              style: TextStyle(
+            Text(
+              _t(context, 'you'),
+              style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
                 color: _kNavy,
@@ -1035,13 +1057,13 @@ class _MessageQuickActions extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          tooltip: 'Reply',
+          tooltip: _t(context, 'reply'),
           visualDensity: VisualDensity.compact,
           icon: const Icon(Icons.reply_outlined, size: 19, color: _kMutedSoft),
           onPressed: onReply,
         ),
         IconButton(
-          tooltip: 'React',
+          tooltip: _t(context, 'react'),
           visualDensity: VisualDensity.compact,
           icon: const Icon(
             Icons.sentiment_satisfied_alt_outlined,
@@ -1151,7 +1173,9 @@ class _ReplyPreview extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    reply.text.trim().isEmpty ? 'Attachment' : reply.text,
+                    reply.text.trim().isEmpty
+                        ? _t(context, 'attachment')
+                        : reply.text,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(

@@ -1563,10 +1563,10 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
         .toList();
 
     if (pdfFiles.isNotEmpty && imageFiles.isNotEmpty) {
-      throw Exception('Please choose either PDF or images, not both.');
+      throw Exception(_t('chooseEitherPdfOrImagesNotBoth'));
     }
     if (pdfFiles.length > 1) {
-      throw Exception('Please choose only one PDF file.');
+      throw Exception(_t('chooseOnlyOnePdfFile'));
     }
     if (pdfFiles.length == 1) {
       final pdf = pdfFiles.first;
@@ -1578,7 +1578,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
       );
     }
     if (imageFiles.isEmpty) {
-      throw Exception('Please choose PDF, JPG, JPEG, or PNG files.');
+      throw Exception(_t('choosePdfJpgJpegPngFiles'));
     }
 
     for (final file in imageFiles) {
@@ -2113,7 +2113,7 @@ class _ParentInfoFormPageState extends State<ParentInfoFormPage> {
           isExpanded: true,
           icon: const Icon(LucideIcons.chevronDown, color: _muted),
           hint: Text(
-            placeholder ?? 'Select...',
+            placeholder ?? _t('selectPlaceholder'),
             style: const TextStyle(color: _slate400, fontSize: 14),
           ),
           style: const TextStyle(

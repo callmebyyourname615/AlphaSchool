@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../../core/localization/app_localizations.dart';
 import '../../../../../core/services/global_alert_service.dart';
 import '../../../../../core/services/session_service.dart';
 import '../../../../../core/theme/app_icons.dart';
@@ -24,6 +25,17 @@ const _kBg = Color(0xFFF5F8FE);
 const _kBorder = Color(0xFFE3E9F2);
 const _kMuted = Color(0xFF647594);
 const _kMutedSoft = Color(0xFF8A98B0);
+
+String _t(BuildContext context, String key) =>
+    AppLocalizations.of(context).t(key);
+
+String _tr(BuildContext context, String key, Map<String, String> values) {
+  var text = _t(context, key);
+  for (final entry in values.entries) {
+    text = text.replaceAll('{${entry.key}}', entry.value);
+  }
+  return text;
+}
 
 class ParentTaskAttachmentsPage extends StatefulWidget {
   final ParentTaskItem task;
@@ -186,7 +198,7 @@ class _ParentTaskAttachmentsPageState extends State<ParentTaskAttachmentsPage>
         uri != null &&
         await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (opened || !mounted) return;
-    _toast('Could not open ${file.name}');
+    _toast(_tr(context, 'couldNotOpenNamedFile', {'name': file.name}));
   }
 
   Future<void> _showUploadSheet() async {
@@ -213,8 +225,11 @@ class _ParentTaskAttachmentsPageState extends State<ParentTaskAttachmentsPage>
         );
       } else {
         picked = await openFile(
-          acceptedTypeGroups: const [
-            XTypeGroup(label: 'Documents', extensions: ['pdf', 'doc', 'docx']),
+          acceptedTypeGroups: [
+            XTypeGroup(
+              label: _t(context, 'documents'),
+              extensions: const ['pdf', 'doc', 'docx'],
+            ),
           ],
         );
       }
@@ -227,7 +242,7 @@ class _ParentTaskAttachmentsPageState extends State<ParentTaskAttachmentsPage>
     } catch (error) {
       if (!mounted) return;
       GlobalAlert.showError(
-        title: 'Could not open file',
+        title: _t(context, 'couldNotOpenFile'),
         message: error.toString(),
       );
     }
@@ -254,7 +269,7 @@ class _ParentTaskAttachmentsPageState extends State<ParentTaskAttachmentsPage>
       'webp',
     }.contains(extension);
     if (!isImage && extension != 'pdf') {
-      _toast('Preview supports images and PDF files.');
+      _toast(_t(context, 'previewSupportsImagesPdf'));
       return;
     }
 
@@ -282,7 +297,7 @@ class _ParentTaskAttachmentsPageState extends State<ParentTaskAttachmentsPage>
                     IconButton(
                       onPressed: () => Navigator.pop(dialogContext),
                       icon: const Icon(LucideIcons.x),
-                      tooltip: 'Close preview',
+                      tooltip: _t(context, 'closePreview'),
                     ),
                   ],
                 ),
@@ -309,7 +324,7 @@ class _ParentTaskAttachmentsPageState extends State<ParentTaskAttachmentsPage>
     if (_selectedSlot?.isSubmitted == true ||
         (_selectedSlot?.status == 'missed' &&
             !widget.task.allowLateSubmission)) {
-      _toast('This submission round is locked. Choose an open round.');
+      _toast(_t(context, 'submissionRoundLocked'));
       return;
     }
     final success = await _uploadBytes(bytes, fileName);
@@ -325,14 +340,14 @@ class _ParentTaskAttachmentsPageState extends State<ParentTaskAttachmentsPage>
     final studentId = _studentId;
     if (studentId.isEmpty) {
       GlobalAlert.showError(
-        title: 'Missing student',
-        message: 'No student is selected for this task.',
+        title: _t(context, 'missingStudent'),
+        message: _t(context, 'noStudentSelectedForTask'),
       );
       return false;
     }
 
     setState(() => _uploading = true);
-    GlobalAlert.showLoading(message: 'Uploading…');
+    GlobalAlert.showLoading(message: _t(context, 'uploading'));
     try {
       final submissionId =
           _submissionId ??
@@ -373,17 +388,23 @@ class _ParentTaskAttachmentsPageState extends State<ParentTaskAttachmentsPage>
         _uploading = false;
       });
       await GlobalAlert.showSuccess(
-        title: 'Uploaded',
+        title: _t(context, 'uploaded'),
         message: slot == null
-            ? '$fileName was submitted successfully.'
-            : '$fileName was submitted for checkpoint ${slot.scheduleIndex}.',
+            ? _tr(context, 'fileSubmittedSuccessfully', {'name': fileName})
+            : _tr(context, 'fileSubmittedForCheckpoint', {
+                'name': fileName,
+                'index': '${slot.scheduleIndex}',
+              }),
       );
       return true;
     } catch (error) {
       GlobalAlert.dismiss();
       if (!mounted) return false;
       setState(() => _uploading = false);
-      GlobalAlert.showError(title: 'Upload failed', message: error.toString());
+      GlobalAlert.showError(
+        title: _t(context, 'uploadFailed'),
+        message: error.toString(),
+      );
       return false;
     }
   }
@@ -402,7 +423,7 @@ class _ParentTaskAttachmentsPageState extends State<ParentTaskAttachmentsPage>
           children: [
             _AttachmentsHeader(
               subtitle: widget.task.title,
-              onMoreTap: () => _toast('More options coming soon'),
+              onMoreTap: () => _toast(_t(context, 'moreOptionsComingSoon')),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
@@ -440,8 +461,16 @@ class _ParentTaskAttachmentsPageState extends State<ParentTaskAttachmentsPage>
                   fontWeight: FontWeight.w600,
                 ),
                 tabs: [
-                  Tab(text: 'From Teacher (${teacherFiles.length})'),
-                  Tab(text: 'From You (${_submissionFiles.length})'),
+                  Tab(
+                    text: _tr(context, 'fromTeacherCount', {
+                      'count': '${teacherFiles.length}',
+                    }),
+                  ),
+                  Tab(
+                    text: _tr(context, 'fromYouCount', {
+                      'count': '${_submissionFiles.length}',
+                    }),
+                  ),
                 ],
               ),
             ),
@@ -450,10 +479,9 @@ class _ParentTaskAttachmentsPageState extends State<ParentTaskAttachmentsPage>
                 controller: _tab,
                 children: [
                   _FilesTab(
-                    title: 'Files from Teacher',
+                    title: _t(context, 'filesFromTeacher'),
                     files: teacherFiles,
-                    emptyMessage:
-                        'The teacher hasn\'t uploaded any files for this task yet.',
+                    emptyMessage: _t(context, 'teacherHasNotUploadedFiles'),
                     bottomInset: bottomInset,
                     onOpen: _openFile,
                     showSubmitSection: true,
@@ -473,10 +501,9 @@ class _ParentTaskAttachmentsPageState extends State<ParentTaskAttachmentsPage>
                           ),
                         )
                       : _FilesTab(
-                          title: 'Your Submitted Files',
+                          title: _t(context, 'yourSubmittedFiles'),
                           files: _submissionFiles,
-                          emptyMessage:
-                              'You haven\'t submitted any files for this task yet.',
+                          emptyMessage: _t(context, 'youHaveNotSubmittedFiles'),
                           bottomInset: bottomInset,
                           onOpen: _openFile,
                           showSubmitSection: true,
@@ -525,10 +552,10 @@ class _AttachmentsHeader extends StatelessWidget {
           Expanded(
             child: Column(
               children: [
-                const Text(
-                  'Attachments',
+                Text(
+                  _t(context, 'attachments'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                     color: _kNavy,
@@ -586,18 +613,18 @@ class _SubmissionPlanStrip extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Submission plan',
-            style: TextStyle(
+          Text(
+            _t(context, 'submissionPlan'),
+            style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w800,
               color: _kNavy,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Your next available checkpoint is selected automatically.',
-            style: TextStyle(fontSize: 12.5, color: _kMuted),
+          Text(
+            _t(context, 'nextCheckpointSelectedAutomatically'),
+            style: const TextStyle(fontSize: 12.5, color: _kMuted),
           ),
           const SizedBox(height: 12),
           SingleChildScrollView(
@@ -649,12 +676,14 @@ class _CheckpointChip extends StatelessWidget {
     _ => _kBlue,
   };
 
-  String get _label => switch (slot.status) {
-    'submitted' ||
-    'reviewed' => _isSubmittedLate ? 'Late Submitted' : 'Early Submitted',
-    'late' => 'Late Submitted',
-    'missed' => 'Missed',
-    _ => 'Due Date',
+  String _label(BuildContext context) => switch (slot.status) {
+    'submitted' || 'reviewed' =>
+      _isSubmittedLate
+          ? _t(context, 'lateSubmitted')
+          : _t(context, 'earlySubmitted'),
+    'late' => _t(context, 'lateSubmitted'),
+    'missed' => _t(context, 'missed'),
+    _ => _t(context, 'dueDate'),
   };
 
   @override
@@ -702,7 +731,7 @@ class _CheckpointChip extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  _label,
+                  _label(context),
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 10.5,
@@ -820,9 +849,9 @@ class _FilesTab extends StatelessWidget {
           ),
         if (showSubmitSection) ...[
           const SizedBox(height: 24),
-          const Text(
-            'Submit Your Work',
-            style: TextStyle(
+          Text(
+            _t(context, 'submitYourWork'),
+            style: const TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w800,
               color: _kNavy,
@@ -860,19 +889,19 @@ class _FilesTab extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      const Text(
-                        'Upload your work here',
-                        style: TextStyle(
+                      Text(
+                        _t(context, 'uploadYourWorkHere'),
+                        style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                           color: _kBlue,
                         ),
                       ),
                       const SizedBox(height: 4),
-                      const Text(
-                        'Photos, PDF, or other files',
+                      Text(
+                        _t(context, 'photosPdfOrOtherFiles'),
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
                           color: _kMuted,
                           height: 1.4,
@@ -893,14 +922,18 @@ class _FilesTab extends StatelessWidget {
                 child: Container(
                   height: 54,
                   alignment: Alignment.center,
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(LucideIcons.upload, size: 17, color: Colors.white),
-                      SizedBox(width: 8),
+                      const Icon(
+                        LucideIcons.upload,
+                        size: 17,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 8),
                       Text(
-                        'Choose File',
-                        style: TextStyle(
+                        _t(context, 'chooseFile'),
+                        style: const TextStyle(
                           fontSize: 15.5,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
@@ -932,9 +965,9 @@ class _FilesTab extends StatelessWidget {
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: _kBorder),
                         ),
-                        child: const Text(
-                          'Remove',
-                          style: TextStyle(
+                        child: Text(
+                          _t(context, 'remove'),
+                          style: const TextStyle(
                             fontSize: 14.5,
                             fontWeight: FontWeight.w700,
                             color: _kMuted,
@@ -955,14 +988,18 @@ class _FilesTab extends StatelessWidget {
                       child: Container(
                         height: 50,
                         alignment: Alignment.center,
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(LucideIcons.eye, size: 16, color: _kBlue),
-                            SizedBox(width: 7),
+                            const Icon(
+                              LucideIcons.eye,
+                              size: 16,
+                              color: _kBlue,
+                            ),
+                            const SizedBox(width: 7),
                             Text(
-                              'Preview',
-                              style: TextStyle(
+                              _t(context, 'preview'),
+                              style: const TextStyle(
                                 fontSize: 14.5,
                                 fontWeight: FontWeight.w700,
                                 color: _kBlue,
@@ -994,18 +1031,18 @@ class _FilesTab extends StatelessWidget {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Row(
+                            : Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(
+                                  const Icon(
                                     LucideIcons.upload,
                                     size: 16,
                                     color: Colors.white,
                                   ),
-                                  SizedBox(width: 7),
+                                  const SizedBox(width: 7),
                                   Text(
-                                    'Upload',
-                                    style: TextStyle(
+                                    _t(context, 'upload'),
+                                    style: const TextStyle(
                                       fontSize: 14.5,
                                       fontWeight: FontWeight.w700,
                                       color: Colors.white,
@@ -1086,9 +1123,9 @@ class _StagedFilePreview extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                const Text(
-                  'Ready to upload',
-                  style: TextStyle(fontSize: 12, color: _kMutedSoft),
+                Text(
+                  _t(context, 'readyToUpload'),
+                  style: const TextStyle(fontSize: 12, color: _kMutedSoft),
                 ),
               ],
             ),
@@ -1111,15 +1148,18 @@ class _FileRow extends StatelessWidget {
     final ext = dot >= 0 ? file.name.substring(dot + 1).toLowerCase() : '';
 
     final (badge, badgeBg, badgeFg, typeLabel) = switch (ext) {
-      'pdf' => ('PDF', _kRed, Colors.white, 'PDF file'),
-      'jpg' ||
-      'jpeg' ||
-      'png' ||
-      'gif' ||
-      'webp' => ('IMG', const Color(0xFFF1F5F9), _kMutedSoft, 'Image'),
-      'mp4' || 'webm' || 'mov' => ('VID', _kPurple, Colors.white, 'Video'),
-      'doc' || 'docx' => ('DOC', _kBlue, Colors.white, 'Document'),
-      _ => ('FILE', const Color(0xFFF1F5F9), _kMutedSoft, 'File'),
+      'pdf' => ('PDF', _kRed, Colors.white, _t(context, 'pdfFile')),
+      'jpg' || 'jpeg' || 'png' || 'gif' || 'webp' => (
+        'IMG',
+        const Color(0xFFF1F5F9),
+        _kMutedSoft,
+        _t(context, 'image'),
+      ),
+      'mp4' ||
+      'webm' ||
+      'mov' => ('VID', _kPurple, Colors.white, _t(context, 'video')),
+      'doc' || 'docx' => ('DOC', _kBlue, Colors.white, _t(context, 'document')),
+      _ => ('FILE', const Color(0xFFF1F5F9), _kMutedSoft, _t(context, 'file')),
     };
 
     return Material(
@@ -1207,35 +1247,35 @@ class _UploadSourceSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          const Text(
-            'Submit your work',
-            style: TextStyle(
+          Text(
+            _t(context, 'submitYourWork'),
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
               color: _kNavy,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Choose how you want to attach your work.',
-            style: TextStyle(fontSize: 13, color: _kMuted),
+          Text(
+            _t(context, 'chooseAttachWork'),
+            style: const TextStyle(fontSize: 13, color: _kMuted),
           ),
           const SizedBox(height: 18),
           _SourceTile(
             icon: LucideIcons.camera,
-            title: 'Take a photo',
+            title: _t(context, 'takePhoto'),
             onTap: () => Navigator.pop(context, _UploadSource.camera),
           ),
           const SizedBox(height: 10),
           _SourceTile(
             icon: LucideIcons.images,
-            title: 'Choose from gallery',
+            title: _t(context, 'chooseFromGallery'),
             onTap: () => Navigator.pop(context, _UploadSource.gallery),
           ),
           const SizedBox(height: 10),
           _SourceTile(
             icon: LucideIcons.fileText,
-            title: 'Choose a file (PDF, DOC)',
+            title: _t(context, 'choosePdfDocFile'),
             onTap: () => Navigator.pop(context, _UploadSource.file),
           ),
         ],

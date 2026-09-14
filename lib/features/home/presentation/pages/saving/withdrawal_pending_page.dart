@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import '../../../../../core/localization/app_localizations.dart';
 import '../../../../../core/theme/app_icons.dart';
 
 import 'saving_service.dart';
+
+String _t(BuildContext context, String key) =>
+    AppLocalizations.of(context).t(key);
 
 /// Post-submit tracking screen for parent withdrawal requests.
 ///
@@ -138,7 +141,7 @@ class _WithdrawalPendingPageState extends State<WithdrawalPendingPage> {
         IconButton(
           onPressed: () => Navigator.of(context).pop(),
           icon: const Icon(LucideIcons.arrowLeft, size: 18, color: _navy),
-          tooltip: 'Back',
+          tooltip: _t(context, 'back'),
         ),
         const Spacer(),
       ],
@@ -219,9 +222,9 @@ class _WithdrawalPendingPageState extends State<WithdrawalPendingPage> {
   _HeroConfig _heroConfig() {
     if (_status == 'parent_received' || _status == 'teacher_received') {
       return _HeroConfig(
-        title: 'Cash received',
-        subtitle: 'The school has released your withdrawal. Enjoy!',
-        badgeText: 'COMPLETED',
+        title: _t(context, 'cashReceived'),
+        subtitle: _t(context, 'schoolReleasedWithdrawal'),
+        badgeText: _t(context, 'completedUpper'),
         icon: LucideIcons.circleCheck,
         color: _emerald,
         background: _emeraldSoft,
@@ -230,10 +233,9 @@ class _WithdrawalPendingPageState extends State<WithdrawalPendingPage> {
     }
     if (_isRejected) {
       return _HeroConfig(
-        title: 'Request rejected',
-        subtitle:
-            'The school could not process this withdrawal. Please contact the office for details.',
-        badgeText: 'REJECTED',
+        title: _t(context, 'requestRejected'),
+        subtitle: _t(context, 'schoolCouldNotProcessWithdrawal'),
+        badgeText: _t(context, 'rejectedUpper'),
         icon: LucideIcons.circleX,
         color: _rose,
         background: _roseSoft,
@@ -242,10 +244,9 @@ class _WithdrawalPendingPageState extends State<WithdrawalPendingPage> {
     }
     if (_status == 'super_admin_approved') {
       return _HeroConfig(
-        title: 'Approved — ready for pickup',
-        subtitle:
-            'Visit the school office to collect the cash. The teacher will hand it over and confirm.',
-        badgeText: 'READY FOR PICKUP',
+        title: _t(context, 'approvedReadyForPickup'),
+        subtitle: _t(context, 'visitOfficeCollectCash'),
+        badgeText: _t(context, 'readyForPickupUpper'),
         icon: LucideIcons.handCoins,
         color: _blue,
         background: _blueSoft,
@@ -254,10 +255,9 @@ class _WithdrawalPendingPageState extends State<WithdrawalPendingPage> {
     }
     if (_status == 'admin_confirmed') {
       return _HeroConfig(
-        title: 'Admin confirmed',
-        subtitle:
-            'Your request was reviewed and forwarded to the super admin for final approval.',
-        badgeText: 'WAITING SUPER ADMIN',
+        title: _t(context, 'adminConfirmed'),
+        subtitle: _t(context, 'requestForwardedSuperAdmin'),
+        badgeText: _t(context, 'waitingSuperAdminUpper'),
         icon: LucideIcons.userCheck,
         color: _blue,
         background: _blueSoft,
@@ -266,10 +266,9 @@ class _WithdrawalPendingPageState extends State<WithdrawalPendingPage> {
     }
     // pending (and unknown statuses)
     return _HeroConfig(
-      title: 'Send successfully',
-      subtitle:
-          'Your withdrawal request was received. The school will review it shortly.',
-      badgeText: 'PENDING REVIEW',
+      title: _t(context, 'sendSuccessfully'),
+      subtitle: _t(context, 'withdrawalRequestReceived'),
+      badgeText: _t(context, 'pendingReviewUpper'),
       icon: LucideIcons.hourglass,
       color: _amber,
       background: _amberSoft,
@@ -306,9 +305,9 @@ class _WithdrawalPendingPageState extends State<WithdrawalPendingPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'WITHDRAW',
-                  style: TextStyle(
+                Text(
+                  _t(context, 'withdrawUpper'),
+                  style: const TextStyle(
                     fontSize: 10,
                     color: _muted,
                     fontWeight: FontWeight.w800,
@@ -370,11 +369,11 @@ class _WithdrawalPendingPageState extends State<WithdrawalPendingPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(bottom: 14, left: 4),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14, left: 4),
             child: Text(
-              'TRACKING',
-              style: TextStyle(
+              _t(context, 'trackingUpper'),
+              style: const TextStyle(
                 fontSize: 11,
                 color: _blue,
                 fontWeight: FontWeight.w800,
@@ -393,30 +392,30 @@ class _WithdrawalPendingPageState extends State<WithdrawalPendingPage> {
   List<_TimelineStep> _buildSteps() {
     final reachedIdx = _reachedIndex();
     final stagesActive = !_isRejected;
-    const labels = [
+    final labels = [
       _TimelineStage(
-        title: 'Send successfully',
-        subtitle: 'Request received by the system',
+        title: _t(context, 'sendSuccessfully'),
+        subtitle: _t(context, 'requestReceivedBySystem'),
         icon: LucideIcons.send,
       ),
       _TimelineStage(
-        title: 'Pending review',
-        subtitle: 'Waiting for admin to confirm',
+        title: _t(context, 'pendingReview'),
+        subtitle: _t(context, 'waitingAdminConfirm'),
         icon: LucideIcons.hourglass,
       ),
       _TimelineStage(
-        title: 'Admin confirmed',
-        subtitle: 'Forwarded to super admin',
+        title: _t(context, 'adminConfirmed'),
+        subtitle: _t(context, 'forwardedToSuperAdmin'),
         icon: LucideIcons.userCheck,
       ),
       _TimelineStage(
-        title: 'Super admin approved',
-        subtitle: 'Approved — ready for pickup',
+        title: _t(context, 'superAdminApproved'),
+        subtitle: _t(context, 'approvedReadyForPickup'),
         icon: LucideIcons.shieldCheck,
       ),
       _TimelineStage(
-        title: 'Cash received',
-        subtitle: 'Withdrawal complete',
+        title: _t(context, 'cashReceived'),
+        subtitle: _t(context, 'withdrawalComplete'),
         icon: LucideIcons.circleCheck,
       ),
     ];
@@ -436,9 +435,9 @@ class _WithdrawalPendingPageState extends State<WithdrawalPendingPage> {
         ),
       if (_isRejected)
         _TimelineStep(
-          stage: const _TimelineStage(
-            title: 'Rejected',
-            subtitle: 'Contact the school for next steps',
+          stage: _TimelineStage(
+            title: _t(context, 'rejected'),
+            subtitle: _t(context, 'contactSchoolNextSteps'),
             icon: LucideIcons.circleX,
           ),
           state: _StepState.rejected,
@@ -609,10 +608,12 @@ class _WithdrawalPendingPageState extends State<WithdrawalPendingPage> {
               ),
         label: Text(
           _refreshing
-              ? 'Checking status...'
+              ? _t(context, 'checkingStatus')
               : terminal
-              ? (_isRejected ? 'Back to savings' : 'Done')
-              : 'Check status',
+              ? (_isRejected
+                    ? _t(context, 'backToSavings')
+                    : _t(context, 'done'))
+              : _t(context, 'checkStatus'),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: _isRejected ? _rose : _blue,
@@ -634,9 +635,9 @@ class _WithdrawalPendingPageState extends State<WithdrawalPendingPage> {
         foregroundColor: _muted,
         minimumSize: const Size.fromHeight(40),
       ),
-      child: const Text(
-        'Close',
-        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+      child: Text(
+        _t(context, 'close'),
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
       ),
     );
   }

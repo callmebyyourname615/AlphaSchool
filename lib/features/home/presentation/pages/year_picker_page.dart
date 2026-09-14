@@ -108,17 +108,20 @@ class _YearPickerPageState extends State<YearPickerPage> {
                   ),
                   const SizedBox(height: 36),
                   Expanded(
-                    child: ListView.separated(
-                      itemCount: _years.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        return _YearOption(
-                          year: _years[index],
-                          selected: _selectedIndex == index,
-                          disabled: _navigating,
-                          onTap: () => _selectAndGo(index),
-                        );
-                      },
+                    child: ListView(
+                      children: [
+                        for (var index = 0; index < _years.length; index++) ...[
+                          if (index > 0) const SizedBox(height: 12),
+                          _YearOption(
+                            year: _years[index],
+                            selected: _selectedIndex == index,
+                            disabled: _navigating,
+                            onTap: () => _selectAndGo(index),
+                          ),
+                        ],
+                        const SizedBox(height: 18),
+                        const _TemporaryPlatformNotice(),
+                      ],
                     ),
                   ),
                   if (_navigating)
@@ -273,6 +276,140 @@ class _FlagImage extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipOval(
       child: Image.asset(asset, width: size, height: size, fit: BoxFit.cover),
+    );
+  }
+}
+
+class _TemporaryPlatformNotice extends StatefulWidget {
+  const _TemporaryPlatformNotice();
+
+  @override
+  State<_TemporaryPlatformNotice> createState() =>
+      _TemporaryPlatformNoticeState();
+}
+
+class _TemporaryPlatformNoticeState extends State<_TemporaryPlatformNotice>
+    with SingleTickerProviderStateMixin {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final textTheme = Theme.of(context).textTheme;
+    final borderColor = AppColors.slate.withValues(alpha: .12);
+    final iconSurface = AppColors.blue300.withValues(alpha: .08);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+      decoration: BoxDecoration(
+        color: AppColors.grayUltraLight,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: Padding(
+                padding: const EdgeInsets.all(2),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: iconSurface,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        LucideIcons.info,
+                        color: AppColors.blue300,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        l10n.t('temporaryPlatformNoticeButton'),
+                        style: textTheme.titleSmall?.copyWith(
+                          color: AppColors.dark,
+                          height: 1.18,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    AnimatedRotation(
+                      turns: _expanded ? .5 : 0,
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOutCubic,
+                      child: const Icon(
+                        LucideIcons.chevronDown,
+                        color: AppColors.gray,
+                        size: 20,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: _expanded
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 14),
+                      Divider(height: 1, color: borderColor),
+                      const SizedBox(height: 14),
+                      Text(
+                        l10n.t('temporaryPlatformNoticeTitle'),
+                        style: textTheme.labelLarge?.copyWith(
+                          color: AppColors.dark,
+                          height: 1.2,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.t('temporaryPlatformNoticeBody'),
+                        style: textTheme.bodySmall?.copyWith(
+                          color: AppColors.gray,
+                          height: 1.58,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        l10n.t('temporaryPlatformNoticeStoreLabel'),
+                        style: textTheme.labelMedium?.copyWith(
+                          color: AppColors.dark,
+                          height: 1.2,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Image.asset(
+                          'assets/images/app_download_badges.png',
+                          width: 284,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ],
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ),
     );
   }
 }

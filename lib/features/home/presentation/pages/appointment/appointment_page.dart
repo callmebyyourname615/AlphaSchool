@@ -32,6 +32,41 @@ String _appointmentStatusLabel(BuildContext context, AppointmentStatus s) =>
       AppointmentStatus.pending => _t(context, 'pending'),
     };
 
+String _participantStatusLabel(BuildContext context, String status) {
+  switch (status.trim().toUpperCase()) {
+    case 'ACCEPTED':
+    case 'CONFIRMED':
+      return _t(context, 'accepted');
+    case 'DECLINED':
+      return _t(context, 'declined');
+    case 'CANCELLED':
+      return _t(context, 'cancelled');
+    case 'RESCHEDULED':
+      return _t(context, 'rescheduled');
+    case 'PENDING':
+      return _t(context, 'pending');
+    default:
+      return status;
+  }
+}
+
+String _participantTypeLabel(BuildContext context, String type) {
+  switch (type.trim().toUpperCase()) {
+    case 'TEACHER':
+      return _t(context, 'teacher');
+    case 'ADMIN':
+      return _t(context, 'admin');
+    case 'SUPER_ADMIN':
+      return _t(context, 'superAdmin');
+    case 'SUPER_SUPER_ADMIN':
+      return _t(context, 'superSuperAdmin');
+    case 'PARENT':
+      return _t(context, 'parent');
+    default:
+      return type;
+  }
+}
+
 String _appointmentMonthName(BuildContext context, int month) {
   const keys = [
     'monthJanuary',
@@ -1491,7 +1526,7 @@ class _TimelineSheet extends StatelessWidget {
           time: person.createdAt ?? createdAt,
           details: [
             '${person.name} ${_t(context, 'addedAsParticipant')}',
-            '${_t(context, 'type')}: ${person.personType}',
+            '${_t(context, 'type')}: ${_participantTypeLabel(context, person.personType)}',
             '${_t(context, 'initialStatus')}: ${_t(context, 'pending')}',
           ],
         ),
@@ -1600,7 +1635,7 @@ class _TimelineSheet extends StatelessWidget {
       details: [
         rescheduled
             ? _t(context, 'requestedDifferentSchedule')
-            : '${_t(context, 'responseChangedTo')} $status',
+            : '${_t(context, 'responseChangedTo')} ${_participantStatusLabel(context, status)}',
         '${_t(context, 'by')} ${person.name}',
         if (rescheduled &&
             (history.proposedDate != null ||

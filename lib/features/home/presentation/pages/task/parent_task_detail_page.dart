@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/localization/app_localizations.dart';
 import '../../../../../core/theme/app_icons.dart';
 import '../../../../../shared/models/student_card_item.dart';
 import 'parent_task_attachments_page.dart';
@@ -20,6 +21,17 @@ const _kMuted = Color(0xFF647594);
 const _kMutedSoft = Color(0xFF8A98B0);
 const _kPurpleBg = Color(0xFFF3E8FF);
 const _kPurpleFg = Color(0xFF9333EA);
+
+String _t(BuildContext context, String key) =>
+    AppLocalizations.of(context).t(key);
+
+String _tr(BuildContext context, String key, Map<String, String> values) {
+  var text = _t(context, key);
+  for (final entry in values.entries) {
+    text = text.replaceAll('{${entry.key}}', entry.value);
+  }
+  return text;
+}
 
 class ParentTaskDetailPage extends StatefulWidget {
   final ParentTaskItem task;
@@ -132,7 +144,8 @@ class _ParentTaskDetailPageState extends State<ParentTaskDetailPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _DetailHeader(
-              onMoreTap: () => _toast(context, 'More options coming soon'),
+              onMoreTap: () =>
+                  _toast(context, _t(context, 'moreOptionsComingSoon')),
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -183,9 +196,9 @@ class _ParentTaskDetailPageState extends State<ParentTaskDetailPage> {
                                           999,
                                         ),
                                       ),
-                                      child: const Text(
-                                        'New',
-                                        style: TextStyle(
+                                      child: Text(
+                                        _t(context, 'newLabel'),
+                                        style: const TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w700,
                                           color: _kPurpleFg,
@@ -209,9 +222,9 @@ class _ParentTaskDetailPageState extends State<ParentTaskDetailPage> {
                     ),
 
                     const SizedBox(height: 20),
-                    const Text(
-                      'Assigned by',
-                      style: TextStyle(fontSize: 13, color: _kMutedSoft),
+                    Text(
+                      _t(context, 'assignedBy'),
+                      style: const TextStyle(fontSize: 13, color: _kMutedSoft),
                     ),
                     const SizedBox(height: 8),
                     Row(
@@ -282,7 +295,7 @@ class _ParentTaskDetailPageState extends State<ParentTaskDetailPage> {
                             child: _SummaryCell(
                               icon: LucideIcons.calendarDays,
                               iconColor: _kPurpleFg,
-                              label: 'Due Date',
+                              label: _t(context, 'dueDate'),
                               child: Column(
                                 children: [
                                   Text(
@@ -294,7 +307,7 @@ class _ParentTaskDetailPageState extends State<ParentTaskDetailPage> {
                                     ),
                                   ),
                                   Text(
-                                    '(${task.daysLeft} days left)',
+                                    '(${_tr(context, task.daysLeft == 1 ? 'daysLeftOne' : 'daysLeftMany', {'count': '${task.daysLeft}'})})',
                                     style: const TextStyle(
                                       fontSize: 10.5,
                                       color: _kRed,
@@ -309,11 +322,14 @@ class _ParentTaskDetailPageState extends State<ParentTaskDetailPage> {
                             child: _SummaryCell(
                               icon: LucideIcons.star,
                               iconColor: _kBlue,
-                              label: 'Score',
+                              label: _t(context, 'score'),
                               child: Text(
                                 reviewedSlot == null
-                                    ? 'Not graded'
-                                    : '${reviewedSlot.score} / ${reviewedSlot.maxScore} pts',
+                                    ? _t(context, 'notGraded')
+                                    : _tr(context, 'scoreOutOfPoints', {
+                                        'score': '${reviewedSlot.score}',
+                                        'total': '${reviewedSlot.maxScore}',
+                                      }),
                                 style: const TextStyle(
                                   fontSize: 13.5,
                                   fontWeight: FontWeight.w800,
@@ -327,7 +343,7 @@ class _ParentTaskDetailPageState extends State<ParentTaskDetailPage> {
                             child: _SummaryCell(
                               icon: LucideIcons.refreshCw,
                               iconColor: _kBlue,
-                              label: 'Practice Target',
+                              label: _t(context, 'practiceTarget'),
                               child: Text(
                                 task.practiceTargetLabel ?? '—',
                                 style: const TextStyle(
@@ -343,14 +359,15 @@ class _ParentTaskDetailPageState extends State<ParentTaskDetailPage> {
                     ),
 
                     _Section(
-                      title: 'Your Progress',
+                      title: _t(context, 'yourProgress'),
                       child: _ProgressCard(progress: _progressPct),
                     ),
 
                     if (_visibleSubmissionSlots.isNotEmpty)
                       _Section(
-                        title:
-                            'Submission plan · ${_visibleSubmissionSlots.length} rounds',
+                        title: _tr(context, 'submissionPlanRounds', {
+                          'count': '${_visibleSubmissionSlots.length}',
+                        }),
                         child: _SubmissionPlanCard(
                           slots: _visibleSubmissionSlots,
                           onSubmitTap: () => Navigator.push(
@@ -366,10 +383,10 @@ class _ParentTaskDetailPageState extends State<ParentTaskDetailPage> {
                       ),
 
                     _Section(
-                      title: 'Description',
+                      title: _t(context, 'description'),
                       child: Text(
                         task.description.isEmpty
-                            ? 'No description provided.'
+                            ? _t(context, 'noDescriptionProvided')
                             : task.description,
                         style: const TextStyle(
                           fontSize: 14,
@@ -380,7 +397,7 @@ class _ParentTaskDetailPageState extends State<ParentTaskDetailPage> {
                     ),
 
                     _Section(
-                      title: 'Attachments',
+                      title: _t(context, 'attachments'),
                       child: _RowCard(
                         onTap: () => Navigator.push(
                           context,
@@ -415,13 +432,15 @@ class _ParentTaskDetailPageState extends State<ParentTaskDetailPage> {
                                 ),
                         ),
                         title: task.files.isEmpty
-                            ? 'No attachments'
+                            ? _t(context, 'noAttachments')
                             : task.files.length == 1
                             ? task.files.first.name
-                            : '${task.files.length} files',
+                            : _tr(context, 'filesCount', {
+                                'count': '${task.files.length}',
+                              }),
                         subtitle: task.files.isEmpty
-                            ? 'The teacher hasn\'t added any files yet.'
-                            : 'Tap to view all attachments',
+                            ? _t(context, 'teacherHasNotAddedFiles')
+                            : _t(context, 'tapToViewAllAttachments'),
                         trailing: const Icon(
                           LucideIcons.chevronRight,
                           size: 18,
@@ -431,7 +450,7 @@ class _ParentTaskDetailPageState extends State<ParentTaskDetailPage> {
                     ),
 
                     _Section(
-                      title: 'To Submit',
+                      title: _t(context, 'toSubmit'),
                       child: _RowCard(
                         filled: true,
                         leading: Container(
@@ -448,8 +467,8 @@ class _ParentTaskDetailPageState extends State<ParentTaskDetailPage> {
                             color: _kPurpleFg,
                           ),
                         ),
-                        title: 'Photo of your completed work',
-                        subtitle: 'Upload clear photos or a PDF file.',
+                        title: _t(context, 'photoOfCompletedWork'),
+                        subtitle: _t(context, 'uploadClearPhotosOrPdf'),
                         trailing: _UploadButton(
                           onTap: () => Navigator.push(
                             context,
@@ -615,7 +634,10 @@ class _SubmissionPlanCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    '$_submitted of ${slots.length} checkpoints submitted',
+                    _tr(context, 'checkpointsSubmitted', {
+                      'submitted': '$_submitted',
+                      'total': '${slots.length}',
+                    }),
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
@@ -623,7 +645,10 @@ class _SubmissionPlanCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                TextButton(onPressed: onSubmitTap, child: const Text('Submit')),
+                TextButton(
+                  onPressed: onSubmitTap,
+                  child: Text(_t(context, 'submit')),
+                ),
               ],
             ),
           ),
@@ -659,12 +684,14 @@ class _SubmissionSlotRow extends StatelessWidget {
     _ => _kBlue,
   };
 
-  String get _submitLabel => switch (slot.status) {
-    'submitted' ||
-    'reviewed' => _isSubmittedLate ? 'Late Submitted' : 'Early Submitted',
-    'late' => 'Late Submitted',
-    'missed' => 'Missed',
-    _ => 'Waiting to submit',
+  String _submitLabel(BuildContext context) => switch (slot.status) {
+    'submitted' || 'reviewed' =>
+      _isSubmittedLate
+          ? _t(context, 'lateSubmitted')
+          : _t(context, 'earlySubmitted'),
+    'late' => _t(context, 'lateSubmitted'),
+    'missed' => _t(context, 'missed'),
+    _ => _t(context, 'waitingToSubmit'),
   };
 
   String _formatDate(DateTime date) =>
@@ -678,16 +705,16 @@ class _SubmissionSlotRow extends StatelessWidget {
     final metrics = <_SlotMetric>[
       if (slot.progressPct != null)
         _SlotMetric(
-          label: 'Progress',
+          label: _t(context, 'progress'),
           value: '${slot.progressPct!.clamp(0, 100)}%',
           percent: slot.progressPct!.clamp(0, 100),
           emphasis: false,
         ),
       if (slot.score != null && slot.maxScore != null)
         _SlotMetric(
-          label: 'Score',
+          label: _t(context, 'score'),
           value: '${slot.score} / ${slot.maxScore}',
-          suffix: 'pts',
+          suffix: _t(context, 'pointsSuffix'),
           percent: _scorePercent(slot.score!, slot.maxScore!),
           emphasis: true,
         ),
@@ -734,14 +761,17 @@ class _SubmissionSlotRow extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    _SlotStatusPill(label: _submitLabel, color: _color),
+                    _SlotStatusPill(
+                      label: _submitLabel(context),
+                      color: _color,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
                 if (submitted == null)
-                  const Text(
-                    'Waiting for this checkpoint',
-                    style: TextStyle(
+                  Text(
+                    _t(context, 'waitingForThisCheckpoint'),
+                    style: const TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
                       color: _kMuted,
@@ -755,7 +785,9 @@ class _SubmissionSlotRow extends StatelessWidget {
                       const Icon(LucideIcons.send, size: 13, color: _kMuted),
                       const SizedBox(width: 6),
                       Text(
-                        'Sent ${_formatDate(submitted)}',
+                        _tr(context, 'sentDate', {
+                          'date': _formatDate(submitted),
+                        }),
                         style: const TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600,
@@ -777,7 +809,9 @@ class _SubmissionSlotRow extends StatelessWidget {
                       ),
                       const SizedBox(width: 5),
                       Text(
-                        'Reviewed ${_formatDate(reviewed)}',
+                        _tr(context, 'reviewedDate', {
+                          'date': _formatDate(reviewed),
+                        }),
                         style: const TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w800,
@@ -981,20 +1015,20 @@ class _ProgressCard extends StatelessWidget {
 
   const _ProgressCard({required this.progress});
 
-  String get _statusLabel {
-    if (progress >= 100) return 'Completed';
-    if (progress > 0) return 'In Progress';
-    return 'Not Started';
+  String _statusLabel(BuildContext context) {
+    if (progress >= 100) return _t(context, 'completed');
+    if (progress > 0) return _t(context, 'inProgress');
+    return _t(context, 'notStarted');
   }
 
-  String get _caption {
+  String _caption(BuildContext context) {
     if (progress >= 100) {
-      return 'Your teacher has marked this task as complete.';
+      return _t(context, 'teacherMarkedTaskComplete');
     }
     if (progress > 0) {
-      return "Your teacher says you're $progress% of the way through this task.";
+      return _tr(context, 'teacherProgressMessage', {'progress': '$progress'});
     }
-    return "Your teacher hasn't recorded any progress on this task yet.";
+    return _t(context, 'teacherNoProgressYet');
   }
 
   Color get _tone {
@@ -1021,7 +1055,7 @@ class _ProgressCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _statusLabel,
+                  _statusLabel(context),
                   style: TextStyle(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w800,
@@ -1030,7 +1064,7 @@ class _ProgressCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _caption,
+                  _caption(context),
                   style: const TextStyle(
                     fontSize: 12.5,
                     color: _kMuted,
@@ -1082,9 +1116,9 @@ class _ProgressRing extends StatelessWidget {
                   color: _kNavy,
                 ),
               ),
-              const Text(
-                'Progress',
-                style: TextStyle(fontSize: 9, color: _kMutedSoft),
+              Text(
+                _t(context, 'progress'),
+                style: const TextStyle(fontSize: 9, color: _kMutedSoft),
               ),
             ],
           ),
@@ -1213,14 +1247,14 @@ class _UploadButton extends StatelessWidget {
           height: 38,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           alignment: Alignment.center,
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(LucideIcons.upload, size: 13, color: Colors.white),
-              SizedBox(width: 6),
+              const Icon(LucideIcons.upload, size: 13, color: Colors.white),
+              const SizedBox(width: 6),
               Text(
-                'Upload',
-                style: TextStyle(
+                _t(context, 'upload'),
+                style: const TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
@@ -1253,15 +1287,19 @@ class _OpenChatButton extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
           onTap: onTap,
-          child: const Center(
+          child: Center(
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(LucideIcons.messageCircle, size: 16, color: Colors.white),
-                SizedBox(width: 7),
+                const Icon(
+                  LucideIcons.messageCircle,
+                  size: 16,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 7),
                 Text(
-                  'Open Chat',
-                  style: TextStyle(
+                  _t(context, 'openChat'),
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: Colors.white,

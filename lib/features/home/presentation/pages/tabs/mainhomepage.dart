@@ -2858,7 +2858,7 @@ class AttendanceCalendarPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(_homeT(context, 'attendanceAndCalendar'))),
-      body: const Center(child: Text("AttendanceCalendarPage()")),
+      body: Center(child: Text(_homeT(context, 'attendanceAndCalendar'))),
     );
   }
 }
@@ -2870,7 +2870,7 @@ class EventAnnouncementPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(_homeT(context, 'eventAndAnnouncement'))),
-      body: const Center(child: Text("EventAnnouncementPage()")),
+      body: Center(child: Text(_homeT(context, 'eventAndAnnouncement'))),
     );
   }
 }

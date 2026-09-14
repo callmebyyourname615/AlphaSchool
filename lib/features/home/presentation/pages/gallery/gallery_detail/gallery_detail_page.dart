@@ -207,7 +207,7 @@ class _GalleryDetailPageState extends State<GalleryDetailPage> {
     try {
       final response = await http.get(Uri.parse(imageUrl));
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw Exception('Could not download this image.');
+        throw Exception(_t(context, 'unableToDownloadImage'));
       }
       final fileName = _downloadFileName(imageUrl);
       if (!kIsWeb &&
@@ -221,12 +221,15 @@ class _GalleryDetailPageState extends State<GalleryDetailPage> {
         final saved = result is Map
             ? result['isSuccess'] == true || result['is_success'] == true
             : result != null;
-        if (!saved) throw Exception('The image could not be saved.');
+        if (!saved) throw Exception(_t(context, 'imageCouldNotBeSaved'));
       } else {
         final location = await getSaveLocation(
           suggestedName: fileName,
           acceptedTypeGroups: [
-            XTypeGroup(label: 'Images', extensions: [_fileExtension(fileName)]),
+            XTypeGroup(
+              label: _t(context, 'images'),
+              extensions: [_fileExtension(fileName)],
+            ),
           ],
         );
         if (location == null) return;

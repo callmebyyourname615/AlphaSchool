@@ -113,7 +113,7 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
         // Pop the page FIRST. Showing a GlobalAlert before pop would push
         // a dialog onto the navigator, and Navigator.pop would then pop the
         // dialog instead of this page, leaving the user stuck on
-        // "Checking status...". choose_students surfaces the success toast.
+        // the loading dialog. choose_students surfaces the success toast.
         Navigator.of(context).pop(true);
         return;
       }
@@ -326,7 +326,7 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  _rejected ? 'REJECTED' : 'PENDING APPROVAL',
+                  _rejected ? _t('rejectedUpper') : _t('pendingApprovalUpper'),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
@@ -341,11 +341,11 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
           Text(
             _rejected
                 ? (_isQrLinkRequest
-                      ? 'Link Request Rejected'
-                      : 'Student Rejected')
+                      ? _t('linkRequestRejectedTitle')
+                      : _t('studentRejectedTitle'))
                 : (_isQrLinkRequest
-                      ? 'Link Request Submitted'
-                      : 'Student Submitted'),
+                      ? _t('linkRequestSubmitted')
+                      : _t('studentSubmitted')),
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 24,
@@ -356,7 +356,7 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
           const SizedBox(height: 8),
           Text.rich(
             TextSpan(
-              text: 'Thank you, ',
+              text: _t('thankYouNamePrefix'),
               style: const TextStyle(fontSize: 13, color: _muted, height: 1.5),
               children: [
                 TextSpan(
@@ -369,11 +369,11 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
                 TextSpan(
                   text: _rejected
                       ? _isQrLinkRequest
-                            ? '. Admin reviewed this link request and rejected it.'
-                            : '. Admin reviewed this application and requested changes.'
+                            ? _t('linkRequestRejectedMessage')
+                            : _t('studentRejectedMessage')
                       : _isQrLinkRequest
-                      ? '. Your request to link this student is waiting for admin approval.'
-                      : '. Your application has been received and is now waiting for admin approval.',
+                      ? _t('linkRequestSubmittedMessage')
+                      : _t('studentSubmittedMessage'),
                 ),
               ],
             ),
@@ -521,30 +521,34 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
   Widget _timeline() {
     final steps = [
       _TimelineStep(
-        'Submitted',
-        _isQrLinkRequest ? 'QR link request received' : 'Application received',
+        _t('submitted'),
+        _isQrLinkRequest
+            ? _t('qrLinkRequestReceived')
+            : _t('applicationReceived'),
         LucideIcons.circleCheck,
         _blue,
         true,
       ),
       _TimelineStep(
-        _rejected ? 'Rejected' : 'Pending Review',
+        _rejected ? _t('rejected') : _t('pendingReview'),
         _rejected
             ? (_isQrLinkRequest
-                  ? 'Admin rejected the request'
-                  : 'Admin requested changes')
-            : 'Waiting for admin approval',
+                  ? _t('adminRejectedRequest')
+                  : _t('adminRequestedChanges'))
+            : _t('waitingForAdminApproval'),
         _rejected ? LucideIcons.circleX : LucideIcons.hourglass,
         _rejected ? _rose : _amber,
         true,
       ),
       _TimelineStep(
-        _rejected ? (_isQrLinkRequest ? 'Closed' : 'Resubmit') : 'Approved',
+        _rejected
+            ? (_isQrLinkRequest ? _t('closed') : _t('resubmit'))
+            : _t('approved'),
         _rejected && !_isQrLinkRequest
-            ? 'Update details and send again'
+            ? _t('updateDetailsAndSendAgain')
             : _isQrLinkRequest
-            ? 'Student will appear after approval'
-            : "You'll be notified once approved",
+            ? _t('studentWillAppearAfterApproval')
+            : _t('notifiedOnceApproved'),
         _rejected && !_isQrLinkRequest
             ? LucideIcons.filePenLine
             : LucideIcons.badgeCheck,
@@ -653,10 +657,10 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
               ),
         label: Text(
           _checking
-              ? 'Checking status...'
+              ? _t('checkingStatus')
               : isResubmit
-              ? 'Resubmit'
-              : 'Check approval status',
+              ? _t('resubmit')
+              : _t('checkApprovalStatus'),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: _blue,
@@ -680,7 +684,7 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
       child: OutlinedButton.icon(
         onPressed: () => Navigator.of(context).pop('add_another'),
         icon: const Icon(LucideIcons.userPlus, size: 18, color: _blue),
-        label: const Text('Add another student'),
+        label: Text(_t('addAnotherStudent')),
         style: OutlinedButton.styleFrom(
           foregroundColor: _blue,
           side: const BorderSide(color: _border, width: 1.5),
@@ -697,9 +701,9 @@ class _StudentPendingPageState extends State<StudentPendingPage> {
     return TextButton.icon(
       onPressed: () => Navigator.of(context).pop(),
       icon: const Icon(LucideIcons.arrowLeft, size: 16, color: _muted),
-      label: const Text(
-        'Back to students',
-        style: TextStyle(
+      label: Text(
+        _t('backToStudents'),
+        style: const TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w700,
           color: _muted,

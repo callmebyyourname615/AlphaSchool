@@ -14,6 +14,19 @@ import '../../../../../core/theme/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../../../../core/localization/app_localizations.dart';
+
+String _t(BuildContext context, String key) =>
+    AppLocalizations.of(context).t(key);
+
+String _tr(BuildContext context, String key, Map<String, String> values) {
+  var text = _t(context, key);
+  for (final entry in values.entries) {
+    text = text.replaceAll('{${entry.key}}', entry.value);
+  }
+  return text;
+}
+
 /// -------------------------
 /// Model (match your mapping)
 /// -------------------------
@@ -211,12 +224,12 @@ class NotificationDetailsPage extends StatefulWidget {
     super.key,
     required this.items,
     this.backgroundAsset = 'assets/images/homepagewall/mainbg.jpeg',
-    this.title = 'Notifications',
+    this.title,
   });
 
   final List<NotificationEntry> items;
   final String backgroundAsset;
-  final String title;
+  final String? title;
 
   @override
   State<NotificationDetailsPage> createState() =>
@@ -322,7 +335,8 @@ class _NotificationDetailsPageState extends State<NotificationDetailsPage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    widget.title,
+                                    widget.title ??
+                                        _t(context, 'notifications'),
                                     style: TextStyle(
                                       color: tok.title,
                                       fontWeight: FontWeight.w900,
@@ -332,8 +346,10 @@ class _NotificationDetailsPageState extends State<NotificationDetailsPage> {
                                   const SizedBox(height: 2),
                                   Text(
                                     _unreadCount > 0
-                                        ? '$_unreadCount unread'
-                                        : 'All caught up',
+                                        ? _tr(context, 'unreadCount', {
+                                            'count': '$_unreadCount',
+                                          })
+                                        : _t(context, 'allCaughtUp'),
                                     style: TextStyle(
                                       color: tok.sub,
                                       fontWeight: FontWeight.w700,
@@ -368,7 +384,7 @@ class _NotificationDetailsPageState extends State<NotificationDetailsPage> {
                             children: [
                               Expanded(
                                 child: _SegmentButton(
-                                  label: 'All',
+                                  label: _t(context, 'all'),
                                   count: _items.length,
                                   selected: _filter == _NotifFilter.all,
                                   onTap: () => setState(
@@ -379,7 +395,7 @@ class _NotificationDetailsPageState extends State<NotificationDetailsPage> {
                               const SizedBox(width: 6),
                               Expanded(
                                 child: _SegmentButton(
-                                  label: 'Unread',
+                                  label: _t(context, 'unread'),
                                   count: _unreadCount,
                                   selected: _filter == _NotifFilter.unread,
                                   onTap: () => setState(
@@ -390,7 +406,7 @@ class _NotificationDetailsPageState extends State<NotificationDetailsPage> {
                               const SizedBox(width: 6),
                               Expanded(
                                 child: _SegmentButton(
-                                  label: 'Read',
+                                  label: _t(context, 'read'),
                                   count: _readCount,
                                   selected: _filter == _NotifFilter.read,
                                   onTap: () => setState(
@@ -417,9 +433,12 @@ class _NotificationDetailsPageState extends State<NotificationDetailsPage> {
                           padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
                           child: _GlassSheet(
                             child: list.isEmpty
-                                ? const _EmptyState(
-                                        title: 'No notifications',
-                                        subtitle: 'Try switching the filter.',
+                                ? _EmptyState(
+                                        title: _t(context, 'noNotifications'),
+                                        subtitle: _t(
+                                          context,
+                                          'trySwitchingFilter',
+                                        ),
                                       )
                                       .animate()
                                       .fadeIn(duration: 220.ms)
@@ -517,7 +536,7 @@ class _NotificationDetailPopupState extends State<_NotificationDetailPopup> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Copied'),
+        content: Text(_t(context, 'copied')),
         behavior: SnackBarBehavior.floating,
         backgroundColor: tok.isDark
             ? const Color(0xFF0B1630)
@@ -610,7 +629,7 @@ class _NotificationDetailPopupState extends State<_NotificationDetailPopup> {
                                       children: [
                                         Expanded(
                                           child: Text(
-                                            'Notification',
+                                            _t(context, 'notification'),
                                             style: TextStyle(
                                               color: tok.title,
                                               fontWeight: FontWeight.w900,
@@ -732,7 +751,10 @@ class _NotificationDetailPopupState extends State<_NotificationDetailPopup> {
                                                         _MiniGhostButton(
                                                           icon: Icons
                                                               .copy_rounded,
-                                                          label: 'Copy',
+                                                          label: _t(
+                                                            context,
+                                                            'copy',
+                                                          ),
                                                           onTap: _copyBody,
                                                         ),
                                                       ],
@@ -755,7 +777,7 @@ class _NotificationDetailPopupState extends State<_NotificationDetailPopup> {
                                           const SizedBox(height: 14),
 
                                           Text(
-                                            'Details',
+                                            _t(context, 'details'),
                                             style: TextStyle(
                                               color: tok.title,
                                               fontWeight: FontWeight.w900,
@@ -803,8 +825,14 @@ class _NotificationDetailPopupState extends State<_NotificationDetailPopup> {
                                                   ),
                                                   label: Text(
                                                     _entry.isUnread
-                                                        ? 'Mark as Read'
-                                                        : 'Mark as Unread',
+                                                        ? _t(
+                                                            context,
+                                                            'markAsRead',
+                                                          )
+                                                        : _t(
+                                                            context,
+                                                            'markAsUnread',
+                                                          ),
                                                   ),
                                                   style: ElevatedButton.styleFrom(
                                                     backgroundColor: tok.blue
@@ -1417,7 +1445,7 @@ class _StatusPill extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            isUnread ? 'Unread' : 'Read',
+            isUnread ? _t(context, 'unread') : _t(context, 'read'),
             style: TextStyle(
               color: fg,
               fontWeight: FontWeight.w900,

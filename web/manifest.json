@@ -1,11 +1,11 @@
 {
-    "name": "alpha_school",
-    "short_name": "alpha_school",
+    "name": "Sivatthana Application",
+    "short_name": "Sivatthana",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FFFFFF",
+    "theme_color": "#0B6FA4",
+    "description": "Sivatthana Kindergarten School",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

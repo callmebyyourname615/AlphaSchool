@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../theme/app_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -45,6 +46,14 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
 
   bool _processing = false;
   _ScanResult? _result;
+
+  bool get _isSecureWebCameraOrigin {
+    if (!kIsWeb) return true;
+    final uri = Uri.base;
+    return uri.scheme == 'https' ||
+        uri.host == 'localhost' ||
+        uri.host == '127.0.0.1';
+  }
 
   @override
   void dispose() {
@@ -193,6 +202,24 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
     _scanner.start();
   }
 
+  String _cameraErrorMessage(MobileScannerException error) {
+    final l10n = AppLocalizations.of(context);
+    if (kIsWeb && !_isSecureWebCameraOrigin) {
+      return l10n.t('cameraNeedsHttpsWeb');
+    }
+
+    switch (error.errorCode) {
+      case MobileScannerErrorCode.permissionDenied:
+        return l10n.t('cameraPermissionDenied');
+      case MobileScannerErrorCode.unsupported:
+        return l10n.t('cameraScannerUnsupported');
+      default:
+        return l10n
+            .t('cameraError')
+            .replaceAll('{error}', error.errorCode.name);
+    }
+  }
+
   // ── Helpers ─────────────────────────────────────────────────────────────────
   String _extractStudentId(String raw) {
     // If raw looks like a UUID, use directly
@@ -237,9 +264,18 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
             controller: _scanner,
             onDetect: _onDetect,
             errorBuilder: (context, error) => Center(
-              child: Text(
-                'Camera error: ${error.errorCode}',
-                style: const TextStyle(color: Colors.white),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: Text(
+                  _cameraErrorMessage(error),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    height: 1.4,
+                  ),
+                ),
               ),
             ),
           ),
@@ -281,15 +317,17 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
                         onTap: () => Navigator.of(context).maybePop(),
                       ),
                       const Spacer(),
-                      _RoundIconButton(
-                        icon: LucideIcons.zap,
-                        onTap: () => _scanner.toggleTorch(),
-                      ),
-                      const SizedBox(width: 10),
-                      _RoundIconButton(
-                        icon: LucideIcons.switchCamera,
-                        onTap: () => _scanner.switchCamera(),
-                      ),
+                      if (!kIsWeb) ...[
+                        _RoundIconButton(
+                          icon: LucideIcons.zap,
+                          onTap: () => _scanner.toggleTorch(),
+                        ),
+                        const SizedBox(width: 10),
+                        _RoundIconButton(
+                          icon: LucideIcons.switchCamera,
+                          onTap: () => _scanner.switchCamera(),
+                        ),
+                      ],
                     ],
                   ),
 
@@ -359,8 +397,10 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
                   // Labels
                   Text(
                     _processing
-                        ? 'Processing...'
-                        : 'Align student QR code inside the frame',
+                        ? AppLocalizations.of(context).t('processing')
+                        : AppLocalizations.of(
+                            context,
+                          ).t('alignStudentQrCodeFrame'),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Color(0xFFF4F8FB),
@@ -369,10 +409,10 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
-                    'The scanner reads automatically on detection.',
+                  Text(
+                    AppLocalizations.of(context).t('scannerReadsAutomatically'),
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Color(0xB0F4F8FB),
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -404,7 +444,7 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Attendance • QR Check-in',
+                          AppLocalizations.of(context).t('attendanceQrCheckIn'),
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: .80),
                             fontSize: 12,

@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../../core/localization/app_localizations.dart';
 import '../../../../../core/services/global_alert_service.dart';
 import '../../../../../shared/models/student_card_item.dart';
 import 'homework_models.dart';
@@ -23,6 +24,17 @@ const _kCardBg = Colors.white;
 const _kBorder = Color(0xFFE8ECF0);
 const _kMuted = Color(0xFF9CA3AF);
 const _kText = Color(0xFF1F2937);
+
+String _t(BuildContext context, String key) =>
+    AppLocalizations.of(context).t(key);
+
+String _tr(BuildContext context, String key, Map<String, String> values) {
+  var text = _t(context, key);
+  for (final entry in values.entries) {
+    text = text.replaceAll('{${entry.key}}', entry.value);
+  }
+  return text;
+}
 
 class HomeworkDetailPage extends StatefulWidget {
   final HomeworkItem item;
@@ -55,9 +67,9 @@ class _HomeworkDetailPageState extends State<HomeworkDetailPage> {
   };
 
   String get _statusLabel => switch (_visual) {
-    HomeworkVisual.done => 'Done',
-    HomeworkVisual.pending => 'Pending',
-    HomeworkVisual.overdue => 'Overdue',
+    HomeworkVisual.done => _t(context, 'done'),
+    HomeworkVisual.pending => _t(context, 'pending'),
+    HomeworkVisual.overdue => _t(context, 'overdue'),
   };
 
   IconData get _statusIcon => switch (_visual) {
@@ -98,10 +110,10 @@ class _HomeworkDetailPageState extends State<HomeworkDetailPage> {
               ),
               label: Text(
                 _visual == HomeworkVisual.done
-                    ? 'Homework submitted'
+                    ? _t(context, 'homeworkSubmitted')
                     : _visual == HomeworkVisual.overdue
-                    ? 'Submission closed'
-                    : 'Submit homework',
+                    ? _t(context, 'submissionClosed')
+                    : _t(context, 'submitHomework'),
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
@@ -114,7 +126,7 @@ class _HomeworkDetailPageState extends State<HomeworkDetailPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _PageHeader(
-              title: 'Homework Detail',
+              title: _t(context, 'homeworkDetail'),
               onBack: () => Navigator.maybePop(context),
             ),
             Expanded(
@@ -171,9 +183,9 @@ class _HomeworkDetailPageState extends State<HomeworkDetailPage> {
                     ],
                     if (item.items.isNotEmpty) ...[
                       const SizedBox(height: 20),
-                      const _SectionTitle(
-                        title: 'Questions',
-                        subtitle: 'Tasks in this homework',
+                      _SectionTitle(
+                        title: _t(context, 'questions'),
+                        subtitle: _t(context, 'tasksInThisHomework'),
                       ).animate().fadeIn(delay: 150.ms, duration: 220.ms),
                       const SizedBox(height: 12),
                       for (int i = 0; i < item.items.length; i++)
@@ -198,6 +210,7 @@ class _HomeworkDetailPageState extends State<HomeworkDetailPage> {
   }
 
   Future<void> _showSubmitSheet() async {
+    final couldNotOpenFileText = _t(context, 'couldNotOpenFile');
     final source = await showModalBottomSheet<_UploadSource>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -237,7 +250,7 @@ class _HomeworkDetailPageState extends State<HomeworkDetailPage> {
       }
     } catch (error) {
       GlobalAlert.showError(
-        title: 'Could not open file',
+        title: couldNotOpenFileText,
         message: error.toString(),
       );
     }
@@ -269,9 +282,9 @@ class _HomeworkDetailPageState extends State<HomeworkDetailPage> {
               children: [
                 const _SheetHandle(),
                 const SizedBox(height: 14),
-                const Text(
-                  'Review submission',
-                  style: TextStyle(
+                Text(
+                  _t(context, 'reviewSubmission'),
+                  style: const TextStyle(
                     fontSize: 19,
                     fontWeight: FontWeight.w900,
                     color: _kText,
@@ -342,14 +355,17 @@ class _HomeworkDetailPageState extends State<HomeworkDetailPage> {
                               Navigator.pop(sheetContext);
                               setState(() => _submitted = true);
                               GlobalAlert.showSuccess(
-                                title: 'Submitted',
-                                message: 'Homework was submitted successfully.',
+                                title: _t(context, 'submitted'),
+                                message: _t(
+                                  context,
+                                  'homeworkSubmittedSuccessfully',
+                                ),
                               );
                             } catch (error) {
                               if (!mounted) return;
                               setSheetState(() => saving = false);
                               GlobalAlert.showError(
-                                title: 'Submission failed',
+                                title: _t(context, 'submissionFailed'),
                                 message: error.toString(),
                               );
                             }
@@ -369,9 +385,9 @@ class _HomeworkDetailPageState extends State<HomeworkDetailPage> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text(
-                            'Confirm submission',
-                            style: TextStyle(fontWeight: FontWeight.w800),
+                        : Text(
+                            _t(context, 'confirmSubmission'),
+                            style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
                   ),
                 ),
@@ -439,9 +455,9 @@ class _ScoreBreakdownCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              const Text(
-                'Score breakdown',
-                style: TextStyle(
+              Text(
+                _t(context, 'scoreBreakdown'),
+                style: const TextStyle(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w900,
                   color: _kNavy,
@@ -510,7 +526,7 @@ class _QuestionScorePill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Q$index',
+            _tr(context, 'questionShort', {'index': '$index'}),
             style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w900,
@@ -559,9 +575,12 @@ class _TeacherFeedbackCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Teacher feedback',
-                  style: TextStyle(color: _kNavy, fontWeight: FontWeight.w900),
+                Text(
+                  _t(context, 'teacherFeedback'),
+                  style: const TextStyle(
+                    color: _kNavy,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
                 const SizedBox(height: 5),
                 Text(
@@ -596,7 +615,7 @@ class _YourScoreChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final value = isGraded && score != null
         ? '${_format(score!)}${totalScore == null ? '' : ' / ${_format(totalScore!)}'}'
-        : 'Pending';
+        : _t(context, 'pending');
     final color = isGraded ? _kGreen : _kOrange;
 
     return Container(
@@ -610,9 +629,9 @@ class _YourScoreChip extends StatelessWidget {
         children: [
           Icon(LucideIcons.award, size: 20, color: color),
           const SizedBox(width: 10),
-          const Text(
-            'Your Score',
-            style: TextStyle(fontWeight: FontWeight.w800, color: _kText),
+          Text(
+            _t(context, 'yourScore'),
+            style: const TextStyle(fontWeight: FontWeight.w800, color: _kText),
           ),
           const Spacer(),
           Text(
@@ -646,29 +665,29 @@ class _UploadSourceSheet extends StatelessWidget {
         children: [
           const _SheetHandle(),
           const SizedBox(height: 14),
-          const Text(
-            'Submit homework',
-            style: TextStyle(
+          Text(
+            _t(context, 'submitHomework'),
+            style: const TextStyle(
               fontSize: 19,
               fontWeight: FontWeight.w900,
               color: _kText,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Choose how you want to attach your work.',
-            style: TextStyle(color: _kMuted, fontWeight: FontWeight.w600),
+          Text(
+            _t(context, 'chooseAttachWork'),
+            style: const TextStyle(color: _kMuted, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 18),
           _SourceTile(
             icon: LucideIcons.camera,
-            title: 'Take a photo',
+            title: _t(context, 'takePhoto'),
             onTap: () => Navigator.pop(context, _UploadSource.camera),
           ),
           const SizedBox(height: 10),
           _SourceTile(
             icon: LucideIcons.images,
-            title: 'Upload from phone',
+            title: _t(context, 'uploadFromPhone'),
             onTap: () => Navigator.pop(context, _UploadSource.file),
           ),
         ],
@@ -944,14 +963,14 @@ class _InfoCard extends StatelessWidget {
           _InfoRow(
             icon: LucideIcons.inbox,
             iconColor: _kBlue,
-            label: 'Received',
+            label: _t(context, 'received'),
             value: item.sentAt == null ? '—' : _fmtDate(item.sentAt!),
           ),
           const Divider(height: 1, color: _kBorder),
           _InfoRow(
             icon: LucideIcons.calendarDays,
             iconColor: dueColor == _kRed ? _kRed : _kOrange,
-            label: 'Due Date',
+            label: _t(context, 'dueDate'),
             value: _fmtDate(item.deadline),
             valueColor: dueColor,
           ),
@@ -959,7 +978,7 @@ class _InfoCard extends StatelessWidget {
           _InfoRow(
             icon: LucideIcons.slidersHorizontal,
             iconColor: _kNavy,
-            label: 'Total score',
+            label: _t(context, 'totalScore'),
             value: item.totalScore == null ? '—' : _fmtScore(item.totalScore!),
           ),
         ],
@@ -1065,9 +1084,9 @@ class _InstructionCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              const Text(
-                'Instruction',
-                style: TextStyle(
+              Text(
+                _t(context, 'instruction'),
+                style: const TextStyle(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w900,
                   color: _kNavy,
@@ -1211,8 +1230,13 @@ class _SubItemCard extends StatelessWidget {
                             ),
                             child: Text(
                               sub.awardedScore == null
-                                  ? '${_fmtScore(sub.score!)} pts'
-                                  : '${_fmtScore(sub.awardedScore!)} / ${_fmtScore(sub.score!)} pts',
+                                  ? _tr(context, 'points', {
+                                      'score': _fmtScore(sub.score!),
+                                    })
+                                  : _tr(context, 'scoreOutOfPoints', {
+                                      'score': _fmtScore(sub.awardedScore!),
+                                      'total': _fmtScore(sub.score!),
+                                    }),
                               style: TextStyle(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w900,
@@ -1297,14 +1321,14 @@ class _HomeworkQuestionImage extends StatelessWidget {
                 color: Colors.black.withValues(alpha: .62),
                 borderRadius: BorderRadius.circular(999),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(LucideIcons.zoomIn, size: 16, color: Colors.white),
-                  SizedBox(width: 5),
+                  const Icon(LucideIcons.zoomIn, size: 16, color: Colors.white),
+                  const SizedBox(width: 5),
                   Text(
-                    'Preview',
-                    style: TextStyle(
+                    _t(context, 'preview'),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
@@ -1349,10 +1373,10 @@ class _HomeworkQuestionImage extends StatelessWidget {
                       ),
                     ),
                     FilledButton.icon(
-                      onPressed: () => _saveImage(),
+                      onPressed: () => _saveImage(context),
                       style: FilledButton.styleFrom(backgroundColor: _kBlue),
                       icon: const Icon(LucideIcons.download, size: 18),
-                      label: const Text('Save'),
+                      label: Text(_t(context, 'save')),
                     ),
                   ],
                 ),
@@ -1373,8 +1397,16 @@ class _HomeworkQuestionImage extends StatelessWidget {
     );
   }
 
-  Future<void> _saveImage() async {
-    GlobalAlert.showLoading(message: 'Saving image...');
+  Future<void> _saveImage(BuildContext context) async {
+    final couldNotDownloadImageText = _t(context, 'couldNotDownloadImage');
+    final imageCouldNotBeSavedText = _t(context, 'imageCouldNotBeSaved');
+    final imagesText = _t(context, 'images');
+    final imageSavedTitle = _t(context, 'imageSaved');
+    final savedToGalleryText = _t(context, 'homeworkImageSavedToGallery');
+    final savedSuccessfullyText = _t(context, 'homeworkImageSavedSuccessfully');
+    final couldNotSaveImageTitle = _t(context, 'couldNotSaveImage');
+
+    GlobalAlert.showLoading(message: _t(context, 'savingImage'));
     // GlobalAlert.dismiss() pops whatever's on top of the root navigator —
     // if the loading dialog was already dismissed (to make way for the
     // native save dialog below) calling it again pops the page itself.
@@ -1382,7 +1414,12 @@ class _HomeworkQuestionImage extends StatelessWidget {
     try {
       final response = await http.get(Uri.parse(imageUrl));
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw Exception('Could not download image (${response.statusCode}).');
+        throw Exception(
+          couldNotDownloadImageText.replaceAll(
+            '{statusCode}',
+            '${response.statusCode}',
+          ),
+        );
       }
 
       final fileName = _downloadFileName(imageUrl);
@@ -1397,14 +1434,17 @@ class _HomeworkQuestionImage extends StatelessWidget {
         final saved = result is Map
             ? result['isSuccess'] == true || result['is_success'] == true
             : result != null;
-        if (!saved) throw Exception('The image could not be saved.');
+        if (!saved) throw Exception(imageCouldNotBeSavedText);
       } else {
         GlobalAlert.dismiss();
         loadingDismissed = true;
         final location = await getSaveLocation(
           suggestedName: fileName,
           acceptedTypeGroups: [
-            XTypeGroup(label: 'Images', extensions: [_fileExtension(fileName)]),
+            XTypeGroup(
+              label: imagesText,
+              extensions: [_fileExtension(fileName)],
+            ),
           ],
         );
         if (location == null) return;
@@ -1418,17 +1458,17 @@ class _HomeworkQuestionImage extends StatelessWidget {
 
       if (!loadingDismissed) GlobalAlert.dismiss();
       GlobalAlert.showSuccess(
-        title: 'Image saved',
+        title: imageSavedTitle,
         message:
             defaultTargetPlatform == TargetPlatform.iOS ||
                 defaultTargetPlatform == TargetPlatform.android
-            ? 'The homework image was saved to your gallery.'
-            : 'The homework image was saved successfully.',
+            ? savedToGalleryText
+            : savedSuccessfullyText,
       );
     } catch (error) {
       if (!loadingDismissed) GlobalAlert.dismiss();
       GlobalAlert.showError(
-        title: 'Could not save image',
+        title: couldNotSaveImageTitle,
         message: error.toString(),
       );
     }

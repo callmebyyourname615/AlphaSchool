@@ -167,7 +167,12 @@ class _StudentsCardListPageState extends State<StudentsCardListPage>
       if (result == true) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${item.name} has been linked to your account.'),
+            content: Text(
+              _t(
+                context,
+                'studentLinkedToAccount',
+              ).replaceAll('{name}', item.name),
+            ),
             backgroundColor: const Color(0xFF059669),
           ),
         );
@@ -183,9 +188,7 @@ class _StudentsCardListPageState extends State<StudentsCardListPage>
     if (uuid.isEmpty) {
       // No backend id (e.g. demo data) — nothing to poll. Fall back to a hint.
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('This student is pending admin approval.'),
-        ),
+        SnackBar(content: Text(_t(context, 'studentPendingAdminApproval'))),
       );
       return;
     }
@@ -206,7 +209,12 @@ class _StudentsCardListPageState extends State<StudentsCardListPage>
     if (result == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${item.name} has been approved.'),
+          content: Text(
+            _t(
+              context,
+              'studentApprovedMessage',
+            ).replaceAll('{name}', item.name),
+          ),
           backgroundColor: const Color(0xFF059669),
         ),
       );
@@ -228,9 +236,9 @@ class _StudentsCardListPageState extends State<StudentsCardListPage>
     }
 
     if (result == 'deleted') {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Application deleted.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_t(context, 'applicationDeleted'))),
+      );
       await _reloadStudents();
     }
   }
@@ -241,11 +249,7 @@ class _StudentsCardListPageState extends State<StudentsCardListPage>
     final parentId = session?.id.trim() ?? '';
     if (parentId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Your session is missing. Please sign in again to resubmit.',
-          ),
-        ),
+        SnackBar(content: Text(_t(context, 'sessionMissingResubmit'))),
       );
       return;
     }
@@ -297,11 +301,7 @@ class _StudentsCardListPageState extends State<StudentsCardListPage>
     final parentId = session?.id.trim() ?? '';
     if (parentId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Your session is missing. Please sign in again to add a student.',
-          ),
-        ),
+        SnackBar(content: Text(_t(context, 'sessionMissingAddStudent'))),
       );
       return;
     }
@@ -324,8 +324,8 @@ class _StudentsCardListPageState extends State<StudentsCardListPage>
       final studentId = _resubmitStudentIdFrom(result);
       if (studentId == null || studentId.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not open resubmit form. Student ID missing.'),
+          SnackBar(
+            content: Text(_t(context, 'couldNotOpenResubmitStudentMissing')),
           ),
         );
         return;
