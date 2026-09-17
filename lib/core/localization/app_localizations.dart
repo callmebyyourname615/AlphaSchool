@@ -327,7 +327,6 @@ class AppLocalizations {
     'parentApplicationRejectedAlertTitle': 'Application rejected',
     'parentApplicationRejectedDefaultMessage':
         'Admin rejected your parent application. Please review your information and submit again.',
-    'submissionFailed': 'Submission failed',
     'resubmittingApplication': 'Resubmitting application...',
     'addingStudent': 'Adding student...',
     'couldNotResolveParentId': 'Could not resolve parent ID from response.',
@@ -882,7 +881,6 @@ class AppLocalizations {
     'chooseFile': 'Choose File',
     'readyToUpload': 'Ready to upload',
     'pdfFile': 'PDF file',
-    'image': 'Image',
     'video': 'Video',
     'document': 'Document',
     'file': 'File',
@@ -905,6 +903,7 @@ class AppLocalizations {
     'replyingToMessage': 'Replying to {sender}: {message}',
     'typeMessage': 'Type a message...',
     'couldNotLoadMessages': "Couldn't load messages",
+    'couldNotLoadImage': "Couldn't load image",
     'noMessagesYet': 'No messages yet',
     'sendMessageStartTeacherConversation':
         'Send a message to start the conversation with the teacher.',
@@ -1395,7 +1394,6 @@ class AppLocalizations {
     'parentApplicationRejectedAlertTitle': 'ຄຳຮ້ອງຖືກປະຕິເສດ',
     'parentApplicationRejectedDefaultMessage':
         'ຜູ້ດູແລປະຕິເສດຄຳຮ້ອງຜູ້ປົກຄອງຂອງທ່ານ. ກະລຸນາກວດສອບຂໍ້ມູນ ແລະ ສົ່ງອີກຄັ້ງ.',
-    'submissionFailed': 'ສົ່ງຄຳຮ້ອງບໍ່ສຳເລັດ',
     'resubmittingApplication': 'ກຳລັງສົ່ງຄຳຮ້ອງໃໝ່...',
     'addingStudent': 'ກຳລັງເພີ່ມນັກຮຽນ...',
     'couldNotResolveParentId': 'ບໍ່ສາມາດອ່ານເລກອ້າງອີງຜູ້ປົກຄອງຈາກຄຳຕອບໄດ້.',
@@ -1928,7 +1926,6 @@ class AppLocalizations {
     'chooseFile': 'ເລືອກໄຟລ໌',
     'readyToUpload': 'ພ້ອມອັບໂຫຼດ',
     'pdfFile': 'ໄຟລ໌ PDF',
-    'image': 'ຮູບພາບ',
     'video': 'ວິດີໂອ',
     'document': 'ເອກະສານ',
     'file': 'ໄຟລ໌',
@@ -1951,6 +1948,7 @@ class AppLocalizations {
     'replyingToMessage': 'ກຳລັງຕອບ {sender}: {message}',
     'typeMessage': 'ພິມຂໍ້ຄວາມ...',
     'couldNotLoadMessages': 'ໂຫຼດຂໍ້ຄວາມບໍ່ໄດ້',
+    'couldNotLoadImage': 'ໂຫຼດຮູບບໍ່ໄດ້',
     'noMessagesYet': 'ຍັງບໍ່ມີຂໍ້ຄວາມ',
     'sendMessageStartTeacherConversation': 'ສົ່ງຂໍ້ຄວາມເພື່ອເລີ່ມສົນທະນາກັບຄູ.',
     'reply': 'ຕອບ',

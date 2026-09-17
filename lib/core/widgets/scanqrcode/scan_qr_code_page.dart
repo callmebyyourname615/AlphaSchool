@@ -81,6 +81,7 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
         _result = _ScanResult(
           studentId: raw.length > 20 ? '${raw.substring(0, 20)}...' : raw,
           studentName: '',
+          className: '',
           checkIn: '',
           type: 'ERROR',
           remark: l10n.t('invalidStudentQrCode'),
@@ -91,9 +92,7 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
       return;
     }
 
-    String studentName = studentId.length > 8
-        ? '${studentId.substring(0, 8).toUpperCase()}...'
-        : studentId;
+    var studentInfo = const _ScannedStudentInfo();
 
     try {
       final now = TimeOfDay.now();
@@ -109,16 +108,7 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
         },
       );
 
-      // Try to get student name
-      try {
-        final s = await _api.get('/students/$studentId');
-        if (s is Map) {
-          final fn = s['first_name']?.toString() ?? '';
-          final ln = s['last_name']?.toString() ?? '';
-          final full = '$fn $ln'.trim();
-          if (full.isNotEmpty) studentName = full;
-        }
-      } catch (_) {}
+      studentInfo = await _fetchStudentInfo(studentId);
 
       final type =
           (response is Map ? response['type'] : null)?.toString() ?? 'PRESENT';
@@ -132,7 +122,8 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
       setState(() {
         _result = _ScanResult(
           studentId: studentId,
-          studentName: studentName,
+          studentName: studentInfo.name,
+          className: studentInfo.className,
           checkIn: checkIn,
           type: type,
           remark: remark,
@@ -144,6 +135,7 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
       if (!mounted) return;
       // 409 Conflict = already checked in today
       if (e.statusCode == 409) {
+        studentInfo = await _fetchStudentInfo(studentId);
         final body = e.body;
         final existingCheckIn =
             (body is Map ? body['check_in'] : null)?.toString() ?? '';
@@ -154,7 +146,8 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
         setState(() {
           _result = _ScanResult(
             studentId: studentId,
-            studentName: studentName,
+            studentName: studentInfo.name,
+            className: studentInfo.className,
             checkIn: existingCheckIn.length >= 5
                 ? existingCheckIn.substring(0, 5)
                 : existingCheckIn,
@@ -170,6 +163,7 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
           _result = _ScanResult(
             studentId: studentId,
             studentName: '',
+            className: '',
             checkIn: '',
             type: 'ERROR',
             remark: e.message,
@@ -184,6 +178,7 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
         _result = _ScanResult(
           studentId: studentId,
           studentName: '',
+          className: '',
           checkIn: '',
           type: 'ERROR',
           remark: AppLocalizations.of(context).t('unableToConnectTryAgain'),
@@ -221,6 +216,192 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
+  Future<_ScannedStudentInfo> _fetchStudentInfo(String studentId) async {
+    try {
+      final response = await _api.get('/students/$studentId');
+      final student = _unwrapRecord(response, const ['student', 'data']);
+      if (student == null) return const _ScannedStudentInfo();
+
+      final className = _readStudentClassName(student);
+      if (className.isNotEmpty) {
+        return _ScannedStudentInfo(
+          name: _readStudentName(student),
+          className: className,
+        );
+      }
+
+      final classId = _readStudentClassId(student);
+      return _ScannedStudentInfo(
+        name: _readStudentName(student),
+        className: await _fetchClassName(classId),
+      );
+    } catch (_) {
+      return const _ScannedStudentInfo();
+    }
+  }
+
+  Future<String> _fetchClassName(String classId) async {
+    if (classId.isEmpty) return '';
+    try {
+      final response = await _api.get('/classes/$classId');
+      final classRecord = _unwrapRecord(response, const ['class', 'data']);
+      final name = _readClassName(classRecord);
+      if (name.isNotEmpty) return name;
+    } catch (_) {}
+
+    try {
+      final response = await _api.get('/classes');
+      final classes = _extractRecords(response, const ['classes', 'data']);
+      for (final classRecord in classes) {
+        if (_readString(classRecord, const ['id', 'class_id', 'classId']) ==
+            classId) {
+          return _readClassName(classRecord);
+        }
+      }
+    } catch (_) {}
+    return '';
+  }
+
+  String _readStudentName(Map<dynamic, dynamic> student) {
+    final laoName = [
+      _readString(student, const ['first_name_lao', 'firstNameLao']),
+      _readString(student, const ['last_name_lao', 'lastNameLao']),
+    ].where((part) => part.isNotEmpty).join(' ');
+    if (laoName.isNotEmpty) return laoName;
+
+    final englishName = [
+      _readString(student, const [
+        'first_name_eng',
+        'firstNameEng',
+        'first_name',
+        'firstName',
+      ]),
+      _readString(student, const [
+        'last_name_eng',
+        'lastNameEng',
+        'last_name',
+        'lastName',
+      ]),
+    ].where((part) => part.isNotEmpty).join(' ');
+    if (englishName.isNotEmpty) return englishName;
+
+    return _readString(student, const ['nickname', 'nick_name', 'nickName']);
+  }
+
+  String _readStudentClassName(Map<dynamic, dynamic> student) {
+    final enrollments = student['enrollments'];
+    if (enrollments is List && enrollments.isNotEmpty) {
+      final active = enrollments
+          .whereType<Map>()
+          .cast<Map<dynamic, dynamic>>()
+          .where((enrollment) => _readBool(enrollment['is_active']))
+          .toList();
+      final ordered = active.isNotEmpty
+          ? active
+          : enrollments.whereType<Map>().cast<Map<dynamic, dynamic>>().toList();
+      for (final enrollment in ordered) {
+        final className = _readClassName(enrollment['class']);
+        if (className.isNotEmpty) return className;
+      }
+    }
+
+    for (final key in const ['class', 'classroom']) {
+      final className = _readClassName(student[key]);
+      if (className.isNotEmpty) return className;
+    }
+
+    return _readString(student, const ['class_name', 'className']);
+  }
+
+  String _readStudentClassId(Map<dynamic, dynamic> student) {
+    final direct = _readString(student, const ['class_id', 'classId']);
+    if (direct.isNotEmpty) return direct;
+
+    final enrollments = student['enrollments'];
+    if (enrollments is List && enrollments.isNotEmpty) {
+      final active = enrollments
+          .whereType<Map>()
+          .cast<Map<dynamic, dynamic>>()
+          .where((enrollment) => _readBool(enrollment['is_active']))
+          .toList();
+      final ordered = active.isNotEmpty
+          ? active
+          : enrollments.whereType<Map>().cast<Map<dynamic, dynamic>>().toList();
+      for (final enrollment in ordered) {
+        final classId = _readString(enrollment, const ['classId', 'class_id']);
+        if (classId.isNotEmpty) return classId;
+
+        final classRecord = _asMap(enrollment['class']);
+        if (classRecord != null) {
+          final nestedId = _readString(classRecord, const [
+            'id',
+            'class_id',
+            'classId',
+          ]);
+          if (nestedId.isNotEmpty) return nestedId;
+        }
+      }
+    }
+
+    return '';
+  }
+
+  String _readClassName(dynamic value) {
+    final classRecord = _asMap(value);
+    if (classRecord == null) return '';
+    return _readString(classRecord, const [
+      'name',
+      'class_name',
+      'className',
+      'title',
+    ]);
+  }
+
+  Map<dynamic, dynamic>? _unwrapRecord(dynamic value, List<String> wrappers) {
+    final direct = _asMap(value);
+    if (direct == null) return null;
+    for (final key in wrappers) {
+      final nested = _asMap(direct[key]);
+      if (nested != null) return nested;
+    }
+    return direct;
+  }
+
+  List<Map<dynamic, dynamic>> _extractRecords(
+    dynamic value,
+    List<String> wrappers,
+  ) {
+    if (value is List) return value.whereType<Map>().toList();
+    final map = _asMap(value);
+    if (map == null) return const [];
+    for (final key in wrappers) {
+      final nested = map[key];
+      if (nested is List) return nested.whereType<Map>().toList();
+    }
+    return const [];
+  }
+
+  Map<dynamic, dynamic>? _asMap(dynamic value) {
+    return value is Map ? value : null;
+  }
+
+  String _readString(Map<dynamic, dynamic> record, List<String> keys) {
+    for (final key in keys) {
+      final value = record[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty && value != 'null' && value != 'undefined') {
+        return value;
+      }
+    }
+    return '';
+  }
+
+  bool _readBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final text = value?.toString().trim().toLowerCase() ?? '';
+    return text == 'true' || text == '1' || text == 'yes';
+  }
+
   String _extractStudentId(String raw) {
     // If raw looks like a UUID, use directly
     final uuidRe = RegExp(
@@ -474,9 +655,17 @@ class _ScanQrCodePageState extends State<ScanQrCodePage>
 
 // ── Scan Result Model ──────────────────────────────────────────────────────────
 
+class _ScannedStudentInfo {
+  final String name;
+  final String className;
+
+  const _ScannedStudentInfo({this.name = '', this.className = ''});
+}
+
 class _ScanResult {
   final String studentId;
   final String studentName;
+  final String className;
   final String checkIn;
   final String type;
   final String remark;
@@ -486,6 +675,7 @@ class _ScanResult {
   const _ScanResult({
     required this.studentId,
     required this.studentName,
+    required this.className,
     required this.checkIn,
     required this.type,
     required this.remark,
@@ -670,6 +860,11 @@ class _SuccessCard extends StatelessWidget {
             ),
           ],
 
+          if (result.className.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _StudentClassPill(className: result.className),
+          ],
+
           const SizedBox(height: 18),
 
           // Info row: check-in time + remark
@@ -846,6 +1041,10 @@ class _DuplicateCard extends StatelessWidget {
               letterSpacing: -.3,
             ),
           ),
+          if (result.className.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _StudentClassPill(className: result.className),
+          ],
           const SizedBox(height: 16),
 
           // Check-in info
@@ -992,6 +1191,40 @@ class _ErrorCard extends StatelessWidget {
 }
 
 // ── Sub-widgets ────────────────────────────────────────────────────────────────
+
+class _StudentClassPill extends StatelessWidget {
+  final String className;
+
+  const _StudentClassPill({required this.className});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: _kBlue.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: _kBlue.withValues(alpha: .16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(LucideIcons.school, size: 13, color: _kBlue),
+          const SizedBox(width: 6),
+          Text(
+            '${l10n.t('classroomLabel')}: $className',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: _kBlue,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _InfoCell extends StatelessWidget {
   final IconData icon;

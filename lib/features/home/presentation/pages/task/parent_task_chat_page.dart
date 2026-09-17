@@ -207,6 +207,78 @@ class _ParentTaskChatPageState extends State<ParentTaskChatPage> {
     });
   }
 
+  Future<void> _openImagePreview(TaskFileRef file) {
+    return showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: .92),
+      builder: (dialogContext) => Dialog.fullscreen(
+        backgroundColor: const Color(0xFF05070C),
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: InteractiveViewer(
+                  minScale: 1,
+                  maxScale: 5,
+                  child: Center(
+                    child: Image.network(
+                      file.url,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            LucideIcons.imageOff,
+                            color: Colors.white70,
+                            size: 34,
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            _t(context, 'couldNotLoadImage'),
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 8,
+                left: 8,
+                right: 8,
+                child: Row(
+                  children: [
+                    Material(
+                      color: Colors.white.withValues(alpha: .12),
+                      shape: const CircleBorder(),
+                      child: IconButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        icon: const Icon(LucideIcons.x, color: Colors.white),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        file.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _pickAndSendAttachment(_ChatAttachmentKind kind) async {
     try {
       XFile? file;
@@ -558,6 +630,7 @@ class _ParentTaskChatPageState extends State<ParentTaskChatPage> {
               onReactTap: (emoji) => _react(message, emoji),
               onStartReply: () => setState(() => _replyingTo = message),
               onOpenReactionPicker: () => _showMessageActions(message),
+              onImageTap: _openImagePreview,
             ),
           ),
         ),
@@ -777,6 +850,7 @@ class _MessageBubble extends StatelessWidget {
   final String? currentParentId;
   final ValueChanged<String> onReplyTap;
   final ValueChanged<String> onReactTap;
+  final ValueChanged<TaskFileRef> onImageTap;
   final VoidCallback onStartReply;
   final VoidCallback onOpenReactionPicker;
 
@@ -785,6 +859,7 @@ class _MessageBubble extends StatelessWidget {
     required this.currentParentId,
     required this.onReplyTap,
     required this.onReactTap,
+    required this.onImageTap,
     required this.onStartReply,
     required this.onOpenReactionPicker,
   });
@@ -797,6 +872,7 @@ class _MessageBubble extends StatelessWidget {
             currentParentId: currentParentId,
             onReplyTap: onReplyTap,
             onReactTap: onReactTap,
+            onImageTap: onImageTap,
             onStartReply: onStartReply,
             onOpenReactionPicker: onOpenReactionPicker,
           )
@@ -805,6 +881,7 @@ class _MessageBubble extends StatelessWidget {
             currentParentId: currentParentId,
             onReplyTap: onReplyTap,
             onReactTap: onReactTap,
+            onImageTap: onImageTap,
             onStartReply: onStartReply,
             onOpenReactionPicker: onOpenReactionPicker,
           );
@@ -816,6 +893,7 @@ class _TeacherBubble extends StatelessWidget {
   final String? currentParentId;
   final ValueChanged<String> onReplyTap;
   final ValueChanged<String> onReactTap;
+  final ValueChanged<TaskFileRef> onImageTap;
   final VoidCallback onStartReply;
   final VoidCallback onOpenReactionPicker;
 
@@ -824,6 +902,7 @@ class _TeacherBubble extends StatelessWidget {
     required this.currentParentId,
     required this.onReplyTap,
     required this.onReactTap,
+    required this.onImageTap,
     required this.onStartReply,
     required this.onOpenReactionPicker,
   });
@@ -910,7 +989,7 @@ class _TeacherBubble extends StatelessWidget {
                   runSpacing: 6,
                   children: [
                     for (final file in message.attachments)
-                      _ChatAttachment(file: file),
+                      _ChatAttachment(file: file, onImageTap: onImageTap),
                   ],
                 ),
               ],
@@ -939,6 +1018,7 @@ class _ParentBubble extends StatelessWidget {
   final String? currentParentId;
   final ValueChanged<String> onReplyTap;
   final ValueChanged<String> onReactTap;
+  final ValueChanged<TaskFileRef> onImageTap;
   final VoidCallback onStartReply;
   final VoidCallback onOpenReactionPicker;
 
@@ -947,6 +1027,7 @@ class _ParentBubble extends StatelessWidget {
     required this.currentParentId,
     required this.onReplyTap,
     required this.onReactTap,
+    required this.onImageTap,
     required this.onStartReply,
     required this.onOpenReactionPicker,
   });
@@ -1017,7 +1098,7 @@ class _ParentBubble extends StatelessWidget {
             runSpacing: 6,
             children: [
               for (final file in message.attachments)
-                _ChatAttachment(file: file),
+                _ChatAttachment(file: file, onImageTap: onImageTap),
             ],
           ),
         ],
@@ -1195,8 +1276,9 @@ class _ReplyPreview extends StatelessWidget {
 
 class _ChatAttachment extends StatelessWidget {
   final TaskFileRef file;
+  final ValueChanged<TaskFileRef> onImageTap;
 
-  const _ChatAttachment({required this.file});
+  const _ChatAttachment({required this.file, required this.onImageTap});
 
   Future<void> _open() async {
     final uri = Uri.tryParse(file.url);
@@ -1209,14 +1291,19 @@ class _ChatAttachment extends StatelessWidget {
     final ext = file.name.split('.').last.toLowerCase();
     final isImage = const ['jpg', 'jpeg', 'png', 'webp', 'gif'].contains(ext);
     if (isImage) {
-      return ClipRRect(
+      return Material(
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(10),
-        child: Image.network(
-          file.url,
-          width: 180,
-          height: 130,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _documentTile(context, ext),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => onImageTap(file),
+          child: Image.network(
+            file.url,
+            width: 180,
+            height: 130,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _documentTile(context, ext),
+          ),
         ),
       );
     }

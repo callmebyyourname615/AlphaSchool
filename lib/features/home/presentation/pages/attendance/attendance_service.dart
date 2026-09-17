@@ -71,13 +71,16 @@ class AttendanceService {
     final code = student.studentId.trim();
     if (internalId.isEmpty && code.isEmpty) return [];
 
-    final now = DateTime.now();
+    final today = _dateOnly(DateTime.now());
+    final now = today;
     final start = month == null
         ? DateTime(now.year - 1, now.month, 1)
         : DateTime(month.year, month.month, 1);
-    final end = month == null
+    final rawEnd = month == null
         ? DateTime(now.year, now.month + 1, 0)
         : DateTime(month.year, month.month + 1, 0);
+    final end = rawEnd.isAfter(today) ? today : rawEnd;
+    if (start.isAfter(end)) return [];
 
     final response = await _apiClient.get(
       '/attendances',
@@ -97,6 +100,7 @@ class AttendanceService {
                   nested['student_id']?.toString().trim() == code;
             })
             .map(AttendanceRecord.fromJson)
+            .where((record) => !record.date.isAfter(today))
             .toList()
           ..sort((a, b) => b.date.compareTo(a.date));
     await cacheHistory(student, records, month: month);
@@ -151,6 +155,9 @@ class AttendanceService {
                   Map<String, dynamic>.from(record),
                 ),
               )
+              .where(
+                (record) => !record.date.isAfter(_dateOnly(DateTime.now())),
+              )
               .toList()
             ..sort((a, b) => b.date.compareTo(a.date));
       return records;
@@ -177,6 +184,9 @@ class AttendanceService {
 
   static String _date(DateTime value) =>
       '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+
+  static DateTime _dateOnly(DateTime value) =>
+      DateTime(value.year, value.month, value.day);
 
   String? _cacheKey(StudentCardItem student, {DateTime? month}) {
     final internalId = student.id?.trim() ?? '';
